@@ -1,11 +1,11 @@
-import { PrismaAdapter } from "@next-auth/prisma-adapter";
+import { PrismaAdapter } from "@/lib/prisma-adapter";
 import bcrypt from "bcryptjs";
 import NextAuth, { type AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GitHubProvider from "next-auth/providers/github";
 import GoogleProvider from "next-auth/providers/google";
 import { prisma } from "@/lib/prisma";
-import { Role } from "@prisma/client";
+import { Role } from "@/lib/prisma-client";
 
 const emailPasswordEnabled = process.env.EMAIL_PASSWORD_DISABLED !== "true";
 

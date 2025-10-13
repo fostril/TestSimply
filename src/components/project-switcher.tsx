@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery } from "@/lib/simple-query";
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@/lib/stores/project-store";
@@ -8,7 +8,6 @@ import { useProjectStore } from "@/lib/stores/project-store";
 export function ProjectSwitcher() {
   const { data } = useQuery({
     queryKey: ["projects"],
-    retry: false,
     queryFn: async () => {
       const res = await fetch("/api/projects");
       if (!res.ok) throw new Error("Failed to load projects");

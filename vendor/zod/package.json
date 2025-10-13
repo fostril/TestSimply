@@ -1,0 +1,6 @@
+{
+  "name": "zod",
+  "version": "0.0.0-test",
+  "main": "index.js",
+  "type": "commonjs"
+}

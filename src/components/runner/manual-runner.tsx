@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@/lib/simple-query";
 
 type RunnerStatus = "PASS" | "FAIL" | "BLOCKED";
 
@@ -10,8 +10,7 @@ interface ManualRunnerProps {
 }
 
 export function ManualRunner({ executionId }: ManualRunnerProps) {
-  const queryClient = useQueryClient();
-  const { data } = useQuery({
+  const { data, refetch } = useQuery({
     queryKey: ["execution", executionId],
     queryFn: async () => {
       const res = await fetch(`/api/executions/${executionId}`);
@@ -45,7 +44,7 @@ export function ManualRunner({ executionId }: ManualRunnerProps) {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["execution", executionId] });
+      void refetch();
     }
   });
 
