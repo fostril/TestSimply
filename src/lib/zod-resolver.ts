@@ -1,5 +1,19 @@
-import type { FieldError, FieldErrors, Resolver } from "react-hook-form";
-import { z } from "zod";
+type FieldError = { type: string; message?: string };
+type FieldErrors<TFieldValues> = Record<string, unknown> & TFieldValues;
+
+type Resolver<TFieldValues> = (
+  values: unknown
+) => Promise<{ values: TFieldValues | {}; errors: FieldErrors<TFieldValues> }>;
+
+type Issue = { path: (string | number)[]; code: string; message: string };
+
+type ZodLikeResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: { issues: Issue[] } };
+
+type ZodLikeSchema<T> = {
+  safeParseAsync(values: unknown): Promise<ZodLikeResult<T>>;
+};
 
 function assignFieldError(
   target: Record<string, unknown>,
@@ -29,7 +43,7 @@ function assignFieldError(
 }
 
 function mapZodErrors<TFieldValues>(
-  zodError: z.ZodError<TFieldValues>
+  zodError: { issues: Issue[] }
 ): FieldErrors<TFieldValues> {
   const fieldErrors: Record<string, unknown> = {};
 
@@ -44,9 +58,7 @@ function mapZodErrors<TFieldValues>(
   return fieldErrors as FieldErrors<TFieldValues>;
 }
 
-export function zodResolver<TSchema extends z.ZodTypeAny>(
-  schema: TSchema
-): Resolver<z.infer<TSchema>> {
+export function zodResolver<TSchema>(schema: ZodLikeSchema<TSchema>): Resolver<TSchema> {
   return async (values) => {
     const result = await schema.safeParseAsync(values);
 

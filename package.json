@@ -3,31 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "dev": "node scripts/dev-server.js",
+    "start": "node scripts/dev-server.js",
+    "seed": "node scripts/seed.js",
     "test": "node --test"
   },
-  "dependencies": {
-    "autoprefixer": "file:vendor/autoprefixer",
-    "bcryptjs": "file:vendor/bcryptjs",
-    "clsx": "file:vendor/clsx",
-    "csv-parse": "file:vendor/csv-parse",
-    "date-fns": "file:vendor/date-fns",
-    "fast-xml-parser": "file:vendor/fast-xml-parser",
-    "lucide-react": "file:vendor/lucide-react",
-    "next": "file:vendor/next",
-    "next-auth": "file:vendor/next-auth",
-    "postcss": "file:vendor/postcss",
-    "react": "file:vendor/react",
-    "react-dom": "file:vendor/react-dom",
-    "react-hook-form": "file:vendor/react-hook-form",
-    "react-markdown": "file:vendor/react-markdown",
-    "recharts": "file:vendor/recharts",
-    "tailwind-merge": "file:vendor/tailwind-merge",
-    "tailwindcss": "file:vendor/tailwindcss",
-    "zod": "file:vendor/zod",
-    "zustand": "file:vendor/zustand",
-    "csv-stringify": "file:vendor/csv-stringify",
-    "cmdk": "file:vendor/cmdk",
-    "next-themes": "file:vendor/next-themes"
-  },
+  "dependencies": {},
   "devDependencies": {}
 }

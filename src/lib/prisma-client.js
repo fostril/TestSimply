@@ -1,32 +1,124 @@
-const createUnimplemented = (name) => {
-  return async () => {
-    throw new Error(`${name} is not implemented in the test environment.`);
+const { randomUUID } = require("node:crypto");
+const path = require("node:path");
+const fs = require("node:fs");
+
+const DATA_PATH = path.resolve(__dirname, "../../data/demo-data.json");
+
+const loadData = () => {
+  try {
+    const content = fs.readFileSync(DATA_PATH, "utf8");
+    return JSON.parse(content);
+  } catch (error) {
+    return { projects: [], users: [], plans: [], executions: [], cases: [], results: [], tokens: [], accounts: [], sessions: [], verificationTokens: [], attachments: [], requirements: [] };
+  }
+};
+
+const persistData = (data) => {
+  fs.mkdirSync(path.dirname(DATA_PATH), { recursive: true });
+  fs.writeFileSync(DATA_PATH, JSON.stringify(data, null, 2));
+};
+
+const clone = (value) => JSON.parse(JSON.stringify(value));
+
+const matchWhere = (record, where) => {
+  if (!where) return true;
+  return Object.entries(where).every(([key, value]) => {
+    if (key === "OR" && Array.isArray(value)) {
+      return value.some((clause) => matchWhere(record, clause));
+    }
+    if (key === "AND" && Array.isArray(value)) {
+      return value.every((clause) => matchWhere(record, clause));
+    }
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      if (record[key] && typeof record[key] === "object") {
+        return matchWhere(record[key], value);
+      }
+      if (!record[key] && key.includes("_")) {
+        return Object.entries(value).every(([nestedKey, nestedValue]) => {
+          return record[nestedKey] === nestedValue;
+        });
+      }
+      return record[key] === value;
+    }
+    return record[key] === value;
+  });
+};
+
+const createModel = (client, collection) => {
+  const getData = () => client._data[collection];
+  const save = () => persistData(client._data);
+
+  return {
+    async findFirst(args = {}) {
+      return clone(getData().find((item) => matchWhere(item, args.where)) ?? null);
+    },
+    async findUnique(args = {}) {
+      return clone(getData().find((item) => matchWhere(item, args.where)) ?? null);
+    },
+    async findMany(args = {}) {
+      const records = getData().filter((item) => matchWhere(item, args.where));
+      return clone(records);
+    },
+    async create(args = {}) {
+      const record = { id: args.data?.id ?? randomUUID(), ...clone(args.data ?? {}) };
+      getData().push(record);
+      save();
+      return clone(record);
+    },
+    async createMany(args = {}) {
+      const items = Array.isArray(args.data) ? args.data : [];
+      const created = items.map((item) => ({ id: item.id ?? randomUUID(), ...clone(item) }));
+      const data = getData();
+      data.push(...created);
+      save();
+      return { count: created.length };
+    },
+    async update(args = {}) {
+      const data = getData();
+      const index = data.findIndex((item) => matchWhere(item, args.where));
+      if (index === -1) {
+        throw new Error("Record not found");
+      }
+      data[index] = { ...data[index], ...clone(args.data ?? {}) };
+      save();
+      return clone(data[index]);
+    },
+    async delete(args = {}) {
+      const data = getData();
+      const index = data.findIndex((item) => matchWhere(item, args.where));
+      if (index === -1) {
+        throw new Error("Record not found");
+      }
+      const [removed] = data.splice(index, 1);
+      save();
+      return clone(removed);
+    }
   };
 };
 
-const createModel = (model) => ({
-  findFirst: createUnimplemented(`${model}.findFirst`),
-  findUnique: createUnimplemented(`${model}.findUnique`),
-  create: createUnimplemented(`${model}.create`),
-  update: createUnimplemented(`${model}.update`),
-  delete: createUnimplemented(`${model}.delete`)
-});
-
 class PrismaClient {
   constructor() {
-    this.user = createModel("user");
-    this.project = createModel("project");
-    this.testCase = createModel("testCase");
-    this.testResult = createModel("testResult");
-    this.testExecution = createModel("testExecution");
-    this.testPlan = createModel("testPlan");
-    this.personalAccessToken = createModel("personalAccessToken");
-    this.requirementLink = createModel("requirementLink");
-    this.attachment = createModel("attachment");
+    this._data = loadData();
+    this.user = createModel(this, "users");
+    this.project = createModel(this, "projects");
+    this.testCase = createModel(this, "cases");
+    this.testResult = createModel(this, "results");
+    this.testExecution = createModel(this, "executions");
+    this.testPlan = createModel(this, "plans");
+    this.personalAccessToken = createModel(this, "tokens");
+    this.requirementLink = createModel(this, "requirements");
+    this.attachment = createModel(this, "attachments");
+    this.account = createModel(this, "accounts");
+    this.session = createModel(this, "sessions");
+    this.verificationToken = createModel(this, "verificationTokens");
+  }
+
+  async $disconnect() {
+    return undefined;
   }
 
   async $queryRaw() {
-    throw new Error("$queryRaw is not implemented in the test environment.");
+    throw new Error("$queryRaw is not implemented in this lightweight runtime.");
   }
 }
 
