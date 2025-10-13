@@ -1,56 +1,887 @@
 {
   "info": {
-    "name": "TestSimply",
+    "name": "TestSimply API",
+    "description": "Collection covering the TestSimply REST API for projects, cases, executions, imports, and settings.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
-  "item": [
-    {
-      "name": "List Projects",
-      "request": {
-        "method": "GET",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token}}"
-          }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/api/projects",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "projects"]
-        }
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
       }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
     },
     {
-      "name": "Import JUnit",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token}}"
-          }
-        ],
-        "body": {
-          "mode": "formdata",
-          "formdata": [
-            {
-              "key": "report",
-              "type": "file",
-              "src": "junit.xml"
+      "key": "projectId",
+      "value": ""
+    },
+    {
+      "key": "planId",
+      "value": ""
+    },
+    {
+      "key": "executionId",
+      "value": ""
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "testCaseId",
+      "value": ""
+    },
+    {
+      "key": "tokenId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Demo Admin\",\n  \"email\": \"admin@example.com\",\n  \"password\": \"password\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
             }
-          ]
-        },
-        "url": {
-          "raw": "{{baseUrl}}/api/import/junit?projectKey=PRJ-1&execKey=PRJ-1-EXEC-1",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "import", "junit"],
-          "query": [
-            { "key": "projectKey", "value": "PRJ-1" },
-            { "key": "execKey", "value": "PRJ-1-EXEC-1" }
-          ]
+          }
         }
-      }
+      ]
+    },
+    {
+      "name": "Projects",
+      "item": [
+        {
+          "name": "List Projects",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/projects",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "projects"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Project",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key\": \"PROJ\",\n  \"name\": \"Project Alpha\",\n  \"description\": \"Demo project\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/projects",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "projects"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Project",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/{{projectId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "{{projectId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Project",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Project Alpha Updated\",\n  \"description\": \"Refined description\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/{{projectId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "{{projectId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Test Cases",
+      "item": [
+        {
+          "name": "List Test Cases",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/testcases?projectId={{projectId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "testcases"
+              ],
+              "query": [
+                {
+                  "key": "projectId",
+                  "value": "{{projectId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Test Case",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": \"{{projectId}}\",\n  \"key\": \"{{projectId}}-TC-101\",\n  \"name\": \"Login works\",\n  \"description\": \"Verify login flow\",\n  \"steps\": [\n    { \"action\": \"Open login page\", \"expected\": \"Login form visible\" },\n    { \"action\": \"Submit valid credentials\", \"expected\": \"Dashboard is shown\" }\n  ],\n  \"tags\": [\"smoke\", \"auth\"],\n  \"priority\": \"High\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/testcases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "testcases"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Test Case",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/testcases/{{testCaseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "testcases",
+                "{{testCaseId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Test Case",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Login works (updated)\",\n  \"status\": \"Ready\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/testcases/{{testCaseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "testcases",
+                "{{testCaseId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Test Case",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/testcases/{{testCaseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "testcases",
+                "{{testCaseId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Import Test Cases CSV",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "./docs/csv-template.csv"
+                },
+                {
+                  "key": "projectId",
+                  "value": "{{projectId}}",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/testcases/import",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "testcases",
+                "import"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Export Test Cases CSV",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/testcases/export?projectId={{projectId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "testcases",
+                "export"
+              ],
+              "query": [
+                {
+                  "key": "projectId",
+                  "value": "{{projectId}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Test Plans",
+      "item": [
+        {
+          "name": "List Test Plans",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/testplans?projectId={{projectId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "testplans"
+              ],
+              "query": [
+                {
+                  "key": "projectId",
+                  "value": "{{projectId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Test Plan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": \"{{projectId}}\",\n  \"key\": \"{{projectId}}-PLAN-1\",\n  \"name\": \"Regression Plan\",\n  \"targetVersions\": [\"1.0.0\"],\n  \"environments\": [\"staging\"],\n  \"tags\": [\"release\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/testplans",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "testplans"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Test Plan",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/testplans/{{planId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "testplans",
+                "{{planId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Test Plan",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Regression Plan v2\",\n  \"tags\": [\"release\", \"critical\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/testplans/{{planId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "testplans",
+                "{{planId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Test Plan",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/testplans/{{planId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "testplans",
+                "{{planId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Replace Plan Cases",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"caseIds\": [\"test-case-id-1\", \"test-case-id-2\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/testplans/{{planId}}/cases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "testplans",
+                "{{planId}}",
+                "cases"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Executions",
+      "item": [
+        {
+          "name": "List Executions",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/executions?projectId={{projectId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "executions"
+              ],
+              "query": [
+                {
+                  "key": "projectId",
+                  "value": "{{projectId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Execution",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": \"{{projectId}}\",\n  \"planId\": \"{{planId}}\",\n  \"key\": \"{{projectId}}-EXEC-1\",\n  \"name\": \"Release 1.0 Regression\",\n  \"environment\": \"staging\",\n  \"labels\": [\"release\", \"ci\"],\n  \"buildUrl\": \"https://ci.example.com/build/1\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/executions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "executions"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Execution",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/executions/{{executionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "executions",
+                "{{executionId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Execution",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"startedAt\": \"2024-01-01T12:00:00.000Z\",\n  \"finishedAt\": \"2024-01-01T14:00:00.000Z\",\n  \"labels\": [\"release\", \"complete\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/executions/{{executionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "executions",
+                "{{executionId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Execution",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/executions/{{executionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "executions",
+                "{{executionId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Submit Manual Results",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "[{\n  \"executionId\": \"{{executionId}}\",\n  \"caseId\": \"test-case-id-1\",\n  \"status\": \"PASS\",\n  \"durationMs\": 120000\n}]"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/results",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "results"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Imports",
+      "item": [
+        {
+          "name": "Import JUnit",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "report",
+                  "type": "file",
+                  "src": "./tests/fixtures/junit.xml"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/import/junit?projectKey=PROJ&execKey=PROJ-EXEC-1&autoCreateCases=true&createExecutionIfMissing=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "import",
+                "junit"
+              ],
+              "query": [
+                {
+                  "key": "projectKey",
+                  "value": "PROJ"
+                },
+                {
+                  "key": "execKey",
+                  "value": "PROJ-EXEC-1"
+                },
+                {
+                  "key": "autoCreateCases",
+                  "value": "true"
+                },
+                {
+                  "key": "createExecutionIfMissing",
+                  "value": "true"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Import Cucumber",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "[{\n  \"uri\": \"features/login.feature\",\n  \"elements\": [{\n    \"name\": \"Login succeeds\",\n    \"steps\": [{\"name\": \"Given user exists\", \"result\": {\"status\": \"passed\"}}]\n  }]\n}]"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/import/cucumber?projectKey=PROJ&autoCreateCases=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "import",
+                "cucumber"
+              ],
+              "query": [
+                {
+                  "key": "projectKey",
+                  "value": "PROJ"
+                },
+                {
+                  "key": "autoCreateCases",
+                  "value": "true"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Attachments",
+      "item": [
+        {
+          "name": "Create Upload Link",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fileName\": \"screenshot.png\",\n  \"contentType\": \"image/png\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/attachments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "attachments"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Settings",
+      "item": [
+        {
+          "name": "List Personal Tokens",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/settings/tokens",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "settings",
+                "tokens"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Personal Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"CI Token\",\n  \"scopes\": [\"import\"],\n  \"expiresAt\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/settings/tokens",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "settings",
+                "tokens"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Personal Token",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/settings/tokens?id={{tokenId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "settings",
+                "tokens"
+              ],
+              "query": [
+                {
+                  "key": "id",
+                  "value": "{{tokenId}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "Overview Metrics",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/overview?projectId={{projectId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "overview"
+              ],
+              "query": [
+                {
+                  "key": "projectId",
+                  "value": "{{projectId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Pass/Fail Trend",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/trend?projectId={{projectId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "trend"
+              ],
+              "query": [
+                {
+                  "key": "projectId",
+                  "value": "{{projectId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Recent Executions",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/recent-executions?projectId={{projectId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "recent-executions"
+              ],
+              "query": [
+                {
+                  "key": "projectId",
+                  "value": "{{projectId}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
     }
   ]
 }

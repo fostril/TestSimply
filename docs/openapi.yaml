@@ -1,34 +1,383 @@
 openapi: 3.1.0
 info:
   title: TestSimply API
-  version: 1.0.0
-  description: REST API for managing projects, cases, plans, executions, and automated imports.
+  version: 2.0.0
+  description: |
+    REST API for TestSimply, a standalone test management tool for manual and automated quality workflows.
+    All endpoints require authentication unless stated otherwise and enforce role-based access checks.
 servers:
-  - url: https://testsimplify.local
+  - url: http://localhost:3000
+    description: Local development server
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT or personal token
+  schemas:
+    ProjectSettings:
+      type: object
+      properties:
+        id:
+          type: string
+        projectId:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        components:
+          type: array
+          items:
+            type: string
+        environments:
+          type: array
+          items:
+            type: string
+        priorities:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+        key:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        settings:
+          $ref: '#/components/schemas/ProjectSettings'
+    TestStep:
+      type: object
+      properties:
+        action:
+          type: string
+        expected:
+          type: string
+          nullable: true
+    TestCase:
+      type: object
+      properties:
+        id:
+          type: string
+        projectId:
+          type: string
+        key:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        preconditions:
+          type: string
+          nullable: true
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/TestStep'
+        expected:
+          type: string
+          nullable: true
+        priority:
+          type: string
+          nullable: true
+        status:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        component:
+          type: string
+          nullable: true
+        ownerId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    TestPlanAssignment:
+      type: object
+      properties:
+        id:
+          type: string
+        planId:
+          type: string
+        caseId:
+          type: string
+        case:
+          $ref: '#/components/schemas/TestCase'
+    TestPlan:
+      type: object
+      properties:
+        id:
+          type: string
+        projectId:
+          type: string
+        key:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        targetVersions:
+          type: array
+          items:
+            type: string
+        environments:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        cases:
+          type: array
+          items:
+            $ref: '#/components/schemas/TestPlanAssignment'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    TestResult:
+      type: object
+      properties:
+        id:
+          type: string
+        executionId:
+          type: string
+        caseId:
+          type: string
+        status:
+          type: string
+          enum: [PASS, FAIL, BLOCKED, SKIPPED]
+        durationMs:
+          type: integer
+          nullable: true
+        evidenceURLs:
+          type: array
+          items:
+            type: string
+        errorMessage:
+          type: string
+          nullable: true
+        stepsLog:
+          type: array
+          items:
+            type: object
+        retried:
+          type: boolean
+        attempt:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        testCase:
+          $ref: '#/components/schemas/TestCase'
+    TestExecution:
+      type: object
+      properties:
+        id:
+          type: string
+        projectId:
+          type: string
+        planId:
+          type: string
+          nullable: true
+        key:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        environment:
+          type: string
+          nullable: true
+        revision:
+          type: string
+          nullable: true
+        buildUrl:
+          type: string
+          nullable: true
+        commitSha:
+          type: string
+          nullable: true
+        labels:
+          type: array
+          items:
+            type: string
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        finishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/TestResult'
+    PersonalAccessToken:
+      type: object
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        lastFour:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    ManualResultInput:
+      type: object
+      required: [executionId, caseId, status]
+      properties:
+        executionId:
+          type: string
+        caseId:
+          type: string
+        status:
+          type: string
+          enum: [PASS, FAIL, BLOCKED, SKIPPED]
+        durationMs:
+          type: integer
+          nullable: true
+        evidenceURLs:
+          type: array
+          items:
+            type: string
+        errorMessage:
+          type: string
+          nullable: true
+        stepsLog:
+          type: array
+          items:
+            type: object
+        retried:
+          type: boolean
+          default: false
+        attempt:
+          type: integer
+          default: 1
 paths:
-  /api/projects:
-    get:
-      summary: List projects
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successful response
+  /api/auth/register:
     post:
-      summary: Create project
-      security:
-        - bearerAuth: []
+      tags: [Auth]
+      summary: Register a credentials-based user
       requestBody:
+        required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ProjectInput'
+              type: object
+              required: [name, email, password]
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
       responses:
         '201':
-          description: Created
+          description: Account created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+        '400':
+          description: Validation error
+        '409':
+          description: Email already exists
+  /api/projects:
+    get:
+      tags: [Projects]
+      summary: List projects visible to the authenticated user
+      responses:
+        '200':
+          description: Project list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Project'
+    post:
+      tags: [Projects]
+      summary: Create a project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [key, name]
+              properties:
+                key:
+                  type: string
+                name:
+                  type: string
+                description:
+                  type: string
+                  nullable: true
+      responses:
+        '201':
+          description: Project created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
   /api/projects/{id}:
     get:
-      summary: Get project
+      tags: [Projects]
+      summary: Get a project with settings
       parameters:
         - in: path
           name: id
@@ -38,10 +387,15 @@ paths:
       responses:
         '200':
           description: Project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '404':
+          description: Project not found
     patch:
-      summary: Update project
-      security:
-        - bearerAuth: []
+      tags: [Projects]
+      summary: Update project metadata
       parameters:
         - in: path
           name: id
@@ -49,16 +403,28 @@ paths:
           schema:
             type: string
       requestBody:
+        required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ProjectUpdate'
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                  nullable: true
       responses:
         '200':
-          description: Updated
+          description: Updated project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
   /api/testcases:
     get:
-      summary: List test cases
+      tags: [Test Cases]
+      summary: Search and list test cases
       parameters:
         - in: query
           name: projectId
@@ -70,20 +436,70 @@ paths:
             type: string
       responses:
         '200':
-          description: Test case collection
+          description: Matching test cases
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TestCase'
     post:
-      summary: Create test case
+      tags: [Test Cases]
+      summary: Create a test case
       requestBody:
+        required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TestCaseInput'
+              type: object
+              required: [projectId, key, name]
+              properties:
+                projectId:
+                  type: string
+                key:
+                  type: string
+                name:
+                  type: string
+                description:
+                  type: string
+                  nullable: true
+                preconditions:
+                  type: string
+                  nullable: true
+                steps:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/TestStep'
+                expected:
+                  type: string
+                  nullable: true
+                priority:
+                  type: string
+                  nullable: true
+                status:
+                  type: string
+                  nullable: true
+                tags:
+                  type: array
+                  items:
+                    type: string
+                component:
+                  type: string
+                  nullable: true
+                ownerId:
+                  type: string
+                  nullable: true
       responses:
         '201':
-          description: Created
+          description: Created test case
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestCase'
   /api/testcases/{id}:
     get:
-      summary: Get test case
+      tags: [Test Cases]
+      summary: Fetch a test case with requirement links
       parameters:
         - in: path
           name: id
@@ -93,73 +509,37 @@ paths:
       responses:
         '200':
           description: Test case
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestCase'
+        '404':
+          description: Not found
     patch:
-      summary: Update test case
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TestCaseUpdate'
-      responses:
-        '200':
-          description: Updated
-    delete:
-      summary: Soft delete test case
-      responses:
-        '200':
-          description: Deleted
-  /api/testcases/import:
-    post:
-      summary: Import test cases from CSV
-      requestBody:
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                projectId:
-                  type: string
-                file:
-                  type: string
-                  format: binary
-      responses:
-        '201':
-          description: Imported
-  /api/testcases/export:
-    get:
-      summary: Export test cases as CSV
+      tags: [Test Cases]
+      summary: Update a test case
       parameters:
-        - in: query
-          name: projectId
+        - in: path
+          name: id
+          required: true
           schema:
             type: string
-      responses:
-        '200':
-          description: CSV file
-          content:
-            text/csv:
-              schema:
-                type: string
-                format: binary
-  /api/testplans:
-    get:
-      summary: List test plans
-      responses:
-        '200':
-          description: List of plans
-    post:
-      summary: Create test plan
       requestBody:
+        required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TestPlanInput'
+              $ref: '#/components/schemas/TestCase'
       responses:
-        '201':
-          description: Created
-  /api/testplans/{id}:
-    get:
-      summary: Get test plan
+        '200':
+          description: Updated test case
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestCase'
+    delete:
+      tags: [Test Cases]
+      summary: Soft delete a test case
       parameters:
         - in: path
           name: id
@@ -168,30 +548,196 @@ paths:
             type: string
       responses:
         '200':
-          description: Test plan detail
-    patch:
-      summary: Update test plan
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TestPlanUpdate'
-      responses:
-        '200':
-          description: Updated
-    delete:
-      summary: Delete test plan
-      responses:
-        '200':
-          description: Deleted
-  /api/testplans/{id}/cases:bulkUpsert:
+          description: Deleted acknowledgement
+  /api/testcases/import:
     post:
-      summary: Replace plan cases
+      tags: [Test Cases]
+      summary: Import test cases from CSV
       requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, projectId]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                projectId:
+                  type: string
+      responses:
+        '201':
+          description: Imported cases
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TestCase'
+  /api/testcases/export:
+    get:
+      tags: [Test Cases]
+      summary: Export test cases in CSV format
+      parameters:
+        - in: query
+          name: projectId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: CSV content
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+  /api/testplans:
+    get:
+      tags: [Test Plans]
+      summary: List test plans for a project
+      parameters:
+        - in: query
+          name: projectId
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TestPlan'
+    post:
+      tags: [Test Plans]
+      summary: Create a test plan
+      requestBody:
+        required: true
         content:
           application/json:
             schema:
               type: object
+              required: [projectId, key, name]
+              properties:
+                projectId:
+                  type: string
+                key:
+                  type: string
+                name:
+                  type: string
+                description:
+                  type: string
+                  nullable: true
+                targetVersions:
+                  type: array
+                  items:
+                    type: string
+                environments:
+                  type: array
+                  items:
+                    type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Created plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestPlan'
+  /api/testplans/{id}:
+    get:
+      tags: [Test Plans]
+      summary: Get a test plan with cases
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Plan detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestPlan'
+        '404':
+          description: Not found
+    patch:
+      tags: [Test Plans]
+      summary: Update plan metadata
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                  nullable: true
+                targetVersions:
+                  type: array
+                  items:
+                    type: string
+                environments:
+                  type: array
+                  items:
+                    type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Updated plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestPlan'
+    delete:
+      tags: [Test Plans]
+      summary: Delete a plan
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deleted acknowledgement
+  /api/testplans/{id}/cases:
+    post:
+      tags: [Test Plans]
+      summary: Replace the set of cases attached to a plan
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [caseIds]
               properties:
                 caseIds:
                   type: array
@@ -199,63 +745,210 @@ paths:
                     type: string
       responses:
         '200':
-          description: Updated
-  /api/executions:
-    get:
-      summary: List executions
-      responses:
-        '200':
-          description: Executions
+          description: Updated assignments
+  /api/testplans/{id}/cases:bulkUpsert:
     post:
-      summary: Create execution
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TestExecutionInput'
-      responses:
-        '201':
-          description: Created
-  /api/executions/{id}:
-    get:
-      summary: Get execution detail
+      tags: [Test Plans]
+      summary: Bulk replace plan cases (alias of /cases)
       parameters:
         - in: path
           name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [caseIds]
+              properties:
+                caseIds:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Updated assignments
+  /api/executions:
+    get:
+      tags: [Executions]
+      summary: List executions
+      parameters:
+        - in: query
+          name: projectId
           schema:
             type: string
       responses:
         '200':
-          description: Execution
-    patch:
-      summary: Update execution
-      responses:
-        '200':
-          description: Updated
-    delete:
-      summary: Delete execution
-      responses:
-        '200':
-          description: Deleted
-  /api/results:
+          description: Executions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TestExecution'
     post:
-      summary: Create manual execution results
+      tags: [Executions]
+      summary: Create an execution
       requestBody:
+        required: true
         content:
           application/json:
             schema:
-              type: array
-              items:
-                $ref: '#/components/schemas/TestResultInput'
+              type: object
+              required: [projectId, key, name]
+              properties:
+                projectId:
+                  type: string
+                planId:
+                  type: string
+                  nullable: true
+                key:
+                  type: string
+                name:
+                  type: string
+                description:
+                  type: string
+                  nullable: true
+                environment:
+                  type: string
+                  nullable: true
+                revision:
+                  type: string
+                  nullable: true
+                buildUrl:
+                  type: string
+                  nullable: true
+                commitSha:
+                  type: string
+                  nullable: true
+                labels:
+                  type: array
+                  items:
+                    type: string
       responses:
         '201':
-          description: Created
+          description: Created execution
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestExecution'
+  /api/executions/{id}:
+    get:
+      tags: [Executions]
+      summary: Get an execution with results
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Execution detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestExecution'
+        '404':
+          description: Not found
+    patch:
+      tags: [Executions]
+      summary: Update execution metadata
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                  nullable: true
+                environment:
+                  type: string
+                  nullable: true
+                revision:
+                  type: string
+                  nullable: true
+                buildUrl:
+                  type: string
+                  nullable: true
+                commitSha:
+                  type: string
+                  nullable: true
+                startedAt:
+                  type: string
+                  format: date-time
+                  nullable: true
+                finishedAt:
+                  type: string
+                  format: date-time
+                  nullable: true
+                labels:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Updated execution
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestExecution'
+    delete:
+      tags: [Executions]
+      summary: Delete an execution
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deleted acknowledgement
+  /api/results:
+    post:
+      tags: [Executions]
+      summary: Record manual execution results
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/ManualResultInput'
+                - type: array
+                  items:
+                    $ref: '#/components/schemas/ManualResultInput'
+      responses:
+        '201':
+          description: Created results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TestResult'
   /api/import/junit:
     post:
-      summary: Import JUnit XML
+      tags: [Automations]
+      summary: Import execution results from a JUnit XML report
       parameters:
         - in: query
           name: projectKey
+          required: true
           schema:
             type: string
         - in: query
@@ -270,24 +963,56 @@ paths:
           name: createExecutionIfMissing
           schema:
             type: boolean
+        - in: query
+          name: environment
+          schema:
+            type: string
+        - in: query
+          name: buildUrl
+          schema:
+            type: string
+        - in: query
+          name: commitSha
+          schema:
+            type: string
+        - in: query
+          name: revision
+          schema:
+            type: string
+        - in: query
+          name: labels
+          schema:
+            type: string
+            description: Comma separated labels
       requestBody:
+        required: true
         content:
           multipart/form-data:
             schema:
               type: object
+              required: [report]
               properties:
                 report:
                   type: string
                   format: binary
       responses:
         '200':
-          description: Imported
+          description: Import accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
   /api/import/cucumber:
     post:
-      summary: Import Cucumber JSON
+      tags: [Automations]
+      summary: Import execution results from a Cucumber JSON payload
       parameters:
         - in: query
           name: projectKey
+          required: true
           schema:
             type: string
         - in: query
@@ -298,128 +1023,211 @@ paths:
           name: autoCreateCases
           schema:
             type: boolean
+        - in: query
+          name: createExecutionIfMissing
+          schema:
+            type: boolean
+        - in: query
+          name: environment
+          schema:
+            type: string
+        - in: query
+          name: buildUrl
+          schema:
+            type: string
+        - in: query
+          name: commitSha
+          schema:
+            type: string
+        - in: query
+          name: revision
+          schema:
+            type: string
+        - in: query
+          name: labels
+          schema:
+            type: string
+            description: Comma separated labels
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               type: array
-              items:
-                type: object
+              description: Raw Cucumber JSON array
       responses:
         '200':
-          description: Imported
+          description: Import accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+  /api/attachments:
+    post:
+      tags: [Attachments]
+      summary: Request a presigned upload for attachments
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fileName, contentType]
+              properties:
+                fileName:
+                  type: string
+                contentType:
+                  type: string
+      responses:
+        '200':
+          description: Presigned upload descriptor
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uploadUrl:
+                    type: string
+                  url:
+                    type: string
+                  headers:
+                    type: object
+                    additionalProperties:
+                      type: string
+  /api/settings/tokens:
+    get:
+      tags: [Settings]
+      summary: List personal access tokens for the authenticated user
+      responses:
+        '200':
+          description: Tokens
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonalAccessToken'
+    post:
+      tags: [Settings]
+      summary: Create a personal access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label:
+                  type: string
+                scopes:
+                  type: array
+                  items:
+                    type: string
+                expiresAt:
+                  type: string
+                  format: date-time
+                  nullable: true
+      responses:
+        '201':
+          description: Newly created token string (shown once)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+    delete:
+      tags: [Settings]
+      summary: Revoke a personal access token
+      parameters:
+        - in: query
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Revoked acknowledgement
+  /api/reports/overview:
+    get:
+      tags: [Reports]
+      summary: Fetch overview KPIs for a project
+      parameters:
+        - in: query
+          name: projectId
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Overview metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  passRate:
+                    type: integer
+                  totalExecutions:
+                    type: integer
+                  activeExecutions:
+                    type: integer
+                  flakyCandidates:
+                    type: integer
   /api/reports/trend:
     get:
-      summary: Pass/fail trend
+      tags: [Reports]
+      summary: Pass/fail trend for the last 14 days
+      parameters:
+        - in: query
+          name: projectId
+          schema:
+            type: string
       responses:
         '200':
-          description: Trend data
+          description: Trend points
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    date:
+                      type: string
+                    pass:
+                      type: integer
+                    fail:
+                      type: integer
   /api/reports/recent-executions:
     get:
-      summary: Recent executions summary
+      tags: [Reports]
+      summary: Five most recent executions with pass rate
+      parameters:
+        - in: query
+          name: projectId
+          schema:
+            type: string
       responses:
         '200':
-          description: Summary list
-components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-  schemas:
-    ProjectInput:
-      type: object
-      required: [key, name]
-      properties:
-        key:
-          type: string
-        name:
-          type: string
-        description:
-          type: string
-    ProjectUpdate:
-      type: object
-      properties:
-        name:
-          type: string
-        description:
-          type: string
-    TestCaseInput:
-      type: object
-      required: [projectId, key, name]
-      properties:
-        projectId:
-          type: string
-        key:
-          type: string
-        name:
-          type: string
-        description:
-          type: string
-        steps:
-          type: array
-          items:
-            $ref: '#/components/schemas/Step'
-        tags:
-          type: array
-          items:
-            type: string
-    TestCaseUpdate:
-      allOf:
-        - $ref: '#/components/schemas/TestCaseInput'
-    Step:
-      type: object
-      properties:
-        action:
-          type: string
-        expected:
-          type: string
-    TestPlanInput:
-      type: object
-      required: [projectId, key, name]
-      properties:
-        projectId:
-          type: string
-        key:
-          type: string
-        name:
-          type: string
-        description:
-          type: string
-        environments:
-          type: array
-          items:
-            type: string
-    TestPlanUpdate:
-      allOf:
-        - $ref: '#/components/schemas/TestPlanInput'
-    TestExecutionInput:
-      type: object
-      required: [projectId, key, name]
-      properties:
-        projectId:
-          type: string
-        planId:
-          type: string
-        key:
-          type: string
-        name:
-          type: string
-        environment:
-          type: string
-        buildUrl:
-          type: string
-    TestResultInput:
-      type: object
-      required: [executionId, caseId, status]
-      properties:
-        executionId:
-          type: string
-        caseId:
-          type: string
-        status:
-          type: string
-        durationMs:
-          type: integer
-        errorMessage:
-          type: string
+          description: Recent executions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    key:
+                      type: string
+                    name:
+                      type: string
+                    status:
+                      type: string
+                    passRate:
+                      type: integer
