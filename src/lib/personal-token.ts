@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
-import { Role } from "@prisma/client";
+import { Role } from "@/lib/prisma-client";
 
 export async function authenticateApiToken(authorizationHeader: string | null) {
   if (!authorizationHeader?.startsWith("Bearer ")) return null;

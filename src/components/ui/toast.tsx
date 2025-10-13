@@ -1,33 +1,45 @@
 "use client";
 
-import * as ToastPrimitives from "@radix-ui/react-toast";
-import { ReactNode, createContext, useContext, useState } from "react";
+import { ReactNode, createContext, useContext, useEffect, useMemo, useState } from "react";
 
 const ToastContext = createContext<(props: { title: string; description?: string }) => void>(() => {});
 
-export const ToastProvider = ({ children }: { children: ReactNode }) => {
-  const [open, setOpen] = useState(false);
-  const [content, setContent] = useState<{ title: string; description?: string } | null>(null);
+type ToastState = { title: string; description?: string } | null;
 
-  const push = ({ title, description }: { title: string; description?: string }) => {
-    setContent({ title, description });
-    setOpen(true);
-  };
+export const ToastProvider = ({ children }: { children: ReactNode }) => {
+  const [toast, setToast] = useState<ToastState>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (!visible) return;
+
+    const timer = setTimeout(() => {
+      setVisible(false);
+    }, 4000);
+
+    return () => clearTimeout(timer);
+  }, [visible]);
+
+  const push = useMemo(() => {
+    return ({ title, description }: { title: string; description?: string }) => {
+      setToast({ title, description });
+      setVisible(true);
+    };
+  }, []);
 
   return (
     <ToastContext.Provider value={push}>
-      <ToastPrimitives.Provider swipeDirection="right">
-        {children}
-        <ToastPrimitives.Root open={open} onOpenChange={setOpen} className="bg-slate-900 text-white p-4 rounded-lg shadow-xl">
-          <ToastPrimitives.Title className="font-semibold text-sm">{content?.title}</ToastPrimitives.Title>
-          {content?.description ? (
-            <ToastPrimitives.Description className="text-xs opacity-80">
-              {content.description}
-            </ToastPrimitives.Description>
-          ) : null}
-        </ToastPrimitives.Root>
-        <ToastPrimitives.Viewport className="fixed top-4 right-4 z-50" />
-      </ToastPrimitives.Provider>
+      {children}
+      <div className="pointer-events-none fixed right-4 top-4 z-50 flex flex-col gap-2">
+        {visible && toast ? (
+          <div className="w-72 rounded-xl border border-slate-800 bg-slate-950/90 p-4 text-white shadow-2xl">
+            <p className="text-sm font-semibold">{toast.title}</p>
+            {toast.description ? (
+              <p className="mt-1 text-xs text-slate-300">{toast.description}</p>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
     </ToastContext.Provider>
   );
 };

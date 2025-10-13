@@ -1,9 +1,8 @@
 "use client";
 
-import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { ReactNode, useMemo } from "react";
 import Link from "next/link";
+import { useQuery } from "@/lib/simple-query";
 import { useProjectStore } from "@/lib/stores/project-store";
 
 export type TestCaseRow = {
@@ -14,6 +13,12 @@ export type TestCaseRow = {
   status: string;
   component?: string;
   tags: string[];
+};
+
+type Column<T> = {
+  header: string;
+  accessor?: keyof T;
+  render?: (row: T) => ReactNode;
 };
 
 export function TestCasesPage() {
@@ -28,18 +33,18 @@ export function TestCasesPage() {
     }
   });
 
-  const columns = useMemo<ColumnDef<TestCaseRow>[]>(
+  const columns = useMemo<Column<TestCaseRow>[]>(
     () => [
-      { header: "Key", accessorKey: "key" },
-      { header: "Name", accessorKey: "name" },
-      { header: "Priority", accessorKey: "priority" },
-      { header: "Status", accessorKey: "status" },
-      { header: "Component", accessorKey: "component" },
+      { header: "Key", accessor: "key" },
+      { header: "Name", accessor: "name" },
+      { header: "Priority", accessor: "priority" },
+      { header: "Status", accessor: "status" },
+      { header: "Component", accessor: "component" },
       {
         header: "Tags",
-        cell: ({ row }) => (
+        render: (row) => (
           <div className="flex flex-wrap gap-2">
-            {row.original.tags.map((tag) => (
+            {row.tags.map((tag) => (
               <span key={tag} className="rounded-full bg-slate-800 px-2 py-0.5 text-xs uppercase tracking-wide">
                 {tag}
               </span>
@@ -51,11 +56,7 @@ export function TestCasesPage() {
     []
   );
 
-  const table = useReactTable({
-    data: data ?? [],
-    columns,
-    getCoreRowModel: getCoreRowModel()
-  });
+  const rows = data ?? [];
 
   return (
     <div className="px-8 py-6">
@@ -74,24 +75,25 @@ export function TestCasesPage() {
       <div className="mt-6 overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50">
         <table className="min-w-full divide-y divide-slate-800 text-sm">
           <thead className="bg-slate-900/80">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <th key={header.id} className="px-4 py-3 text-left font-medium uppercase tracking-wide text-slate-400">
-                    {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                  </th>
-                ))}
-              </tr>
-            ))}
+            <tr>
+              {columns.map((column) => (
+                <th key={column.header} className="px-4 py-3 text-left font-medium uppercase tracking-wide text-slate-400">
+                  {column.header}
+                </th>
+              ))}
+            </tr>
           </thead>
           <tbody className="divide-y divide-slate-800">
-            {table.getRowModel().rows.map((row) => (
+            {rows.map((row) => (
               <tr key={row.id} className="hover:bg-slate-900/60">
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="px-4 py-3 text-slate-200">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
+                {columns.map((column) => {
+                  const key = column.accessor ?? column.header;
+                  return (
+                    <td key={String(key)} className="px-4 py-3 text-slate-200">
+                      {column.render ? column.render(row) : (row[column.accessor as keyof TestCaseRow] as ReactNode) ?? ""}
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>
