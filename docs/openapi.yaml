@@ -1,0 +1,425 @@
+openapi: 3.1.0
+info:
+  title: TestSimply API
+  version: 1.0.0
+  description: REST API for managing projects, cases, plans, executions, and automated imports.
+servers:
+  - url: https://testsimplify.local
+paths:
+  /api/projects:
+    get:
+      summary: List projects
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+    post:
+      summary: Create project
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectInput'
+      responses:
+        '201':
+          description: Created
+  /api/projects/{id}:
+    get:
+      summary: Get project
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Project
+    patch:
+      summary: Update project
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectUpdate'
+      responses:
+        '200':
+          description: Updated
+  /api/testcases:
+    get:
+      summary: List test cases
+      parameters:
+        - in: query
+          name: projectId
+          schema:
+            type: string
+        - in: query
+          name: search
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Test case collection
+    post:
+      summary: Create test case
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestCaseInput'
+      responses:
+        '201':
+          description: Created
+  /api/testcases/{id}:
+    get:
+      summary: Get test case
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Test case
+    patch:
+      summary: Update test case
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestCaseUpdate'
+      responses:
+        '200':
+          description: Updated
+    delete:
+      summary: Soft delete test case
+      responses:
+        '200':
+          description: Deleted
+  /api/testcases/import:
+    post:
+      summary: Import test cases from CSV
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                projectId:
+                  type: string
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Imported
+  /api/testcases/export:
+    get:
+      summary: Export test cases as CSV
+      parameters:
+        - in: query
+          name: projectId
+          schema:
+            type: string
+      responses:
+        '200':
+          description: CSV file
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+  /api/testplans:
+    get:
+      summary: List test plans
+      responses:
+        '200':
+          description: List of plans
+    post:
+      summary: Create test plan
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestPlanInput'
+      responses:
+        '201':
+          description: Created
+  /api/testplans/{id}:
+    get:
+      summary: Get test plan
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Test plan detail
+    patch:
+      summary: Update test plan
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestPlanUpdate'
+      responses:
+        '200':
+          description: Updated
+    delete:
+      summary: Delete test plan
+      responses:
+        '200':
+          description: Deleted
+  /api/testplans/{id}/cases:bulkUpsert:
+    post:
+      summary: Replace plan cases
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                caseIds:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Updated
+  /api/executions:
+    get:
+      summary: List executions
+      responses:
+        '200':
+          description: Executions
+    post:
+      summary: Create execution
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestExecutionInput'
+      responses:
+        '201':
+          description: Created
+  /api/executions/{id}:
+    get:
+      summary: Get execution detail
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Execution
+    patch:
+      summary: Update execution
+      responses:
+        '200':
+          description: Updated
+    delete:
+      summary: Delete execution
+      responses:
+        '200':
+          description: Deleted
+  /api/results:
+    post:
+      summary: Create manual execution results
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/TestResultInput'
+      responses:
+        '201':
+          description: Created
+  /api/import/junit:
+    post:
+      summary: Import JUnit XML
+      parameters:
+        - in: query
+          name: projectKey
+          schema:
+            type: string
+        - in: query
+          name: execKey
+          schema:
+            type: string
+        - in: query
+          name: autoCreateCases
+          schema:
+            type: boolean
+        - in: query
+          name: createExecutionIfMissing
+          schema:
+            type: boolean
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                report:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Imported
+  /api/import/cucumber:
+    post:
+      summary: Import Cucumber JSON
+      parameters:
+        - in: query
+          name: projectKey
+          schema:
+            type: string
+        - in: query
+          name: execKey
+          schema:
+            type: string
+        - in: query
+          name: autoCreateCases
+          schema:
+            type: boolean
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+      responses:
+        '200':
+          description: Imported
+  /api/reports/trend:
+    get:
+      summary: Pass/fail trend
+      responses:
+        '200':
+          description: Trend data
+  /api/reports/recent-executions:
+    get:
+      summary: Recent executions summary
+      responses:
+        '200':
+          description: Summary list
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ProjectInput:
+      type: object
+      required: [key, name]
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+    ProjectUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+    TestCaseInput:
+      type: object
+      required: [projectId, key, name]
+      properties:
+        projectId:
+          type: string
+        key:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/Step'
+        tags:
+          type: array
+          items:
+            type: string
+    TestCaseUpdate:
+      allOf:
+        - $ref: '#/components/schemas/TestCaseInput'
+    Step:
+      type: object
+      properties:
+        action:
+          type: string
+        expected:
+          type: string
+    TestPlanInput:
+      type: object
+      required: [projectId, key, name]
+      properties:
+        projectId:
+          type: string
+        key:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        environments:
+          type: array
+          items:
+            type: string
+    TestPlanUpdate:
+      allOf:
+        - $ref: '#/components/schemas/TestPlanInput'
+    TestExecutionInput:
+      type: object
+      required: [projectId, key, name]
+      properties:
+        projectId:
+          type: string
+        planId:
+          type: string
+        key:
+          type: string
+        name:
+          type: string
+        environment:
+          type: string
+        buildUrl:
+          type: string
+    TestResultInput:
+      type: object
+      required: [executionId, caseId, status]
+      properties:
+        executionId:
+          type: string
+        caseId:
+          type: string
+        status:
+          type: string
+        durationMs:
+          type: integer
+        errorMessage:
+          type: string

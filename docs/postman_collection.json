@@ -1,0 +1,56 @@
+{
+  "info": {
+    "name": "TestSimply",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "List Projects",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/projects",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "projects"]
+        }
+      }
+    },
+    {
+      "name": "Import JUnit",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "report",
+              "type": "file",
+              "src": "junit.xml"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/import/junit?projectKey=PRJ-1&execKey=PRJ-1-EXEC-1",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "import", "junit"],
+          "query": [
+            { "key": "projectKey", "value": "PRJ-1" },
+            { "key": "execKey", "value": "PRJ-1-EXEC-1" }
+          ]
+        }
+      }
+    }
+  ]
+}

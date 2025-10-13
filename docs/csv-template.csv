@@ -1,0 +1,2 @@
+name,description,precondition,steps.action,steps.expected,expected_result,tags
+"Login works","User can login","User exists","Open login|Submit form","Page opens|Dashboard loads","Dashboard visible","regression,login"
