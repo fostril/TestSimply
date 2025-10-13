@@ -1,6 +1,3 @@
-import { parse } from "csv-parse/sync";
-import { stringify } from "csv-stringify/sync";
-
 export const csvHeaders = [
   "name",
   "description",
@@ -21,17 +18,63 @@ export type CsvRow = {
   tags?: string;
 };
 
+const splitCsvLine = (line: string) => {
+  const values: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === "," && !inQuotes) {
+      values.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+
+  values.push(current.trim());
+  return values;
+};
+
 export const parseCsv = (content: string): CsvRow[] => {
-  return parse(content, {
-    columns: true,
-    skip_empty_lines: true,
-    bom: true
-  }) as CsvRow[];
+  const lines = content
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  if (lines.length === 0) {
+    return [];
+  }
+
+  const headers = splitCsvLine(lines[0]);
+  return lines.slice(1).map((line) => {
+    const values = splitCsvLine(line);
+    return headers.reduce((acc, header, index) => {
+      const key = header as keyof CsvRow;
+      acc[key] = values[index] ?? "";
+      return acc;
+    }, {} as CsvRow);
+  });
+};
+
+const escapeValue = (value: string | undefined) => {
+  if (value == null) return "";
+  if (value.includes(",") || value.includes("\n") || value.includes('"')) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
 };
 
 export const exportCsv = (rows: CsvRow[]) => {
-  return stringify(rows, {
-    header: true,
-    columns: csvHeaders
-  });
+  const headerLine = csvHeaders.join(",");
+  const valueLines = rows.map((row) => csvHeaders.map((header) => escapeValue(row[header as keyof CsvRow])).join(","));
+  return [headerLine, ...valueLines].join("\n");
 };

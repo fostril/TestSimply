@@ -1,74 +1,63 @@
 # TestSimply
 
-TestSimply is a modern test management tool inspired by Jira Xray. It provides an opinionated workflow for managing manual and automated quality assets with a polished Next.js 14 experience.
-
-## Features
-- Project level dashboards with execution trend visualizations
-- Rich test case management with markdown descriptions, steps, tags, and components
-- Test plans with coverage tracking and bulk case assignment
-- Manual execution runner with inline step validation
-- Automated result ingestion for JUnit XML and Cucumber JSON
-- CSV import/export for offline editing
-- Role-based access control with NextAuth (email/password & OAuth)
-- REST API with OpenAPI specification
-- Dockerized development environment and GitHub Actions CI pipeline
+TestSimply is a lightweight, self-contained test management dashboard that can run entirely offline. The application ships with a Node.js-powered static server, a pre-generated dataset, and utilities for importing automated test results so you can explore the workflow without external services or package registries.
 
 ## Quick start
-1. Copy the environment template:
 
-```bash
-cp .env.example .env.local
-```
+1. **Install Node.js 18 or newer** and install the local toolchain:
+   ```bash
+   npm install
+   ```
+   The project has no third-party dependencies, so installation works without network access.
 
-2. Start the stack (Next.js app, PostgreSQL, and Mailhog):
+2. **Generate demo data** (this can be repeated at any time to refresh the dataset):
+   ```bash
+   npm run seed
+   ```
 
-```bash
-docker compose up --build
-```
+3. **Launch the dashboard** on [http://localhost:3000](http://localhost:3000):
+   ```bash
+   npm run dev
+   ```
+   The development server automatically serves both the HTML frontend and a small JSON API backed by the generated dataset.
 
-3. Apply Prisma migrations and seed demo data:
+4. **Run the unit tests** that cover the import helpers:
+   ```bash
+   npm test
+   ```
 
-```bash
-npm install
-npx prisma migrate deploy
-npm run seed
-```
+## What’s included
 
-4. Sign in using the seeded admin account:
+- **Interactive dashboard** – browse demo projects, inspect the most recent execution, and review case-level status without needing React or Next.js.
+- **Offline dataset** – data lives in `data/demo-data.json`; regenerate it with `npm run seed` to start fresh.
+- **JUnit & Cucumber importers** – pure Node.js modules for translating reports into the in-memory Prisma-style client used across the tools.
+- **CSV helpers** – zero-dependency CSV parser/exporter to move test cases in and out of the system.
+- **Prisma-compatible client** – a minimal implementation that persists to JSON and powers both the API endpoints and the importer utilities.
 
-- **Email**: `admin@testsimplify.io`
-- **Password**: `password`
+## Development scripts
 
-Mailhog is available at [http://localhost:8025](http://localhost:8025).
-
-## OAuth configuration
-Set the following environment variables before starting the app if you want to enable social login:
-
-- `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`
-- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
-
-The OAuth buttons automatically hide when credentials are not configured.
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Start the local dashboard server on port 3000. |
+| `npm run start` | Alias of `npm run dev` for parity with hosted environments. |
+| `npm run seed` | Regenerate `data/demo-data.json` with deterministic demo data. |
+| `npm test` | Execute the Node.js unit tests for the import utilities. |
 
 ## Importing automated results
 
-### JUnit XML
-```bash
-curl -X POST "http://localhost:3000/api/import/junit?projectKey=PRJ-1&execKey=PRJ-1-EXEC-1&createExecutionIfMissing=true" \
-  -H "Authorization: Bearer <PERSONAL_TOKEN>" \
-  -F "report=@junit.xml"
-```
+Use the importer helpers directly in your own scripts or pipelines. They accept a Prisma-style client, so you can plug in the lightweight JSON-backed implementation or your own adapter.
 
-### Cucumber JSON
-```bash
-curl -X POST "http://localhost:3000/api/import/cucumber?projectKey=PRJ-1&execKey=PRJ-1-EXEC-1&autoCreateCases=true" \
-  -H "Authorization: Bearer <PERSONAL_TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d @cucumber.json
-```
+```js
+const { importJUnit } = require("./src/lib/importers/junit.js");
+const { importCucumber } = require("./src/lib/importers/cucumber.js");
+const { prisma } = require("./src/lib/prisma.js");
 
-Personal access tokens can be generated from **Settings → CI Personal Token**.
+await importJUnit(junitXml, { projectId, executionId }, prisma);
+await importCucumber(cucumberJson, { projectId, executionId }, prisma);
+```
 
 ## CSV template
+
 A ready-to-use CSV template lives in [`docs/csv-template.csv`](docs/csv-template.csv). Import format:
 
 | Column | Description |
@@ -81,30 +70,12 @@ A ready-to-use CSV template lives in [`docs/csv-template.csv`](docs/csv-template
 | `expected_result` | Final expected result |
 | `tags` | Comma separated labels |
 
-## REST API
-The full API contract is documented in [`docs/openapi.yaml`](docs/openapi.yaml). Import the [`docs/postman_collection.json`](docs/postman_collection.json) into Postman or Insomnia for ready-made examples.
+## Architecture notes
 
-## Development scripts
-- `npm run dev` – start Next.js in development mode
-- `npm run lint` – lint TypeScript/React via ESLint
-- `npm run test` – run unit tests with Vitest
-- `npm run test:e2e` – run Playwright smoke tests
-- `npm run build` – create a production build
-- `npm run seed` – populate the database with demo data
-
-## CI integration
-The repository includes a GitHub Actions workflow (`.github/workflows/ci.yml`) that installs dependencies, runs Prisma, executes lint/unit tests, and builds the app. Example GitHub Actions step to upload JUnit results:
-
-```yaml
-- name: Publish JUnit results
-  run: |
-    curl -X POST "${{ secrets.TESTSIMPLY_URL }}/api/import/junit?projectKey=PRJ-1&execKey=${{ github.run_number }}" \
-      -H "Authorization: Bearer ${{ secrets.TESTSIMPLY_TOKEN }}" \
-      -F "report=@junit.xml"
-```
-
-## OpenAPI client generation
-Use `npx openapi-typescript docs/openapi.yaml -o src/types/api.d.ts` to generate typed clients for the REST interface.
+- The historical Next.js codebase remains in `src/app` for reference, but the offline runtime relies on the handcrafted assets in `web/`.
+- The Prisma client in `src/lib/prisma-client.{ts,js}` writes to JSON, mirroring the APIs used by the import helpers and adapter utilities.
+- Authentication helpers (`src/lib/auth.ts`) are retained for context but are not wired to the offline server.
 
 ## License
+
 MIT
