@@ -5,7 +5,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GitHubProvider from "next-auth/providers/github";
 import GoogleProvider from "next-auth/providers/google";
 import { prisma } from "@/lib/prisma";
-import { Role } from "@/lib/prisma-client";
+import { Role } from "@prisma/client";
 
 const emailPasswordEnabled = process.env.EMAIL_PASSWORD_DISABLED !== "true";
 

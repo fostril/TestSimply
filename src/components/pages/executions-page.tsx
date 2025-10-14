@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@/lib/simple-query";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useProjectStore } from "@/lib/stores/project-store";
 
@@ -32,7 +32,11 @@ export function ExecutionsPage() {
       </div>
       <div className="grid gap-4">
         {(data ?? []).map((execution: any) => (
-          <div key={execution.id} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+          <Link
+            key={execution.id}
+            href={`/executions/${execution.id}`}
+            className="block rounded-2xl border border-slate-800 bg-slate-900/60 p-6 transition hover:border-brand hover:shadow-xl"
+          >
             <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="text-xs uppercase tracking-wide text-slate-500">{execution.key}</p>
@@ -42,10 +46,12 @@ export function ExecutionsPage() {
               <div className="text-right text-xs text-slate-400">
                 <p>Env: {execution.environment ?? "n/a"}</p>
                 <p>Status: {execution.finishedAt ? "Completed" : "Active"}</p>
-                <p>Results: {execution.results.length}</p>
+                <p>
+                  Cases: {execution.results.length > 0 ? execution.results.length : execution.plan?.cases?.length ?? 0}
+                </p>
               </div>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
     </div>

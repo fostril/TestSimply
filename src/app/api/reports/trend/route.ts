@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/api";
-import { Prisma } from "@/lib/prisma-client";
+import { Prisma } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
   const auth = await requireAuth(req, "project:view");

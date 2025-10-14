@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery } from "@/lib/simple-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useToast } from "@/components/ui/toast";
 
@@ -21,7 +21,7 @@ export function SettingsPage() {
     mutationFn: async () => {
       const res = await fetch("/api/settings/tokens", { method: "POST" });
       if (!res.ok) throw new Error("Unable to generate token");
-      return res.json() as Promise<{ token: string }>;
+      return (await res.json()) as { token: string };
     },
     onSuccess: (payload) => {
       setToken(payload.token);

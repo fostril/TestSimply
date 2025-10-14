@@ -1,5 +1,5 @@
 const { prisma: defaultClient } = require("../prisma.js");
-const { TestStatus } = require("../prisma-client.js");
+const { TestStatus } = require("@prisma/client");
 
 const mapStatus = (status) => {
   if (!status) return TestStatus.PASS;

@@ -33,7 +33,7 @@ type Adapter = {
   getVerificationToken(params: { identifier: string; token: string }): Promise<Record<string, unknown> | null>;
 };
 
-import type { PrismaClient } from "./prisma-client";
+import type { PrismaClient } from "@prisma/client";
 
 export function PrismaAdapter(prisma: PrismaClient): Adapter {
   return {

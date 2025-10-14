@@ -2,7 +2,7 @@
 
 import { ReactNode, useMemo } from "react";
 import Link from "next/link";
-import { useQuery } from "@/lib/simple-query";
+import { useQuery } from "@tanstack/react-query";
 import { useProjectStore } from "@/lib/stores/project-store";
 
 export type TestCaseRow = {

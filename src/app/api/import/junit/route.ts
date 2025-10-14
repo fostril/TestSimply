@@ -12,6 +12,12 @@ export async function POST(req: NextRequest) {
   const execKey = searchParams.get("execKey");
   const autoCreate = searchParams.get("autoCreateCases") === "true";
   const createExecutionIfMissing = searchParams.get("createExecutionIfMissing") === "true";
+  const environment = searchParams.get("environment");
+  const buildUrl = searchParams.get("buildUrl");
+  const commitSha = searchParams.get("commitSha");
+  const revision = searchParams.get("revision");
+  const labelsParam = searchParams.get("labels");
+  const labels = labelsParam ? labelsParam.split(",").map((label) => label.trim()).filter(Boolean) : undefined;
 
   if (!projectKey) {
     return NextResponse.json({ error: "projectKey required" }, { status: 400 });
@@ -31,13 +37,31 @@ export async function POST(req: NextRequest) {
       data: {
         projectId: project.id,
         key: execKey ?? `CI-${Date.now()}`,
-        name: `CI Execution ${new Date().toISOString()}`
+        name: `CI Execution ${new Date().toISOString()}`,
+        environment: environment ?? undefined,
+        buildUrl: buildUrl ?? undefined,
+        commitSha: commitSha ?? undefined,
+        revision: revision ?? undefined,
+        labels: labels ?? []
       }
     });
   }
 
   if (!execution) {
     return NextResponse.json({ error: "Execution not found" }, { status: 404 });
+  }
+
+  if (environment || buildUrl || commitSha || revision || labels) {
+    execution = await prisma.testExecution.update({
+      where: { id: execution.id },
+      data: {
+        environment: environment ?? undefined,
+        buildUrl: buildUrl ?? undefined,
+        commitSha: commitSha ?? undefined,
+        revision: revision ?? undefined,
+        labels: labels ?? execution.labels
+      }
+    });
   }
 
   const form = await req.formData();

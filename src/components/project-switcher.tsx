@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@/lib/simple-query";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@/lib/stores/project-store";
@@ -41,6 +41,12 @@ export function ProjectSwitcher() {
             <div className="text-xs text-slate-500">{project.key}</div>
           </button>
         ))}
+        <a
+          href="/projects/new"
+          className="mt-4 inline-flex w-full items-center justify-center rounded-xl border border-dashed border-slate-700 px-3 py-2 text-xs font-medium text-slate-400 transition hover:border-brand hover:text-white"
+        >
+          + New project
+        </a>
       </div>
     </div>
   );

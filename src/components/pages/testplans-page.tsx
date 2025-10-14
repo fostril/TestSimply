@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@/lib/simple-query";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useProjectStore } from "@/lib/stores/project-store";
 

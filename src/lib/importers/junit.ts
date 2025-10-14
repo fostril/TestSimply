@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@/lib/prisma-client";
+import type { PrismaClient } from "@prisma/client";
 import { importJUnit as implementation } from "./junit.js";
 
 export type ImportOptions = {

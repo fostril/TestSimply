@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   const executions = await prisma.testExecution.findMany({
     where: projectId ? { projectId } : undefined,
     orderBy: { createdAt: "desc" },
-    include: { results: true }
+    include: { results: true, plan: { include: { cases: { include: { case: true } } } } }
   });
   return NextResponse.json(executions);
 }
@@ -34,7 +34,11 @@ export async function POST(req: NextRequest) {
   if (!auth.authorized) return auth.response;
   const parsed = createSchema.parse(await req.json());
   const execution = await prisma.testExecution.create({
-    data: { ...parsed, labels: parsed.labels ?? [] }
+    data: {
+      ...parsed,
+      labels: parsed.labels ?? [],
+      createdById: auth.session.user?.id
+    }
   });
   return NextResponse.json(execution, { status: 201 });
 }

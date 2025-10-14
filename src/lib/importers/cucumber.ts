@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@/lib/prisma-client";
+import type { PrismaClient } from "@prisma/client";
 import { importCucumber as implementation } from "./cucumber.js";
 
 export type ImportOptions = {
