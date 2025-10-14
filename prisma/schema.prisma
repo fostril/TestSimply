@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["linux-musl-openssl-3.0.x", "native"]
 }
 
 datasource db {
@@ -29,15 +30,15 @@ enum Priority {
 }
 
 model User {
-  id            String    @id @default(cuid())
+  id            String          @id @default(cuid())
   name          String
-  email         String    @unique
+  email         String          @unique
   password      String?
-  role          Role      @default(VIEWER)
+  role          Role            @default(VIEWER)
   image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  testCases     TestCase[] @relation("TestCaseOwner")
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  testCases     TestCase[]      @relation("TestCaseOwner")
   executions    TestExecution[] @relation("ExecutionCreator")
   accounts      Account[]
   sessions      Session[]
@@ -56,73 +57,73 @@ model PersonalAccessToken {
 }
 
 model Project {
-  id          String       @id @default(cuid())
-  key         String
-  name        String
-  description String?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  testCases   TestCase[]
-  plans       TestPlan[]
-  executions  TestExecution[]
+  id               String            @id @default(cuid())
+  key              String
+  name             String
+  description      String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  testCases        TestCase[]
+  plans            TestPlan[]
+  executions       TestExecution[]
   requirementLinks RequirementLink[]
-  settings    ProjectSetting?
+  settings         ProjectSetting?
 
   @@unique([key])
 }
 
 model ProjectSetting {
-  id            String   @id @default(cuid())
-  project       Project  @relation(fields: [projectId], references: [id])
-  projectId     String   @unique
-  tags          String[] @default([])
-  components    String[] @default([])
-  environments  String[] @default([])
-  priorities    Priority[] @default([LOW, MEDIUM, HIGH, CRITICAL])
+  id           String     @id @default(cuid())
+  project      Project    @relation(fields: [projectId], references: [id])
+  projectId    String     @unique
+  tags         String[]   @default([])
+  components   String[]   @default([])
+  environments String[]   @default([])
+  priorities   Priority[] @default([LOW, MEDIUM, HIGH, CRITICAL])
 }
 
 model TestCase {
-  id           String    @id @default(cuid())
-  project      Project   @relation(fields: [projectId], references: [id])
-  projectId    String
-  key          String
-  name         String
-  description  String?
+  id            String     @id @default(cuid())
+  project       Project    @relation(fields: [projectId], references: [id])
+  projectId     String
+  key           String
+  name          String
+  description   String?
   preconditions String?
-  steps        Json
-  expected     String?
-  priority     Priority   @default(MEDIUM)
-  status       String     @default("Draft")
-  tags         String[]   @default([])
-  component    String?
-  owner        User?      @relation("TestCaseOwner", fields: [ownerId], references: [id])
-  ownerId      String?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  deletedAt    DateTime?
-  plans        TestCasePlan[]
-  results      TestResult[]
-  requirements RequirementLink[]
-  attachments  Attachment[]
+  steps         Json
+  expected      String?
+  priority      Priority   @default(MEDIUM)
+  status        String     @default("Draft")
+  tags          String[]   @default([])
+  component     String?
+  owner         User?      @relation("TestCaseOwner", fields: [ownerId], references: [id])
+  ownerId       String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  deletedAt     DateTime?
+  plans         TestCasePlan[]
+  results       TestResult[]
+  requirements  RequirementLink[]
+  attachments   Attachment[]
 
   @@unique([projectId, key])
   @@index([projectId])
 }
 
 model TestPlan {
-  id          String        @id @default(cuid())
-  project     Project       @relation(fields: [projectId], references: [id])
-  projectId   String
-  key         String
-  name        String
-  description String?
-  targetVersions String[] @default([])
-  environments   String[] @default([])
-  tags           String[] @default([])
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  cases        TestCasePlan[]
-  executions   TestExecution[]
+  id            String          @id @default(cuid())
+  project       Project         @relation(fields: [projectId], references: [id])
+  projectId     String
+  key           String
+  name          String
+  description   String?
+  targetVersions String[]       @default([])
+  environments   String[]       @default([])
+  tags           String[]       @default([])
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  cases         TestCasePlan[]
+  executions    TestExecution[]
 
   @@unique([projectId, key])
 }
@@ -139,10 +140,10 @@ model TestCasePlan {
 }
 
 model TestExecution {
-  id          String       @id @default(cuid())
-  project     Project      @relation(fields: [projectId], references: [id])
+  id          String        @id @default(cuid())
+  project     Project       @relation(fields: [projectId], references: [id])
   projectId   String
-  plan        TestPlan?    @relation(fields: [planId], references: [id])
+  plan        TestPlan?     @relation(fields: [planId], references: [id])
   planId      String?
   key         String
   name        String
@@ -151,13 +152,13 @@ model TestExecution {
   revision    String?
   buildUrl    String?
   commitSha   String?
-  labels      String[] @default([])
+  labels      String[]      @default([])
   startedAt   DateTime?
   finishedAt  DateTime?
-  createdBy   User?        @relation("ExecutionCreator", fields: [createdById], references: [id])
+  createdBy   User?         @relation("ExecutionCreator", fields: [createdById], references: [id])
   createdById String?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
   results     TestResult[]
   attachments Attachment[]
 
@@ -165,48 +166,50 @@ model TestExecution {
 }
 
 model TestResult {
-  id           String      @id @default(cuid())
+  id           String        @id @default(cuid())
   execution    TestExecution @relation(fields: [executionId], references: [id])
   executionId  String
-  testCase     TestCase    @relation(fields: [caseId], references: [id])
+  testCase     TestCase      @relation(fields: [caseId], references: [id])
   caseId       String
   status       TestStatus
   durationMs   Int?
-  evidenceURLs String[] @default([])
+  evidenceURLs String[]      @default([])
   errorMessage String?
   stepsLog     Json?
-  retried      Boolean   @default(false)
-  attempt      Int       @default(1)
-  createdAt    DateTime  @default(now())
+  retried      Boolean       @default(false)
+  attempt      Int           @default(1)
+  createdAt    DateTime      @default(now())
 
   @@index([executionId])
   @@index([caseId])
+
+  Attachment  Attachment[]
 }
 
 model RequirementLink {
-  id          String   @id @default(cuid())
-  project     Project  @relation(fields: [projectId], references: [id])
-  projectId   String
-  testCase    TestCase @relation(fields: [testCaseId], references: [id])
-  testCaseId  String
+  id         String   @id @default(cuid())
+  project    Project  @relation(fields: [projectId], references: [id])
+  projectId  String
+  testCase   TestCase @relation(fields: [testCaseId], references: [id])
+  testCaseId String
   externalUrl String
-  type        String
-  createdAt   DateTime @default(now())
+  type       String
+  createdAt  DateTime @default(now())
 }
 
 model Attachment {
-  id          String   @id @default(cuid())
-  url         String
-  fileName    String
-  contentType String
-  size        Int
-  testCase    TestCase? @relation(fields: [testCaseId], references: [id])
-  testCaseId  String?
-  testResult  TestResult? @relation(fields: [testResultId], references: [id])
+  id           String        @id @default(cuid())
+  url          String
+  fileName     String
+  contentType  String
+  size         Int
+  testCase     TestCase?     @relation(fields: [testCaseId], references: [id])
+  testCaseId   String?
+  testResult   TestResult?   @relation(fields: [testResultId], references: [id])
   testResultId String?
-  execution   TestExecution? @relation(fields: [executionId], references: [id])
-  executionId String?
-  createdAt   DateTime @default(now())
+  execution    TestExecution? @relation(fields: [executionId], references: [id])
+  executionId  String?
+  createdAt    DateTime      @default(now())
 }
 
 model AuditLog {
@@ -220,18 +223,18 @@ model AuditLog {
 }
 
 model Account {
-  id                 String  @id @default(cuid())
-  userId             String
-  type               String
-  provider           String
-  providerAccountId  String
-  refresh_token      String? @db.Text
-  access_token       String? @db.Text
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String? @db.Text
-  session_state      String?
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

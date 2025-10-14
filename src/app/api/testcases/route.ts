@@ -2,59 +2,76 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/api";
 import { z } from "zod";
+import { Prisma, Priority } from "@prisma/client";
 
-const stepSchema = z.object({
-  action: z.string(),
-  expected: z.string().optional()
-});
-
-const createSchema = z.object({
-  projectId: z.string(),
-  key: z.string(),
-  name: z.string(),
+const updateSchema = z.object({
+  name: z.string().optional(),
   description: z.string().optional(),
   preconditions: z.string().optional(),
-  steps: z.array(stepSchema).default([]),
+  steps: z.array(z.any()).optional(),          // stored as Json in Prisma
   expected: z.string().optional(),
-  priority: z.string().optional(),
-  status: z.string().optional(),
-  tags: z.array(z.string()).optional(),
+  priority: z.nativeEnum(Priority).optional(), // Prisma enum
+  status: z.string().optional(),               // string field (no enum in client)
+  tags: z.array(z.string()).optional(),        // scalar list
   component: z.string().optional(),
-  ownerId: z.string().optional()
+  ownerId: z.string().nullable().optional(),   // relation: connect/disconnect
 });
 
-export async function GET(req: NextRequest) {
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const auth = await requireAuth(req, "project:view");
   if (!auth.authorized) return auth.response;
-  const { searchParams } = new URL(req.url);
-  const projectId = searchParams.get("projectId");
-  const search = searchParams.get("search");
-  const where: any = {};
-  if (projectId) where.projectId = projectId;
-  if (search) {
-    where.OR = [
-      { name: { contains: search, mode: "insensitive" } },
-      { description: { contains: search, mode: "insensitive" } }
-    ];
-  }
-  const testCases = await prisma.testCase.findMany({
-    where,
-    orderBy: { updatedAt: "desc" },
-    take: 100
+
+  const testCase = await prisma.testCase.findUnique({
+    where: { id: params.id },
+    include: { requirements: true },
   });
-  return NextResponse.json(testCases);
+
+  if (!testCase) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return NextResponse.json(testCase);
 }
 
-export async function POST(req: NextRequest) {
-  const auth = await requireAuth(req, "testcase:create");
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await requireAuth(req, "testcase:update");
   if (!auth.authorized) return auth.response;
-  const parsed = createSchema.parse(await req.json());
-  const testCase = await prisma.testCase.create({
-    data: {
-      ...parsed,
-      steps: parsed.steps,
-      tags: parsed.tags ?? []
-    }
+
+  const body = await req.json();
+  const parsed = updateSchema.parse(body);
+
+  const data: Prisma.TestCaseUpdateInput = {
+    ...(parsed.name && { name: parsed.name }),
+    ...(parsed.description && { description: parsed.description }),
+    ...(parsed.preconditions && { preconditions: parsed.preconditions }),
+    ...(parsed.steps && { steps: parsed.steps as unknown as Prisma.InputJsonValue }),
+    ...(parsed.expected && { expected: parsed.expected }),
+    ...(parsed.priority !== undefined && { priority: { set: parsed.priority } }),
+    ...(parsed.status !== undefined && { status: parsed.status }), // status is a string in schema
+    ...(parsed.tags && { tags: { set: parsed.tags } }),
+    ...(parsed.component && { component: parsed.component }),
+    ...(
+      parsed.ownerId !== undefined
+        ? (parsed.ownerId === null
+          ? { owner: { disconnect: true } }
+          : { owner: { connect: { id: parsed.ownerId } } })
+        : {}
+    ),
+  };
+
+  const testCase = await prisma.testCase.update({
+    where: { id: params.id },
+    data,
   });
-  return NextResponse.json(testCase, { status: 201 });
+
+  return NextResponse.json(testCase);
+}
+
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await requireAuth(req, "testcase:delete");
+  if (!auth.authorized) return auth.response;
+
+  await prisma.testCase.update({
+    where: { id: params.id },
+    data: { deletedAt: new Date() },
+  });
+
+  return NextResponse.json({ ok: true });
 }

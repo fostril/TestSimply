@@ -2,18 +2,28 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils"; // or wherever your cn helper lives
 
-export function NavLink({ href, label }: { href: string; label: string }) {
+type NavLinkProps = {
+  href: string;
+  label: string;
+  exact?: boolean;
+  className?: string;
+};
+
+export function NavLink({ href, label, exact = false, className }: NavLinkProps) {
   const pathname = usePathname();
-  const active = pathname === href;
+  const active = exact ? pathname === href : pathname?.startsWith(href);
+
   return (
     <Link
       href={href}
       className={cn(
         "block rounded-xl px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-900 hover:text-white",
-        active && "bg-slate-900 text-white"
+        active ? "bg-slate-900 text-white" : undefined,
+        className
       )}
+      aria-current={active ? "page" : undefined}
     >
       {label}
     </Link>

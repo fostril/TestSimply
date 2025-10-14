@@ -2,14 +2,14 @@
 
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { zodResolver } from "@/lib/zod-resolver";
+import { zodResolver } from "@hookform/resolvers/zod"; // use official resolver
 import { useState } from "react";
 import { useToast } from "@/components/ui/toast";
 
 const schema = z.object({
-  name: z.string().min(2),
-  email: z.string().email(),
-  password: z.string().min(6)
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Enter a valid email"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -18,8 +18,13 @@ export function SignUpForm() {
   const {
     register,
     handleSubmit,
-    formState: { errors }
-  } = useForm<FormValues>({ resolver: zodResolver(schema) });
+    formState: { errors },
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    mode: "onSubmit",
+    reValidateMode: "onChange",
+  });
+
   const [loading, setLoading] = useState(false);
   const toast = useToast();
 
@@ -28,27 +33,33 @@ export function SignUpForm() {
     const res = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(values)
+      body: JSON.stringify(values),
     });
     setLoading(false);
     if (res.ok) {
       toast({ title: "Account created", description: "You can now sign in" });
     } else {
-      const error = await res.json();
-      toast({ title: "Unable to register", description: error.error ?? "Try again" });
+      const error = await res.json().catch(() => ({}));
+      toast({
+        title: "Unable to register",
+        description: error?.error ?? "Try again",
+      });
     }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4" noValidate>
       <div>
         <label className="text-xs uppercase tracking-wide text-slate-400">Name</label>
         <input
           className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
           {...register("name")}
         />
-        {errors.name ? <p className="mt-1 text-xs text-red-400">{errors.name.message}</p> : null}
+        {errors.name && (
+          <p className="mt-1 text-xs text-red-400">{errors.name.message}</p>
+        )}
       </div>
+
       <div>
         <label className="text-xs uppercase tracking-wide text-slate-400">Email</label>
         <input
@@ -56,8 +67,11 @@ export function SignUpForm() {
           className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
           {...register("email")}
         />
-        {errors.email ? <p className="mt-1 text-xs text-red-400">{errors.email.message}</p> : null}
+        {errors.email && (
+          <p className="mt-1 text-xs text-red-400">{errors.email.message}</p>
+        )}
       </div>
+
       <div>
         <label className="text-xs uppercase tracking-wide text-slate-400">Password</label>
         <input
@@ -65,8 +79,11 @@ export function SignUpForm() {
           className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
           {...register("password")}
         />
-        {errors.password ? <p className="mt-1 text-xs text-red-400">{errors.password.message}</p> : null}
+        {errors.password && (
+          <p className="mt-1 text-xs text-red-400">{errors.password.message}</p>
+        )}
       </div>
+
       <button
         type="submit"
         disabled={loading}

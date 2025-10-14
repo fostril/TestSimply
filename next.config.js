@@ -1,8 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    serverActions: true
-  }
+  output: 'standalone',           // <- important
+  eslint: { ignoreDuringBuilds: true } // if you want
 };
-
 module.exports = nextConfig;
