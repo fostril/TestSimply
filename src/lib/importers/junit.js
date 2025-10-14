@@ -1,5 +1,5 @@
 const { prisma: defaultClient } = require("../prisma.js");
-const { TestStatus } = require("../prisma-client.js");
+const { TestStatus } = require("@prisma/client");
 
 const attributePattern = /([\w:-]+)="([^"]*)"/g;
 

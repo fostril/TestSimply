@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery } from "@/lib/simple-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useToast } from "@/components/ui/toast";
 
 type RunnerStatus = "PASS" | "FAIL" | "BLOCKED";
 
@@ -10,7 +11,7 @@ interface ManualRunnerProps {
 }
 
 export function ManualRunner({ executionId }: ManualRunnerProps) {
-  const { data, refetch } = useQuery({
+  const { data, refetch, error, isLoading } = useQuery({
     queryKey: ["execution", executionId],
     queryFn: async () => {
       const res = await fetch(`/api/executions/${executionId}`);
@@ -20,10 +21,20 @@ export function ManualRunner({ executionId }: ManualRunnerProps) {
   });
 
   const [activeIndex, setActiveIndex] = useState(0);
-  const cases = data?.results?.map((result: any) => result.testCase) ?? [];
+  const results = data?.results ?? [];
+  const planCases = data?.plan?.cases?.map((entry: any) => entry.case) ?? [];
+  const cases = planCases.length > 0 ? planCases : results.map((result: any) => result.testCase);
+  const statusByCase = useMemo(() => {
+    const map = new Map<string, string>();
+    results.forEach((result: any) => {
+      map.set(result.caseId, result.status);
+    });
+    return map;
+  }, [results]);
   const activeCase = cases[activeIndex];
 
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const toast = useToast();
   useEffect(() => {
     if (activeCase && !notes[activeCase.id]) {
       setNotes((prev) => ({ ...prev, [activeCase.id]: "" }));
@@ -44,15 +55,42 @@ export function ManualRunner({ executionId }: ManualRunnerProps) {
       });
     },
     onSuccess: () => {
+      setNotes((prev) => {
+        if (!activeCase) return prev;
+        const next = { ...prev };
+        next[activeCase.id] = "";
+        return next;
+      });
       void refetch();
+    },
+    onError: (err: unknown) => {
+      toast({ title: "Failed to record result", description: (err as Error).message });
     }
   });
 
   const progress = useMemo(() => {
     const total = cases.length || 1;
-    const completed = (data?.results ?? []).filter((r: any) => r.status !== "SKIPPED").length;
+    const completed = (data?.results ?? []).filter((r: any) => r.status && r.status !== "SKIPPED").length;
     return Math.round((completed / total) * 100);
   }, [cases.length, data?.results]);
+
+  if (isLoading) {
+    return (
+      <div className="px-8 py-6">
+        <h1 className="text-3xl font-semibold">Manual Runner</h1>
+        <p className="mt-2 text-slate-400">Loading execution…</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="px-8 py-6">
+        <h1 className="text-3xl font-semibold">Manual Runner</h1>
+        <p className="mt-2 text-slate-400">Unable to load execution: {(error as Error).message}</p>
+      </div>
+    );
+  }
 
   if (!activeCase) {
     return (
@@ -82,6 +120,11 @@ export function ManualRunner({ executionId }: ManualRunnerProps) {
               >
                 <div className="text-xs uppercase tracking-wide text-slate-500">{testCase.key}</div>
                 <div className="text-sm font-medium">{testCase.name}</div>
+                {statusByCase.has(testCase.id) ? (
+                  <span className="mt-1 inline-flex rounded-full bg-slate-800 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-300">
+                    {statusByCase.get(testCase.id)}
+                  </span>
+                ) : null}
               </button>
             </li>
           ))}

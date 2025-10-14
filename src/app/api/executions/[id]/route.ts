@@ -20,7 +20,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   if (!auth.authorized) return auth.response;
   const execution = await prisma.testExecution.findUnique({
     where: { id: params.id },
-    include: { results: { include: { testCase: true } } }
+    include: {
+      results: { include: { testCase: true } },
+      plan: { include: { cases: { include: { case: true } } } }
+    }
   });
   if (!execution) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(execution);

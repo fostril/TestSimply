@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1
 FROM node:20-alpine AS deps
 WORKDIR /app
-COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* ./
-RUN npm install --frozen-lockfile
+COPY package*.json ./
+RUN npm install
 
 FROM node:20-alpine AS builder
 WORKDIR /app
