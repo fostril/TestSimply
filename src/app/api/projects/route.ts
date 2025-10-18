@@ -18,17 +18,29 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const parsed = projectSchema.parse(body);
+  const parsed = projectSchema.safeParse(body);
 
-  const key = parsed.key.trim().toUpperCase();
-  const name = parsed.name.trim();
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid project payload" }, { status: 400 });
+  }
+
+  const key = parsed.data.key.trim().toUpperCase();
+  const name = parsed.data.name.trim();
+  const description = parsed.data.description?.trim();
+
+  if (key.length < 2 || name.length < 2) {
+    return NextResponse.json(
+      { error: "Project key and name must be at least 2 characters" },
+      { status: 400 }
+    );
+  }
 
   try {
     const project = await prisma.project.create({
       data: {
         key,
         name,
-        description: parsed.description ?? null,
+        description: description ? description : null,
         settings: {
           create: {
             tags: [],
