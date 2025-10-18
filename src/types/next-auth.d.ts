@@ -1,17 +1,19 @@
-import { Role } from "@prisma/client";
-import NextAuth from "next-auth";
+// src/types/next-auth.d.ts
+// BEFORE:
+// import NextAuth, { DefaultSession, DefaultUser } from "next-auth";
+
+// AFTER:
+import type { DefaultSession, DefaultUser } from "next-auth";
 
 declare module "next-auth" {
-  interface Session {
-    user: {
+  interface Session extends DefaultSession {
+    user: DefaultSession["user"] & {
       id: string;
-      name?: string | null;
-      email?: string | null;
-      role: Role;
+      role?: "ADMIN" | "LEAD" | "TESTER" | "VIEWER";
     };
   }
 
-  interface User {
-    role: Role;
+  interface User extends DefaultUser {
+    role?: "ADMIN" | "LEAD" | "TESTER" | "VIEWER";
   }
 }

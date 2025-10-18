@@ -3,13 +3,13 @@
 import { signIn } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { zodResolver } from "@/lib/zod-resolver";
+import { zodResolver } from "@hookform/resolvers/zod"; // official resolver
 import { useState } from "react";
 import { useToast } from "@/components/ui/toast";
 
 const schema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6)
+  email: z.string().email("Enter a valid email"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -18,8 +18,13 @@ export function SignInForm() {
   const {
     register,
     handleSubmit,
-    formState: { errors }
-  } = useForm<FormValues>({ resolver: zodResolver(schema) });
+    formState: { errors },
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    mode: "onSubmit",
+    reValidateMode: "onChange",
+  });
+
   const [loading, setLoading] = useState(false);
   const toast = useToast();
 
@@ -28,7 +33,7 @@ export function SignInForm() {
     const result = await signIn("credentials", {
       ...values,
       redirect: true,
-      callbackUrl: "/"
+      callbackUrl: "/",
     });
     if (result?.error) {
       toast({ title: "Login failed", description: result.error });
@@ -37,7 +42,7 @@ export function SignInForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4" noValidate>
       <div>
         <label className="text-xs uppercase tracking-wide text-slate-400">Email</label>
         <input
@@ -45,8 +50,11 @@ export function SignInForm() {
           className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
           {...register("email")}
         />
-        {errors.email ? <p className="mt-1 text-xs text-red-400">{errors.email.message}</p> : null}
+        {errors.email && (
+          <p className="mt-1 text-xs text-red-400">{errors.email.message}</p>
+        )}
       </div>
+
       <div>
         <label className="text-xs uppercase tracking-wide text-slate-400">Password</label>
         <input
@@ -54,8 +62,11 @@ export function SignInForm() {
           className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
           {...register("password")}
         />
-        {errors.password ? <p className="mt-1 text-xs text-red-400">{errors.password.message}</p> : null}
+        {errors.password && (
+          <p className="mt-1 text-xs text-red-400">{errors.password.message}</p>
+        )}
       </div>
+
       <button
         type="submit"
         disabled={loading}
@@ -63,6 +74,7 @@ export function SignInForm() {
       >
         {loading ? "Signing in..." : "Sign in"}
       </button>
+
       <div className="text-center text-xs text-slate-500">
         <button
           type="button"
