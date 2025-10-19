@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/api";
+import { requireAuth, withApiHandler } from "@/lib/api";
 import { importCucumber } from "@/lib/importers/cucumber";
 
-export async function POST(req: NextRequest) {
+export const POST = withApiHandler(async (req: NextRequest) => {
   const auth = await requireAuth(req, "execution:manage");
   if (!auth.authorized) return auth.response;
 
@@ -67,4 +67,4 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json({ ok: true });
-}
+});

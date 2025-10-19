@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exportCsv } from "@/lib/csv";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/api";
+import { requireAuth, withApiHandler } from "@/lib/api";
 
-export async function GET(req: NextRequest) {
+export const GET = withApiHandler(async (req: NextRequest) => {
   const auth = await requireAuth(req, "project:view");
   if (!auth.authorized) return auth.response;
   const { searchParams } = new URL(req.url);
@@ -33,4 +33,4 @@ export async function GET(req: NextRequest) {
       "Content-Disposition": "attachment; filename=testcases.csv"
     }
   });
-}
+});

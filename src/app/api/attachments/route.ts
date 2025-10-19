@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { requireAuth } from "@/lib/api";
+import { requireAuth, withApiHandler } from "@/lib/api";
 
-export async function POST(req: NextRequest) {
+export const POST = withApiHandler(async (req: NextRequest) => {
   const auth = await requireAuth(req, "execution:run");
   if (!auth.authorized) return auth.response;
   const { fileName, contentType } = await req.json();
@@ -12,4 +12,4 @@ export async function POST(req: NextRequest) {
     url: `https://storage.example.com/${key}`,
     headers: { "x-amz-meta-content-type": contentType }
   });
-}
+});

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/api";
+import { requireAuth, withApiHandler } from "@/lib/api";
 import { z } from "zod";
 import { Prisma, Priority } from "@prisma/client";
 
@@ -17,25 +17,28 @@ const updateSchema = z.object({
   ownerId: z.string().nullable().optional(),   // relation: connect/disconnect
 });
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireAuth(req, "project:view");
-  if (!auth.authorized) return auth.response;
+export const GET = withApiHandler(
+  async (req: NextRequest, { params }: { params: { id: string } }) => {
+    const auth = await requireAuth(req, "project:view");
+    if (!auth.authorized) return auth.response;
 
-  const testCase = await prisma.testCase.findUnique({
-    where: { id: params.id },
-    include: { requirements: true },
-  });
+    const testCase = await prisma.testCase.findUnique({
+      where: { id: params.id },
+      include: { requirements: true },
+    });
 
-  if (!testCase) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(testCase);
-}
+    if (!testCase) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json(testCase);
+  }
+);
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireAuth(req, "testcase:update");
-  if (!auth.authorized) return auth.response;
+export const PATCH = withApiHandler(
+  async (req: NextRequest, { params }: { params: { id: string } }) => {
+    const auth = await requireAuth(req, "testcase:update");
+    if (!auth.authorized) return auth.response;
 
-  const body = await req.json();
-  const parsed = updateSchema.parse(body);
+    const body = await req.json();
+    const parsed = updateSchema.parse(body);
 
   const data: Prisma.TestCaseUpdateInput = {
     ...(parsed.name && { name: parsed.name }),
@@ -62,16 +65,19 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   });
 
   return NextResponse.json(testCase);
-}
+  }
+);
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireAuth(req, "testcase:delete");
-  if (!auth.authorized) return auth.response;
+export const DELETE = withApiHandler(
+  async (req: NextRequest, { params }: { params: { id: string } }) => {
+    const auth = await requireAuth(req, "testcase:delete");
+    if (!auth.authorized) return auth.response;
 
-  await prisma.testCase.update({
-    where: { id: params.id },
-    data: { deletedAt: new Date() },
-  });
+    await prisma.testCase.update({
+      where: { id: params.id },
+      data: { deletedAt: new Date() },
+    });
 
   return NextResponse.json({ ok: true });
-}
+  }
+);
