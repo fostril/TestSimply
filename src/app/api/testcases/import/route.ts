@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseCsv } from "@/lib/csv";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/api";
+import { requireAuth, withApiHandler } from "@/lib/api";
 
-export async function POST(req: NextRequest) {
+export const POST = withApiHandler(async (req: NextRequest) => {
   const auth = await requireAuth(req, "testcase:create");
   if (!auth.authorized) return auth.response;
   const form = await req.formData();
@@ -38,4 +38,4 @@ export async function POST(req: NextRequest) {
     )
   );
   return NextResponse.json(created, { status: 201 });
-}
+});

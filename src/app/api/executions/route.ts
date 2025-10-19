@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/api";
+import { requireAuth, withApiHandler } from "@/lib/api";
 import { z } from "zod";
 
 const createSchema = z.object({
@@ -16,7 +16,7 @@ const createSchema = z.object({
   labels: z.array(z.string()).optional()
 });
 
-export async function GET(req: NextRequest) {
+export const GET = withApiHandler(async (req: NextRequest) => {
   const auth = await requireAuth(req, "project:view");
   if (!auth.authorized) return auth.response;
   const { searchParams } = new URL(req.url);
@@ -27,9 +27,9 @@ export async function GET(req: NextRequest) {
     include: { results: true, plan: { include: { cases: { include: { case: true } } } } }
   });
   return NextResponse.json(executions);
-}
+});
 
-export async function POST(req: NextRequest) {
+export const POST = withApiHandler(async (req: NextRequest) => {
   const auth = await requireAuth(req, "execution:manage");
   if (!auth.authorized) return auth.response;
   const parsed = createSchema.parse(await req.json());
@@ -41,4 +41,4 @@ export async function POST(req: NextRequest) {
     }
   });
   return NextResponse.json(execution, { status: 201 });
-}
+});

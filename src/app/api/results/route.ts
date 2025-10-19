@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/api";
+import { requireAuth, withApiHandler } from "@/lib/api";
 import { z } from "zod";
 import { TestStatus } from "@prisma/client";
 
@@ -16,7 +16,7 @@ const resultSchema = z.object({
   attempt: z.number().optional()
 });
 
-export async function POST(req: NextRequest) {
+export const POST = withApiHandler(async (req: NextRequest) => {
   const auth = await requireAuth(req, "execution:run");
   if (!auth.authorized) return auth.response;
   const body = await req.json();
@@ -35,4 +35,4 @@ export async function POST(req: NextRequest) {
     )
   );
   return NextResponse.json(created, { status: 201 });
-}
+});

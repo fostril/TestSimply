@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/api";
+import { requireAuth, withApiHandler } from "@/lib/api";
 import { z } from "zod";
 
 const baseSchema = z.object({
@@ -13,7 +13,7 @@ const baseSchema = z.object({
   tags: z.array(z.string()).optional()
 });
 
-export async function GET(req: NextRequest) {
+export const GET = withApiHandler(async (req: NextRequest) => {
   const auth = await requireAuth(req, "project:view");
   if (!auth.authorized) return auth.response;
   const { searchParams } = new URL(req.url);
@@ -24,12 +24,12 @@ export async function GET(req: NextRequest) {
     orderBy: { createdAt: "desc" }
   });
   return NextResponse.json(plans);
-}
+});
 
-export async function POST(req: NextRequest) {
+export const POST = withApiHandler(async (req: NextRequest) => {
   const auth = await requireAuth(req, "testplan:manage");
   if (!auth.authorized) return auth.response;
   const parsed = baseSchema.parse(await req.json());
   const plan = await prisma.testPlan.create({ data: parsed });
   return NextResponse.json(plan, { status: 201 });
-}
+});

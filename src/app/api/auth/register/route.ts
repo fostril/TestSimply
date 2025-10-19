@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { withApiHandler } from "@/lib/api";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 
@@ -9,7 +10,7 @@ const schema = z.object({
   password: z.string().min(6)
 });
 
-export async function POST(req: NextRequest) {
+export const POST = withApiHandler(async (req: NextRequest) => {
   const body = await req.json();
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
@@ -27,4 +28,4 @@ export async function POST(req: NextRequest) {
     }
   });
   return NextResponse.json({ id: user.id }, { status: 201 });
-}
+});

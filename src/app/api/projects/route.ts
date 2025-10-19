@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { withApiHandler } from "@/lib/api";
 import { z } from "zod";
 
 const projectSchema = z.object({
@@ -8,15 +9,15 @@ const projectSchema = z.object({
   description: z.string().optional(),
 });
 
-export async function GET() {
+export const GET = withApiHandler(async () => {
   const projects = await prisma.project.findMany({
     orderBy: { createdAt: "desc" },
     include: { settings: true },
   });
   return NextResponse.json(projects);
-}
+});
 
-export async function POST(req: NextRequest) {
+export const POST = withApiHandler(async (req: NextRequest) => {
   const body = await req.json();
   const parsed = projectSchema.safeParse(body);
 
@@ -62,4 +63,4 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ error: "Failed to create project" }, { status: 500 });
   }
-}
+});

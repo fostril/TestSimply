@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/api";
+import { requireAuth, withApiHandler } from "@/lib/api";
 
-export async function POST(req: NextRequest) {
+export const POST = withApiHandler(async (req: NextRequest) => {
   const auth = await requireAuth(req, "settings:manage");
   if (!auth.authorized) return auth.response;
   const token = crypto.randomBytes(24).toString("hex");
@@ -18,4 +18,4 @@ export async function POST(req: NextRequest) {
     }
   });
   return NextResponse.json({ token }, { status: 201 });
-}
+});
