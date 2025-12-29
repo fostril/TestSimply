@@ -7,7 +7,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 import type { Role } from "@prisma/client";
 import type { JWT } from "next-auth/jwt";
-import type { Session, DefaultUser } from "next-auth";
+import type { Session, DefaultUser, Account, Profile } from "next-auth";
 
 const emailPasswordEnabled = process.env.EMAIL_PASSWORD_DISABLED !== "true";
 
@@ -51,26 +51,31 @@ export const authOptions = {
       : []),
     ...(process.env.GOOGLE_CLIENT_ID
       ? [
-        GoogleProvider({
-          clientId: process.env.GOOGLE_CLIENT_ID ?? "",
-          clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
-        }),
+        (() => {
+          console.log("[Auth] Initializing Google Provider");
+          return GoogleProvider({
+            clientId: process.env.GOOGLE_CLIENT_ID ?? "",
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+          });
+        })(),
       ]
-      : []),
+      : [(() => { console.log("[Auth] Google Client ID missing"); return null; })()].filter(Boolean) as any),
   ],
   callbacks: {
-    async jwt(
-      { token, user }: { token: JWT; user?: (DefaultUser & { role?: Role }) | null }
-    ): Promise<JWT> {
+    async signIn({ account, profile }: { account: Account | null; profile?: Profile }) {
+      if (account?.provider === "google") {
+        return profile?.email?.endsWith("@obdeleven.com") ?? false;
+      }
+      return true;
+    },
+    async jwt({ token, user }: { token: JWT; user?: (DefaultUser & { role?: Role }) | null }): Promise<JWT> {
       if (user) {
         token.id = (user as any).id as string;
         (token as any).role = user.role as Role | undefined;
       }
       return token;
     },
-    async session(
-      { session, token }: { session: Session; token: JWT }
-    ): Promise<Session> {
+    async session({ session, token }: { session: Session; token: JWT }): Promise<Session> {
       if (session.user) {
         (session.user as any).id = token.id as string;
         (session.user as any).role = (token as any).role as Role | undefined;
@@ -81,6 +86,7 @@ export const authOptions = {
   pages: {
     signIn: "/auth/login",
   },
+  secret: process.env.NEXTAUTH_SECRET,
 };
 
-export const { handlers, auth, signIn, signOut } = NextAuth(authOptions);
+

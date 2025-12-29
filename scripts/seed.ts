@@ -8,7 +8,8 @@ async function createUsers() {
     { name: "Ada Admin", email: "ada.admin@testsimplify.local", role: Role.ADMIN },
     { name: "Liam Lead", email: "liam.lead@testsimplify.local", role: Role.LEAD },
     { name: "Tara Tester", email: "tara.tester@testsimplify.local", role: Role.TESTER },
-    { name: "Vera Viewer", email: "vera.viewer@testsimplify.local", role: Role.VIEWER }
+    { name: "Vera Viewer", email: "vera.viewer@testsimplify.local", role: Role.VIEWER },
+    { id: "public-user", name: "Public User", email: "public@testsimplify.local", role: Role.ADMIN }
   ];
 
   const passwordHash = await bcrypt.hash("ChangeMe123!", 10);
@@ -81,7 +82,7 @@ async function createTestCases(projectId: string, ownerId: string) {
         key: `${projectId.slice(0, 4).toUpperCase()}-TC-${index + 1}`,
         name: `End-to-end scenario ${index + 1}`,
         description: `End-to-end scenario ${index + 1} description`,
-        preconditions: "User exists and environment is seeded",
+        preconditionsText: "User exists and environment is seeded",
         steps: baseSteps,
         expected: "Scenario completes successfully",
         priority: priorities[index % priorities.length],
@@ -123,7 +124,7 @@ async function createExecution(projectId: string, planId: string, key: string, n
       description: `${name} for release candidate`,
       environment: "staging",
       revision: "1.1.0-rc1",
-      buildUrl: "https://ci.local/jobs/123", 
+      buildUrl: "https://ci.local/jobs/123",
       commitSha: "abcdef1234567890",
       labels: ["nightly", "ui"],
       startedAt: new Date(Date.now() - 1000 * 60 * 60),

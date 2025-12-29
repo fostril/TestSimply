@@ -21,5 +21,21 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   GROUP BY 1
   ORDER BY 1
   `);
-  return NextResponse.json(trend);
+
+  const trendMap = new Map(trend.map((row) => [row.date, { pass: Number(row.pass), fail: Number(row.fail) }]));
+
+  const result = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().split("T")[0];
+
+    if (trendMap.has(dateStr)) {
+      result.push({ date: dateStr, ...trendMap.get(dateStr) });
+    } else {
+      result.push({ date: dateStr, pass: 0, fail: 0 });
+    }
+  }
+
+  return NextResponse.json(result);
 });

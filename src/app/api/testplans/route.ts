@@ -3,9 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, withApiHandler } from "@/lib/api";
 import { z } from "zod";
 
+import { generateEntityKey } from "@/lib/keys";
+
 const baseSchema = z.object({
   projectId: z.string(),
-  key: z.string(),
+  key: z.string().optional(),
   name: z.string(),
   description: z.string().optional(),
   targetVersions: z.array(z.string()).optional(),
@@ -30,6 +32,23 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   const auth = await requireAuth(req, "testplan:manage");
   if (!auth.authorized) return auth.response;
   const parsed = baseSchema.parse(await req.json());
-  const plan = await prisma.testPlan.create({ data: parsed });
+
+  const project = await prisma.project.findUnique({
+    where: { id: parsed.projectId },
+    select: { key: true },
+  });
+
+  if (!project) {
+    return NextResponse.json({ error: "Project not found" }, { status: 404 });
+  }
+
+  const generatedKey = await generateEntityKey(prisma, parsed.projectId, project.key, "PLAN");
+
+  const plan = await prisma.testPlan.create({
+    data: {
+      ...parsed,
+      key: generatedKey,
+    }
+  });
   return NextResponse.json(plan, { status: 201 });
 });

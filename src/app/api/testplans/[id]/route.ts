@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, withApiHandler } from "@/lib/api";
+import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 
 const updateSchema = z.object({
@@ -17,7 +18,10 @@ export const GET = withApiHandler(
     if (!auth.authorized) return auth.response;
     const plan = await prisma.testPlan.findUnique({
       where: { id: params.id },
-      include: { cases: { include: { case: true } } }
+      include: {
+        cases: { include: { case: true }, orderBy: { order: "asc" } },
+        environmentRelations: true
+      }
     });
     if (!plan) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(plan);
@@ -29,7 +33,27 @@ export const PATCH = withApiHandler(
     const auth = await requireAuth(req, "testplan:manage");
     if (!auth.authorized) return auth.response;
     const parsed = updateSchema.parse(await req.json());
-    const plan = await prisma.testPlan.update({ where: { id: params.id }, data: parsed });
+
+    // Handle environment relations update
+    const environmentIds = parsed.environments;
+    const data: any = { ...parsed };
+
+    if (environmentIds) {
+      data.environmentRelations = {
+        set: environmentIds.map((id) => ({ id })),
+      };
+      // Keep legacy field in sync for now if needed, or just ignore it
+      delete data.environments;
+    }
+
+    const plan = await prisma.testPlan.update({
+      where: { id: params.id },
+      data,
+      include: { environmentRelations: true }
+    });
+
+    await logAudit(auth.session.user?.id, "UPDATE", "TestPlan", plan.id, parsed);
+
     return NextResponse.json(plan);
   }
 );
@@ -39,6 +63,9 @@ export const DELETE = withApiHandler(
     const auth = await requireAuth(req, "testplan:manage");
     if (!auth.authorized) return auth.response;
     await prisma.testPlan.delete({ where: { id: params.id } });
+
+    await logAudit(auth.session.user?.id, "DELETE", "TestPlan", params.id, {});
+
     return NextResponse.json({ ok: true });
   }
 );

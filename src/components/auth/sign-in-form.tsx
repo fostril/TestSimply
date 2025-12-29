@@ -78,13 +78,6 @@ export function SignInForm() {
       <div className="text-center text-xs text-slate-500">
         <button
           type="button"
-          onClick={() => signIn("github", { callbackUrl: "/" })}
-          className="mr-2 rounded-full border border-slate-700 px-3 py-1 hover:bg-slate-800"
-        >
-          GitHub
-        </button>
-        <button
-          type="button"
           onClick={() => signIn("google", { callbackUrl: "/" })}
           className="rounded-full border border-slate-700 px-3 py-1 hover:bg-slate-800"
         >

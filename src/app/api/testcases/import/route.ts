@@ -24,12 +24,12 @@ export const POST = withApiHandler(async (req: NextRequest) => {
           key: `${projectId}-CSV-${index + 1}-${Date.now()}`,
           name: row.name,
           description: row.description,
-          preconditions: row.precondition,
+          preconditionsText: row.precondition,
           steps: row["steps.action"]
             ? row["steps.action"]?.split("|\n").map((action, idx) => ({
-                action,
-                expected: row["steps.expected"]?.split("|\n")[idx] ?? ""
-              }))
+              action,
+              expected: row["steps.expected"]?.split("|\n")[idx] ?? ""
+            }))
             : [],
           expected: row.expected_result,
           tags: row.tags ? row.tags.split(",").map((tag) => tag.trim()) : []

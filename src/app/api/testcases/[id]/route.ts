@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, withApiHandler } from "@/lib/api";
+import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 import { Prisma, Priority } from "@prisma/client";
 
@@ -15,6 +16,9 @@ const updateSchema = z.object({
   tags: z.array(z.string()).optional(),        // scalar list
   component: z.string().optional(),
   ownerId: z.string().nullable().optional(),   // relation: connect/disconnect
+  isAutomated: z.boolean().optional(),
+  automationId: z.string().optional(),
+  isFlaky: z.boolean().optional(),
 });
 
 export const GET = withApiHandler(
@@ -24,7 +28,11 @@ export const GET = withApiHandler(
 
     const testCase = await prisma.testCase.findUnique({
       where: { id: params.id },
-      include: { requirements: true },
+      include: {
+        requirements: true,
+        preconditions: true,
+        bugs: true
+      },
     });
 
     if (!testCase) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -40,31 +48,36 @@ export const PATCH = withApiHandler(
     const body = await req.json();
     const parsed = updateSchema.parse(body);
 
-  const data: Prisma.TestCaseUpdateInput = {
-    ...(parsed.name && { name: parsed.name }),
-    ...(parsed.description && { description: parsed.description }),
-    ...(parsed.preconditions && { preconditions: parsed.preconditions }),
-    ...(parsed.steps && { steps: parsed.steps as unknown as Prisma.InputJsonValue }),
-    ...(parsed.expected && { expected: parsed.expected }),
-    ...(parsed.priority !== undefined && { priority: { set: parsed.priority } }),
-    ...(parsed.status !== undefined && { status: parsed.status }), // status is a string in schema
-    ...(parsed.tags && { tags: { set: parsed.tags } }),
-    ...(parsed.component && { component: parsed.component }),
-    ...(
-      parsed.ownerId !== undefined
-        ? (parsed.ownerId === null
-          ? { owner: { disconnect: true } }
-          : { owner: { connect: { id: parsed.ownerId } } })
-        : {}
-    ),
-  };
+    const data: Prisma.TestCaseUpdateInput = {
+      ...(parsed.name !== undefined && { name: parsed.name }),
+      ...(parsed.description !== undefined && { description: parsed.description }),
+      ...(parsed.preconditions !== undefined && { preconditionsText: parsed.preconditions }), // Use preconditionsText
+      ...(parsed.steps !== undefined && { steps: parsed.steps as unknown as Prisma.InputJsonValue }),
+      ...(parsed.expected !== undefined && { expected: parsed.expected }),
+      ...(parsed.priority !== undefined && { priority: { set: parsed.priority } }),
+      ...(parsed.status !== undefined && { status: parsed.status }), // status is a string in schema
+      ...(parsed.tags !== undefined && { tags: { set: parsed.tags } }),
+      ...(parsed.component !== undefined && { component: parsed.component }),
+      ...(
+        parsed.ownerId !== undefined
+          ? (parsed.ownerId === null
+            ? { owner: { disconnect: true } }
+            : { owner: { connect: { id: parsed.ownerId } } })
+          : {}
+      ),
+      ...(parsed.isAutomated !== undefined && { isAutomated: parsed.isAutomated }),
+      ...(parsed.automationId !== undefined && { automationId: parsed.automationId }),
+      ...(parsed.isFlaky !== undefined && { isFlaky: parsed.isFlaky }),
+    };
 
-  const testCase = await prisma.testCase.update({
-    where: { id: params.id },
-    data,
-  });
+    const testCase = await prisma.testCase.update({
+      where: { id: params.id },
+      data,
+    });
 
-  return NextResponse.json(testCase);
+    await logAudit(auth.session.user?.id, "UPDATE", "TestCase", testCase.id, parsed);
+
+    return NextResponse.json(testCase);
   }
 );
 
@@ -78,6 +91,8 @@ export const DELETE = withApiHandler(
       data: { deletedAt: new Date() },
     });
 
-  return NextResponse.json({ ok: true });
+    await logAudit(auth.session.user?.id, "DELETE", "TestCase", params.id, {});
+
+    return NextResponse.json({ ok: true });
   }
 );

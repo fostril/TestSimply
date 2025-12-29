@@ -10,7 +10,7 @@ import { useProjectStore } from "@/lib/stores/project-store";
 
 export function DashboardPage() {
   const projectId = useProjectStore((state) => state.projectId);
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["summary", projectId],
     enabled: Boolean(projectId),
     queryFn: async () => {
@@ -24,6 +24,8 @@ export function DashboardPage() {
   const activeExecutions = data?.activeExecutions ?? 0;
   const flakyCount = data?.flakyCount ?? 0;
 
+  const projectKey = useProjectStore((state) => state.projectKey);
+
   return (
     <div className="px-8 py-6 space-y-6">
       <header className="flex items-center justify-between">
@@ -34,7 +36,7 @@ export function DashboardPage() {
           </p>
         </div>
         <Link
-          href="/executions/new"
+          href={projectKey ? `/projects/${projectKey}/executions/new` : "/executions/new"}
           className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white shadow-lg hover:bg-blue-500"
         >
           New Execution
@@ -43,17 +45,29 @@ export function DashboardPage() {
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="rounded-2xl bg-slate-900 p-6 shadow-xl">
           <p className="text-sm uppercase tracking-wide text-slate-400">Pass rate</p>
-          <p className="mt-2 text-3xl font-bold">{passRate}%</p>
+          {isLoading ? (
+            <div className="mt-2 h-9 w-24 animate-pulse rounded-lg bg-slate-800" />
+          ) : (
+            <p className="mt-2 text-3xl font-bold">{passRate}%</p>
+          )}
           <p className="text-xs text-slate-500">Last 14 days</p>
         </div>
         <div className="rounded-2xl bg-slate-900 p-6 shadow-xl">
           <p className="text-sm uppercase tracking-wide text-slate-400">Active executions</p>
-          <p className="mt-2 text-3xl font-bold">{activeExecutions}</p>
+          {isLoading ? (
+            <div className="mt-2 h-9 w-16 animate-pulse rounded-lg bg-slate-800" />
+          ) : (
+            <p className="mt-2 text-3xl font-bold">{activeExecutions}</p>
+          )}
           <p className="text-xs text-slate-500">In progress across teams</p>
         </div>
         <div className="rounded-2xl bg-slate-900 p-6 shadow-xl">
           <p className="text-sm uppercase tracking-wide text-slate-400">Flaky candidates</p>
-          <p className="mt-2 text-3xl font-bold">{flakyCount}</p>
+          {isLoading ? (
+            <div className="mt-2 h-9 w-16 animate-pulse rounded-lg bg-slate-800" />
+          ) : (
+            <p className="mt-2 text-3xl font-bold">{flakyCount}</p>
+          )}
           <p className="text-xs text-slate-500">Fail rate ≥ 30% (14d)</p>
         </div>
       </section>
