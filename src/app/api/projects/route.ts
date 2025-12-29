@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { withApiHandler } from "@/lib/api";
+import { requireAuth, withApiHandler } from "@/lib/api";
 import { z } from "zod";
 
 const projectSchema = z.object({
@@ -9,8 +9,29 @@ const projectSchema = z.object({
   description: z.string().optional(),
 });
 
-export const GET = withApiHandler(async () => {
+export const GET = withApiHandler(async (req: NextRequest) => {
+  const auth = await requireAuth(req, "project:list");
+  if (!auth.authorized) return auth.response;
+
+  const userRole = auth.session.user.role;
+  const userId = auth.session.user.id;
+
+  // ADMINs see all projects, others only see assigned projects
+  if (userRole === "ADMIN") {
+    const projects = await prisma.project.findMany({
+      orderBy: { createdAt: "desc" },
+      include: { settings: true },
+    });
+    return NextResponse.json(projects);
+  }
+
+  // Non-admin users only see their assigned projects
   const projects = await prisma.project.findMany({
+    where: {
+      members: {
+        some: { id: userId },
+      },
+    },
     orderBy: { createdAt: "desc" },
     include: { settings: true },
   });
@@ -18,6 +39,9 @@ export const GET = withApiHandler(async () => {
 });
 
 export const POST = withApiHandler(async (req: NextRequest) => {
+  const auth = await requireAuth(req, "project:create");
+  if (!auth.authorized) return auth.response;
+
   const body = await req.json();
   const parsed = projectSchema.safeParse(body);
 
@@ -61,6 +85,6 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         { status: 409 }
       );
     }
-    return NextResponse.json({ error: "Failed to create project" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to create project", details: err.message }, { status: 500 });
   }
 });

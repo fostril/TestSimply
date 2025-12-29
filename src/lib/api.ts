@@ -1,6 +1,8 @@
 import { Prisma, Role } from "@prisma/client";
 import { NextResponse, type NextRequest } from "next/server";
 import { ZodError } from "zod";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 type DefaultSession = {
   user: {
@@ -34,13 +36,21 @@ type RequireAuthFailure = {
 type RequireAuthResult = RequireAuthSuccess | RequireAuthFailure;
 
 export async function requireAuth(req: NextRequest, action?: unknown): Promise<RequireAuthResult> {
-  void req;
-  void action;
+  const session = await getServerSession(authOptions);
+
+  if (!session || !session.user) {
+    console.log("[Auth] Unauthorized access attempt:", req.nextUrl.pathname);
+    console.log("[Auth] Session:", session);
+    return {
+      authorized: false,
+      session: { user: { ...DEFAULT_SESSION.user } },
+      response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    };
+  }
+
   return {
     authorized: true,
-    session: {
-      user: { ...DEFAULT_SESSION.user },
-    },
+    session: session as unknown as DefaultSession,
   };
 }
 
@@ -54,11 +64,12 @@ type RouteHandlerReturn<TContext> = (
   context: TContext
 ) => Promise<Response | NextResponse>;
 
-const databaseUnavailable = () =>
+const databaseUnavailable = (message?: string) =>
   NextResponse.json(
     {
       error: "Database unavailable",
       message: "Unable to connect to the database. Ensure the Postgres instance is running and reachable.",
+      details: message,
     },
     { status: 503 }
   );
@@ -96,6 +107,17 @@ export function withApiHandler<TContext = Record<string, unknown>>(
           );
         }
 
+        if (error.code === "P2003") {
+          return NextResponse.json(
+            {
+              error: "Invalid reference",
+              message: "The operation references a record that does not exist.",
+              target: error.meta?.field_name ?? [],
+            },
+            { status: 400 }
+          );
+        }
+
         return NextResponse.json(
           {
             error: "Database request failed",
@@ -109,7 +131,7 @@ export function withApiHandler<TContext = Record<string, unknown>>(
         error instanceof Prisma.PrismaClientInitializationError ||
         error instanceof Prisma.PrismaClientRustPanicError
       ) {
-        return databaseUnavailable();
+        return databaseUnavailable(error.message);
       }
 
       if (error instanceof Prisma.PrismaClientValidationError) {

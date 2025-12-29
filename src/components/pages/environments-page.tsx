@@ -1,0 +1,252 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useProjectStore } from "@/lib/stores/project-store";
+import { useToast } from "@/components/ui/toast";
+import { useState } from "react";
+import { Trash2 } from "lucide-react";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+
+export function EnvironmentsPage() {
+    const projectId = useProjectStore((state) => state.projectId);
+    const toast = useToast();
+    const queryClient = useQueryClient();
+    const [isCreating, setIsCreating] = useState(false);
+    const [editingEnvironment, setEditingEnvironment] = useState<any>(null);
+    const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+
+    const { data: environments, isLoading } = useQuery({
+        queryKey: ["environments", projectId],
+        enabled: Boolean(projectId),
+        queryFn: async () => {
+            const res = await fetch(`/api/environments?projectId=${projectId}`);
+            if (!res.ok) throw new Error("Failed to load environments");
+            return res.json();
+        }
+    });
+
+    const createMutation = useMutation({
+        mutationFn: async (data: { name: string; description?: string; url?: string }) => {
+            const res = await fetch("/api/environments", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ...data, projectId }),
+            });
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(body.error || "Failed to create environment");
+            }
+            return res.json();
+        },
+        onSuccess: () => {
+            toast({ title: "Environment created" });
+            setIsCreating(false);
+            queryClient.invalidateQueries({ queryKey: ["environments", projectId] });
+        },
+        onError: (err) => {
+            toast({ title: "Failed to create", description: (err as Error).message });
+        }
+    });
+
+    const updateMutation = useMutation({
+        mutationFn: async (data: { id: string; name: string; description?: string; url?: string }) => {
+            const res = await fetch(`/api/environments/${data.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: data.name, description: data.description, url: data.url }),
+            });
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(body.error || "Failed to update environment");
+            }
+            return res.json();
+        },
+        onSuccess: () => {
+            toast({ title: "Environment updated" });
+            setIsCreating(false);
+            setEditingEnvironment(null);
+            queryClient.invalidateQueries({ queryKey: ["environments", projectId] });
+        },
+        onError: (err) => {
+            toast({ title: "Failed to update", description: (err as Error).message });
+        }
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: async (id: string) => {
+            const res = await fetch(`/api/environments/${id}`, {
+                method: "DELETE",
+            });
+            if (!res.ok) throw new Error("Failed to delete environment");
+            return res.json();
+        },
+        onSuccess: () => {
+            toast({ title: "Environment deleted" });
+            queryClient.invalidateQueries({ queryKey: ["environments", projectId] });
+        },
+        onError: (err) => {
+            toast({ title: "Failed to delete", description: (err as Error).message });
+        }
+    });
+
+    const openCreate = () => {
+        setEditingEnvironment(null);
+        setIsCreating(true);
+    };
+
+    const openEdit = (env: any) => {
+        setEditingEnvironment(env);
+        setIsCreating(true);
+    };
+
+    if (isLoading) return <div className="p-8 text-slate-400">Loading...</div>;
+
+    return (
+        <div className="px-8 py-6">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-semibold">Environments</h1>
+                    <p className="text-sm text-slate-400">Manage test environments for your project.</p>
+                </div>
+                <button
+                    onClick={openCreate}
+                    className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white shadow-lg hover:bg-blue-500"
+                >
+                    New Environment
+                </button>
+            </div>
+
+            {isCreating && (
+                <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+                    <h2 className="mb-4 text-lg font-semibold text-white">
+                        {editingEnvironment ? "Edit Environment" : "Create Environment"}
+                    </h2>
+                    <form
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            const formData = new FormData(e.currentTarget);
+                            const name = formData.get("name") as string;
+                            const description = formData.get("description") as string;
+                            const url = formData.get("url") as string;
+
+                            if (editingEnvironment) {
+                                updateMutation.mutate({ id: editingEnvironment.id, name, description, url });
+                            } else {
+                                createMutation.mutate({ name, description, url });
+                            }
+                        }}
+                        className="space-y-4"
+                    >
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <div>
+                                <label className="text-xs font-medium text-slate-300">Name (e.g., Staging)</label>
+                                <input
+                                    name="name"
+                                    defaultValue={editingEnvironment?.name}
+                                    required
+                                    className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="text-xs font-medium text-slate-300">URL (Optional)</label>
+                            <input
+                                name="url"
+                                type="url"
+                                defaultValue={editingEnvironment?.url}
+                                className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs font-medium text-slate-300">Description (Optional)</label>
+                            <textarea
+                                name="description"
+                                defaultValue={editingEnvironment?.description}
+                                rows={2}
+                                className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                            />
+                        </div>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setIsCreating(false)}
+                                className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={createMutation.isPending || updateMutation.isPending}
+                                className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+                            >
+                                {editingEnvironment ? "Save Changes" : "Create"}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            )}
+
+            <div className="mt-6 grid gap-4 lg:grid-cols-2">
+                {(environments ?? []).map((env: any) => (
+                    <div
+                        key={env.id}
+                        onClick={() => openEdit(env)}
+                        className="group rounded-2xl border border-slate-800 bg-slate-900/60 p-6 hover:bg-slate-800/80 transition-colors cursor-pointer relative"
+                    >
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <span className="rounded bg-slate-800 px-2 py-0.5 text-xs font-bold text-slate-300">
+                                    {env.key}
+                                </span>
+                                <h2 className="text-xl font-semibold text-white">{env.name}</h2>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setItemToDelete(env.id);
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 p-2 text-slate-500 hover:text-red-400 transition-all"
+                                    title="Delete Environment"
+                                >
+                                    <Trash2 className="h-5 w-5" />
+                                </button>
+                            </div>
+                        </div>
+                        {env.url && (
+                            <a
+                                href={env.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="mt-2 block text-sm text-blue-400 hover:underline"
+                            >
+                                {env.url}
+                            </a>
+                        )}
+                        <p className="mt-2 text-sm text-slate-400">{env.description || "No description"}</p>
+                    </div>
+                ))}
+                {(environments ?? []).length === 0 && !isCreating && (
+                    <div className="col-span-2 py-12 text-center text-slate-500">
+                        No environments found. Create one to get started.
+                    </div>
+                )}
+            </div>
+
+            <ConfirmationDialog
+                open={!!itemToDelete}
+                onOpenChange={(open) => !open && setItemToDelete(null)}
+                title="Delete Environment"
+                description="Are you sure you want to delete this environment? This action cannot be undone."
+                confirmLabel="Delete"
+                variant="destructive"
+                onConfirm={() => {
+                    if (itemToDelete) {
+                        deleteMutation.mutate(itemToDelete);
+                        setItemToDelete(null);
+                    }
+                }}
+                isLoading={deleteMutation.isPending}
+            />
+        </div>
+    );
+}

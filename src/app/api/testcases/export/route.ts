@@ -16,7 +16,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     cases.map((testCase) => ({
       name: testCase.name,
       description: testCase.description ?? "",
-      precondition: testCase.preconditions ?? "",
+      precondition: testCase.preconditionsText ?? "",
       "steps.action": Array.isArray(testCase.steps)
         ? (testCase.steps as any[]).map((s) => s.action).join("|\n")
         : "",

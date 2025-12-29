@@ -2,6 +2,19 @@
 
 TestSimply is a full-stack test management platform inspired by Jira Xray. It provides project-level dashboards, test case modelling, planning, manual execution workflows, automated result imports, CSV utilities, and RBAC powered by NextAuth. The stack is Next.js 14 (App Router) with Prisma/PostgreSQL, TailwindCSS + shadcn/ui, TanStack Query/Table, React Hook Form + Zod, Zustand, and Vitest/Playwright for testing.
 
+## Quick Start
+
+1. **Prerequisites**: Docker and Node.js 18+.
+2. **Setup**: Run the setup script to start services and apply migrations.
+   ```bash
+   ./scripts/setup-local.sh
+   ```
+3. **Run**: Start the development server.
+   ```bash
+   npm run dev
+   ```
+4. **Open**: Visit <http://localhost:3000>.
+
 ## Current status
 
 ### Prerequisites

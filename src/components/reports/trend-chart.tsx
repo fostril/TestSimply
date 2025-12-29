@@ -25,8 +25,8 @@ export function TrendChart() {
           <XAxis dataKey="date" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
           <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
           <Tooltip cursor={{ stroke: "#334155" }} contentStyle={{ backgroundColor: "#0f172a", borderRadius: 12 }} />
-          <Area type="monotone" dataKey="pass" stackId="1" stroke="#22c55e" fill="#14532d" />
-          <Area type="monotone" dataKey="fail" stackId="1" stroke="#ef4444" fill="#7f1d1d" />
+          <Area type="monotone" dataKey="pass" stroke="#22c55e" fill="#14532d" fillOpacity={0.6} />
+          <Area type="monotone" dataKey="fail" stroke="#ef4444" fill="#7f1d1d" fillOpacity={0.6} />
         </AreaChart>
       </ResponsiveContainer>
     </div>

@@ -1,36 +1,38 @@
 import { ReactNode } from "react";
 import { ProjectSwitcher } from "@/components/project-switcher";
 import { CommandPalette } from "@/components/ui/command-palette";
-import { NavLink } from "@/components/nav-link";
+import { AuthGuard } from "@/components/auth/auth-guard";
 
-const navItems = [
-  { href: "/", label: "Dashboard" },
-  { href: "/testcases", label: "Test Cases" },
-  { href: "/testplans", label: "Plans" },
-  { href: "/executions", label: "Executions" },
-  { href: "/reports", label: "Reports" },
-  { href: "/settings", label: "Settings" }
-];
+
+import { SidebarNavigation } from "@/components/layout/sidebar-navigation";
+import { UserProfile } from "@/components/layout/user-profile";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen">
-      <aside className="hidden w-64 flex-col border-r border-slate-800 bg-slate-950/80 p-6 lg:flex">
-        <div className="mb-8">
-          <div className="text-xl font-semibold text-white">TestSimply</div>
-          <p className="mt-1 text-xs text-slate-500">Test Management Toolkit</p>
-        </div>
-        <ProjectSwitcher />
-        <nav className="mt-8 space-y-2">
-          {navItems.map((item) => (
-            <NavLink key={item.href} href={item.href} label={item.label} />
-          ))}
-        </nav>
-      </aside>
-      <main className="flex-1 overflow-y-auto bg-slate-950/95">
-        <CommandPalette />
-        {children}
-      </main>
-    </div>
+    <AuthGuard>
+      <div className="flex min-h-screen bg-background text-foreground selection:bg-primary/20 selection:text-primary">
+        <aside className="hidden w-64 flex-col border-r border-border bg-card/50 backdrop-blur-xl p-6 lg:flex">
+          <div className="mb-8">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                <div className="h-4 w-4 rounded-sm bg-primary" />
+              </div>
+              <div>
+                <div className="text-lg font-bold tracking-tight text-foreground">TestSimply</div>
+                <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Toolkit</p>
+              </div>
+            </div>
+          </div>
+          <ProjectSwitcher />
+          <SidebarNavigation />
+          <UserProfile />
+        </aside>
+        <main className="flex-1 overflow-y-auto bg-background/95">
+          <CommandPalette />
+          {children}
+        </main>
+      </div>
+    </AuthGuard>
   );
 }
+// Force rebuild

@@ -8,6 +8,9 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   if (!auth.authorized) return auth.response;
 
   const body = await req.json();
+  if (!Array.isArray(body)) {
+    return NextResponse.json({ error: "Invalid payload: expected an array of features" }, { status: 400 });
+  }
   const { searchParams } = new URL(req.url);
   const projectKey = searchParams.get("projectKey");
   const execKey = searchParams.get("execKey");

@@ -20,3 +20,18 @@ export const POST = withApiHandler(
     return NextResponse.json({ ok: true });
   }
 );
+
+export const DELETE = withApiHandler(
+  async (req: NextRequest, { params }: { params: { id: string } }) => {
+    const auth = await requireAuth(req, "testplan:manage");
+    if (!auth.authorized) return auth.response;
+    const parsed = bodySchema.parse(await req.json());
+    await prisma.testCasePlan.deleteMany({
+      where: {
+        planId: params.id,
+        caseId: { in: parsed.caseIds }
+      }
+    });
+    return NextResponse.json({ ok: true });
+  }
+);
