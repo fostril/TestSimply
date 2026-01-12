@@ -29,7 +29,7 @@ type Execution = {
 };
 
 function ExecutionProgressBar({ execution }: { execution: Execution }) {
-  const results = execution.results || [];
+  const results = useMemo(() => execution.results || [], [execution.results]);
   const totalCases = execution.plan?.cases?.length || results.length || 0;
 
   const stats = useMemo(() => {

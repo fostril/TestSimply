@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { decrypt } from "@/lib/encryption";
 
 export interface CiClient {
     triggerWorkflow(workflowId: string, inputs?: Record<string, string>): Promise<{ success: boolean; message?: string; workflowUrl?: string }>;
@@ -97,12 +98,16 @@ export class GitHubCiClient implements CiClient {
             return null;
         }
 
+        // Decrypt the CI token before use
+        const decryptedToken = decrypt(settings.ciToken);
+
         if (settings.ciProvider === "GITHUB") {
-            return new GitHubCiClient(settings.ciUrl, settings.ciToken);
+            return new GitHubCiClient(settings.ciUrl, decryptedToken);
         }
 
         // Future: Add GitLab/Jenkins support here
         return null;
     }
 }
+
 

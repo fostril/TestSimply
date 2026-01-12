@@ -66,7 +66,7 @@ export function TestCasesPage() {
     }
   });
 
-  const rows = data ?? [];
+  const rows = useMemo(() => data ?? [], [data]);
 
   // Filter rows based on search and filters
   const filteredRows = useMemo(() => {
