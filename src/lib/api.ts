@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { ZodError } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { defaultRateLimiter, type RateLimitResult } from "@/lib/rate-limit";
 
 type DefaultSession = {
   user: {
@@ -54,6 +55,21 @@ export async function requireAuth(req: NextRequest, action?: unknown): Promise<R
   };
 }
 
+/**
+ * Get client IP from request headers.
+ */
+function getClientIp(req: NextRequest): string {
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) {
+    return forwarded.split(",")[0].trim();
+  }
+  const realIp = req.headers.get("x-real-ip");
+  if (realIp) {
+    return realIp;
+  }
+  return "unknown";
+}
+
 type RouteHandler<TContext> = (
   req: NextRequest,
   context: TContext
@@ -63,6 +79,11 @@ type RouteHandlerReturn<TContext> = (
   req: NextRequest,
   context: TContext
 ) => Promise<Response | NextResponse>;
+
+interface ApiHandlerOptions {
+  /** Disable rate limiting for this endpoint */
+  skipRateLimit?: boolean;
+}
 
 const databaseUnavailable = (message?: string) =>
   NextResponse.json(
@@ -74,10 +95,40 @@ const databaseUnavailable = (message?: string) =>
     { status: 503 }
   );
 
+const rateLimitExceeded = (result: RateLimitResult) =>
+  NextResponse.json(
+    {
+      error: "Too many requests",
+      message: "Rate limit exceeded. Please try again later.",
+      retryAfter: result.retryAfter,
+    },
+    {
+      status: 429,
+      headers: {
+        "X-RateLimit-Limit": "100",
+        "X-RateLimit-Remaining": String(result.remaining),
+        "X-RateLimit-Reset": String(result.reset),
+        "Retry-After": String(result.retryAfter ?? 60),
+      },
+    }
+  );
+
 export function withApiHandler<TContext = Record<string, unknown>>(
-  handler: RouteHandler<TContext>
+  handler: RouteHandler<TContext>,
+  options: ApiHandlerOptions = {}
 ): RouteHandlerReturn<TContext> {
   return async (req, context) => {
+    // Rate limiting (can be disabled per-endpoint)
+    if (!options.skipRateLimit) {
+      const clientIp = getClientIp(req);
+      const rateLimitResult = defaultRateLimiter.check(clientIp);
+
+      if (!rateLimitResult.success) {
+        console.log(`[RateLimit] Blocked request from ${clientIp}`);
+        return rateLimitExceeded(rateLimitResult);
+      }
+    }
+
     try {
       return await handler(req, context);
     } catch (error) {
@@ -163,3 +214,4 @@ export function withApiHandler<TContext = Record<string, unknown>>(
     }
   };
 }
+

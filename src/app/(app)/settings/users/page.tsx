@@ -235,7 +235,10 @@ export default function UsersPage() {
                                         <div className="flex items-center gap-3">
                                             <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary">
                                                 {user.image ? (
-                                                    <img src={user.image} alt={user.name} className="h-9 w-9 rounded-full" />
+                                                    <span className="relative h-9 w-9 rounded-full overflow-hidden">
+                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                        <img src={user.image} alt={user.name || "User"} className="h-9 w-9 rounded-full object-cover" />
+                                                    </span>
                                                 ) : (
                                                     <User className="h-4 w-4" />
                                                 )}
