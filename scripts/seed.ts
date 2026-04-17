@@ -161,6 +161,12 @@ async function createResults(executionId: string, testCaseIds: string[]) {
 }
 
 async function main() {
+  // Safety check: refuse to run in production
+  if (process.env.NODE_ENV === "production") {
+    console.error("ERROR: Seed script cannot run in production. This would delete all data!");
+    process.exit(1);
+  }
+
   console.log("🌱 Starting TestSimply seed...");
   await prisma.attachment.deleteMany();
   await prisma.testResult.deleteMany();

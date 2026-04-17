@@ -1,26 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler } from "@/lib/api";
+import { requireAuth, withApiHandler, requireProjectAccess } from "@/lib/api";
+import { logAudit } from "@/lib/audit";
 import { z } from "zod";
-import { Priority } from "@prisma/client";
+import { Priority, Role } from "@prisma/client";
 
 const bulkUpdateSchema = z.object({
     ids: z.array(z.string()),
     action: z.enum(["update", "delete"]),
-    data: z.object({
-        status: z.string().optional(),
-        priority: z.nativeEnum(Priority).optional(),
-    }).optional(),
+    data: z
+        .object({
+            status: z.string().optional(),
+            priority: z.nativeEnum(Priority).optional(),
+        })
+        .optional(),
 });
 
 export const POST = withApiHandler(async (req: NextRequest) => {
-    // Using POST for bulk actions to avoid body limitations in DELETE (though usually fine) 
-    // and to have a single endpoint for multiple actions.
-    // Alternatively could use PATCH and DELETE separately.
-    // Let's stick to POST as a "command" endpoint or use PATCH/DELETE.
-    // The plan said "New endpoint for bulk updates".
-
-    const auth = await requireAuth(req, "testcase:edit");
+    const auth = await requireAuth(req, "testcase:update");
     if (!auth.authorized) return auth.response;
 
     const body = await req.json();
@@ -31,22 +28,56 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         return NextResponse.json({ count: 0 });
     }
 
-    if (action === "delete") {
-        // Soft delete
-        const result = await prisma.testCase.updateMany({
+    // Restrict to test cases the user can access. For ADMIN we skip the check
+    // (fast path); for everyone else we load the owning projects and keep
+    // only IDs belonging to projects they're a member/lead of.
+    let allowedIds: string[] = ids;
+    if (auth.session.user.role !== Role.ADMIN) {
+        const cases = await prisma.testCase.findMany({
             where: { id: { in: ids } },
+            select: { id: true, projectId: true },
+        });
+        const uniqueProjects = Array.from(new Set(cases.map((c) => c.projectId)));
+        const allowedProjects = new Set<string>();
+        for (const pid of uniqueProjects) {
+            const access = await requireProjectAccess(
+                auth.session.user.id,
+                auth.session.user.role,
+                pid,
+            );
+            if (access) allowedProjects.add(pid);
+        }
+        allowedIds = cases.filter((c) => allowedProjects.has(c.projectId)).map((c) => c.id);
+    }
+
+    if (allowedIds.length === 0) {
+        return NextResponse.json({ error: "No accessible test cases" }, { status: 403 });
+    }
+
+    if (action === "delete") {
+        const result = await prisma.testCase.updateMany({
+            where: { id: { in: allowedIds } },
             data: { deletedAt: new Date() },
+        });
+        await logAudit(auth.session.user?.id, "BULK_DELETE", "TestCase", "bulk", {
+            count: result.count,
+            ids: allowedIds,
         });
         return NextResponse.json(result);
     }
 
     if (action === "update" && data) {
         const result = await prisma.testCase.updateMany({
-            where: { id: { in: ids } },
+            where: { id: { in: allowedIds } },
             data: {
                 ...(data.status ? { status: data.status } : {}),
                 ...(data.priority ? { priority: data.priority } : {}),
             },
+        });
+        await logAudit(auth.session.user?.id, "BULK_UPDATE", "TestCase", "bulk", {
+            count: result.count,
+            ids: allowedIds,
+            data,
         });
         return NextResponse.json(result);
     }

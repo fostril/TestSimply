@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',           // <- important
-  eslint: { ignoreDuringBuilds: true } // if you want
+  output: 'standalone',
+  eslint: { ignoreDuringBuilds: false },
+  poweredByHeader: false,
+  reactStrictMode: true,
 };
 module.exports = nextConfig;

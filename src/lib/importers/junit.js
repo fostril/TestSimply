@@ -1,5 +1,6 @@
 const { prisma: defaultClient } = require("../prisma.js");
 const { TestStatus } = require("@prisma/client");
+const { generateEntityKey } = require("../keys.js");
 
 const attributePattern = /([\w:-]+)="([^"]*)"/g;
 
@@ -87,24 +88,50 @@ const mapStatus = (status) => {
 const importJUnit = async (xml, options, client = defaultClient) => {
   const cases = flattenCases(xml);
 
+  // Lazily fetch the project prefix — only required when auto-creating cases.
+  let projectPromise = null;
+  const getProject = () => {
+    if (!projectPromise) {
+      projectPromise = client.project
+        .findUnique({
+          where: { id: options.projectId },
+          select: { key: true },
+        })
+        .then((p) => {
+          if (!p) throw new Error(`Project ${options.projectId} not found`);
+          return p;
+        });
+    }
+    return projectPromise;
+  };
+
   for (const result of cases) {
-    const caseKey = result.name;
+    const name = (result.name ?? "").trim();
+    if (!name) continue;
+
     let testCase = await client.testCase.findFirst({
       where: {
         projectId: options.projectId,
-        OR: [{ key: caseKey }, { name: caseKey }]
+        OR: [{ key: name }, { name }]
       }
     });
     if (!testCase && options.autoCreateCases) {
+      const project = await getProject();
+      const generatedKey = await generateEntityKey(
+        client,
+        options.projectId,
+        project.key,
+        "TC",
+      );
       testCase = await client.testCase.create({
         data: {
           projectId: options.projectId,
-          key: caseKey,
-          name: caseKey,
+          key: generatedKey,
+          name,
           steps: [],
           status: "Imported",
           tags: ["imported"],
-          component: result.classname
+          component: result.classname || null,
         }
       });
     }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, withApiHandler } from "@/lib/api";
+import { requireAuth, withApiHandler, requireProjectAccessOrForbid } from "@/lib/api";
 import { JiraClient } from "@/lib/jira";
 
 export const GET = withApiHandler(async (req: NextRequest) => {
@@ -13,6 +13,13 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     if (!projectId || !key) {
         return NextResponse.json({ error: "Missing projectId or key" }, { status: 400 });
     }
+
+    const access = await requireProjectAccessOrForbid(
+        auth.session.user.id,
+        auth.session.user.role,
+        projectId,
+    );
+    if (access instanceof NextResponse) return access;
 
     const jira = await JiraClient.forProject(projectId);
     if (!jira) {

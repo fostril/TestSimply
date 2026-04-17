@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exportCsv } from "@/lib/csv";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler } from "@/lib/api";
+import { requireAuth, withApiHandler, requireProjectAccessOrForbid } from "@/lib/api";
 
 export const GET = withApiHandler(async (req: NextRequest) => {
   const auth = await requireAuth(req, "project:view");
@@ -11,7 +11,14 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   if (!projectId) {
     return NextResponse.json({ error: "projectId required" }, { status: 400 });
   }
-  const cases = await prisma.testCase.findMany({ where: { projectId } });
+  const access = await requireProjectAccessOrForbid(
+    auth.session.user.id,
+    auth.session.user.role,
+    projectId,
+  );
+  if (access instanceof NextResponse) return access;
+
+  const cases = await prisma.testCase.findMany({ where: { projectId, deletedAt: null } });
   const csv = exportCsv(
     cases.map((testCase) => ({
       name: testCase.name,

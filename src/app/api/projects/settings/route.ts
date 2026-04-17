@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler } from "@/lib/api";
+import { requireAuth, withApiHandler, requireProjectAccessOrForbid } from "@/lib/api";
+import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 import { encrypt } from "@/lib/encryption";
+import { assertSafeExternalUrl } from "@/lib/ssrf";
 
 const updateSettingsSchema = z.object({
     projectId: z.string().min(1),
@@ -22,14 +24,41 @@ export const PATCH = withApiHandler(async (req: NextRequest) => {
     const body = await req.json();
     const parsed = updateSettingsSchema.parse(body);
 
-    // Encrypt sensitive tokens before storing
+    const access = await requireProjectAccessOrForbid(
+        auth.session.user.id,
+        auth.session.user.role,
+        parsed.projectId,
+    );
+    if (access instanceof NextResponse) return access;
+
+    // SSRF guard for user-provided integration URLs
+    try {
+        if (parsed.jiraUrl) assertSafeExternalUrl(parsed.jiraUrl);
+        if (parsed.ciUrl) assertSafeExternalUrl(parsed.ciUrl);
+    } catch (err) {
+        return NextResponse.json(
+            { error: "Invalid integration URL", message: (err as Error).message },
+            { status: 400 },
+        );
+    }
+
+    const isProd = process.env.NODE_ENV === "production";
+
+    // In production, refuse to persist secrets unless ENCRYPTION_KEY is set.
+    // Storing tokens unencrypted was the previous fallback, which effectively
+    // leaked secrets to anyone with DB access.
     const encryptToken = (token: string | undefined): string | null => {
         if (!token) return null;
         try {
             return encrypt(token);
-        } catch {
-            // If encryption fails (no key), store as-is for backward compatibility
-            console.warn("[Settings] Encryption key not set, storing token unencrypted");
+        } catch (err) {
+            if (isProd) {
+                throw new Error(
+                    "ENCRYPTION_KEY is not configured - refusing to store integration secrets. " +
+                    "Set ENCRYPTION_KEY before configuring integrations.",
+                );
+            }
+            console.warn("[Settings] Encryption key not set, storing token unencrypted (dev only)", err);
             return token;
         }
     };
@@ -58,12 +87,18 @@ export const PATCH = withApiHandler(async (req: NextRequest) => {
         update: updateData,
     });
 
-    // Mask sensitive data before returning
     const sanitizedSettings = {
         ...settings,
         jiraApiToken: settings.jiraApiToken ? "********" : null,
         ciToken: settings.ciToken ? "********" : null,
     };
+
+    await logAudit(auth.session.user?.id, "UPDATE", "ProjectSetting", settings.id, {
+        projectId: parsed.projectId,
+        jiraUrl: parsed.jiraUrl,
+        ciUrl: parsed.ciUrl,
+        // Never log token values
+    });
 
     return NextResponse.json(sanitizedSettings);
 });

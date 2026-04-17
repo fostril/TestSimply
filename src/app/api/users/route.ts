@@ -1,17 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/api";
+import { requireAuth, withApiHandler } from "@/lib/api";
 import { Role } from "@prisma/client";
 
 // GET /api/users - List all users (admin only)
-export async function GET(req: NextRequest) {
-    const auth = await requireAuth(req);
+export const GET = withApiHandler(async (req: NextRequest) => {
+    const auth = await requireAuth(req, "user:manage");
     if (!auth.authorized) return auth.response;
-
-    // Check if user is admin
-    if (auth.session.user.role !== "ADMIN") {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
 
     const users = await prisma.user.findMany({
         select: {
@@ -40,17 +35,12 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.json(users);
-}
+});
 
 // PATCH /api/users - Update user role (admin only)
-export async function PATCH(req: NextRequest) {
-    const auth = await requireAuth(req);
+export const PATCH = withApiHandler(async (req: NextRequest) => {
+    const auth = await requireAuth(req, "user:manage");
     if (!auth.authorized) return auth.response;
-
-    // Check if user is admin
-    if (auth.session.user.role !== "ADMIN") {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
 
     const body = await req.json();
     const { userId, role } = body;
@@ -80,4 +70,4 @@ export async function PATCH(req: NextRequest) {
     });
 
     return NextResponse.json(updatedUser);
-}
+});

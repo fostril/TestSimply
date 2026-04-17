@@ -1,3 +1,5 @@
+// CJS compatibility wrapper — reuses the same global singleton as prisma.ts
+// This file exists solely for the CJS importers (junit.js, cucumber.js).
 const { PrismaClient } = require("@prisma/client");
 
 const DEFAULT_LOCAL_DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/testsimplify";
@@ -20,19 +22,18 @@ const resolveDatabaseUrl = () => {
   return DEFAULT_LOCAL_DATABASE_URL;
 };
 
-let globalClient = globalThis.__testsimplify_prisma;
+// Use the same global key as prisma.ts to avoid duplicate clients
+const globalForPrisma = globalThis;
 
-if (!globalClient) {
+if (!globalForPrisma.prisma) {
   const databaseUrl = resolveDatabaseUrl();
-  globalClient = new PrismaClient({
+  globalForPrisma.prisma = new PrismaClient({
     datasources: {
       db: { url: databaseUrl },
     },
   });
-
-  if (process.env.NODE_ENV !== "production") {
-    globalThis.__testsimplify_prisma = globalClient;
-  }
 }
 
-module.exports = { prisma: globalClient, PrismaClient };
+const prisma = globalForPrisma.prisma;
+
+module.exports = { prisma, PrismaClient };

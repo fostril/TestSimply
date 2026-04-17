@@ -1,29 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler } from "@/lib/api";
+import { requireAuth, withApiHandler, requireProjectAccess } from "@/lib/api";
+import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 
 const updateSchema = z.object({
   name: z.string().optional(),
-  description: z.string().nullable().optional()
+  description: z.string().nullable().optional(),
 });
+
+async function findProject(idOrKey: string) {
+  return prisma.project.findFirst({
+    where: { OR: [{ id: idOrKey }, { key: idOrKey }] },
+    include: { settings: true },
+  });
+}
 
 export const GET = withApiHandler(
   async (req: NextRequest, { params }: { params: { id: string } }) => {
     const auth = await requireAuth(req, "project:view");
     if (!auth.authorized) return auth.response;
-    const project = await prisma.project.findFirst({
-      where: {
-        OR: [
-          { id: params.id },
-          { key: params.id }
-        ]
-      },
-      include: { settings: true }
-    });
+
+    const project = await findProject(params.id);
     if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    // Mask sensitive data if settings exist
+    const access = await requireProjectAccess(
+      auth.session.user.id,
+      auth.session.user.role,
+      project.id,
+    );
+    if (!access) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
     if (project.settings) {
       project.settings.jiraApiToken = project.settings.jiraApiToken ? "********" : null;
       project.settings.ciToken = project.settings.ciToken ? "********" : null;
@@ -37,15 +44,26 @@ export const PATCH = withApiHandler(
   async (req: NextRequest, { params }: { params: { id: string } }) => {
     const auth = await requireAuth(req, "project:update");
     if (!auth.authorized) return auth.response;
-    const body = await req.json();
-    const parsed = updateSchema.parse(body);
-    // First find the project to get the ID if a key was passed
-    const existing = await prisma.project.findFirst({
-      where: { OR: [{ id: params.id }, { key: params.id }] }
-    });
+
+    const existing = await findProject(params.id);
     if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const project = await prisma.project.update({ where: { id: existing.id }, data: parsed });
+    const access = await requireProjectAccess(
+      auth.session.user.id,
+      auth.session.user.role,
+      existing.id,
+    );
+    if (!access) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    const body = await req.json();
+    const parsed = updateSchema.parse(body);
+
+    const project = await prisma.project.update({
+      where: { id: existing.id },
+      data: parsed,
+    });
+
+    await logAudit(auth.session.user?.id, "UPDATE", "Project", project.id, parsed);
     return NextResponse.json(project);
   }
 );
@@ -55,25 +73,23 @@ export const DELETE = withApiHandler(
     const auth = await requireAuth(req, "project:delete");
     if (!auth.authorized) return auth.response;
 
-    // Delete project and all related data (cascading delete should be handled by Prisma if configured, 
-    // but explicit delete is safer for some relations if not set to Cascade)
-    // Assuming Prisma schema has onDelete: Cascade for relations, otherwise we might need to delete children first.
-    // Let's rely on Prisma's cascading delete for now or just delete the project.
-
     try {
-      // First find to get ID
-      const existing = await prisma.project.findFirst({
-        where: { OR: [{ id: params.id }, { key: params.id }] }
-      });
-
+      const existing = await findProject(params.id);
       if (existing) {
-        await prisma.project.delete({
-          where: { id: existing.id },
-        });
+        // Even for project:delete, only let admins or members delete projects
+        // they actually belong to.
+        const access = await requireProjectAccess(
+          auth.session.user.id,
+          auth.session.user.role,
+          existing.id,
+        );
+        if (!access) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+        await prisma.project.delete({ where: { id: existing.id } });
+        await logAudit(auth.session.user?.id, "DELETE", "Project", existing.id, {});
       }
-    } catch (error: any) {
-      if (error.code === "P2025") {
-        // Project already deleted, return success (idempotent)
+    } catch (error: unknown) {
+      if ((error as { code?: string })?.code === "P2025") {
         return NextResponse.json({ ok: true });
       }
       throw error;

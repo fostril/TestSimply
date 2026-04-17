@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler } from "@/lib/api";
+import { requireAuth, withApiHandler, assertProjectAccessForResource } from "@/lib/api";
+import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 
 import { ExecutionStatus } from "@prisma/client";
@@ -18,6 +19,41 @@ const updateSchema = z.object({
   status: z.nativeEnum(ExecutionStatus).optional(),
 });
 
+async function resolveExecution(idOrKey: string, projectKey: string | null) {
+  const byId = await prisma.testExecution.findUnique({ where: { id: idOrKey } });
+  if (byId) return byId;
+
+  if (projectKey) {
+    const project = await prisma.project.findUnique({
+      where: { key: projectKey },
+      select: { id: true },
+    });
+    if (project) {
+      const byKey = await prisma.testExecution.findUnique({
+        where: { projectId_key: { projectId: project.id, key: idOrKey } },
+      });
+      if (byKey) return byKey;
+    }
+  }
+
+  // Last-resort: try to parse "<PROJECT_KEY>-<EXEC_KEY>"
+  const parts = idOrKey.split("-");
+  for (let i = 1; i < parts.length; i++) {
+    const pKey = parts.slice(0, i).join("-");
+    const eKey = parts.slice(i).join("-");
+    const project = await prisma.project.findUnique({
+      where: { key: pKey },
+      select: { id: true },
+    });
+    if (!project) continue;
+    const exec = await prisma.testExecution.findUnique({
+      where: { projectId_key: { projectId: project.id, key: eKey } },
+    });
+    if (exec) return exec;
+  }
+  return null;
+}
+
 export const GET = withApiHandler(
   async (req: NextRequest, { params }: { params: { id: string } }) => {
     const auth = await requireAuth(req, "project:view");
@@ -26,34 +62,22 @@ export const GET = withApiHandler(
     const { searchParams } = new URL(req.url);
     const projectKey = searchParams.get("projectKey");
 
-    let execution = await prisma.testExecution.findUnique({
-      where: { id: params.id },
+    const execution = await resolveExecution(params.id, projectKey);
+    const denied = await assertProjectAccessForResource(
+      auth.session.user.id,
+      auth.session.user.role,
+      execution,
+    );
+    if (denied) return denied;
+
+    const full = await prisma.testExecution.findUnique({
+      where: { id: execution!.id },
       include: {
         results: { include: { testCase: true } },
-        plan: { include: { cases: { include: { case: true } } } }
-      }
+        plan: { include: { cases: { include: { case: true } } } },
+      },
     });
-
-    if (!execution && projectKey) {
-      const project = await prisma.project.findUnique({ where: { key: projectKey } });
-      if (project) {
-        execution = await prisma.testExecution.findUnique({
-          where: {
-            projectId_key: {
-              projectId: project.id,
-              key: params.id
-            }
-          },
-          include: {
-            results: { include: { testCase: true } },
-            plan: { include: { cases: { include: { case: true } } } }
-          }
-        });
-      }
-    }
-
-    if (!execution) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    return NextResponse.json(execution);
+    return NextResponse.json(full);
   }
 );
 
@@ -65,53 +89,32 @@ export const PATCH = withApiHandler(
     const { searchParams } = new URL(req.url);
     const projectKey = searchParams.get("projectKey");
 
+    const execution = await resolveExecution(params.id, projectKey);
+    const denied = await assertProjectAccessForResource(
+      auth.session.user.id,
+      auth.session.user.role,
+      execution,
+    );
+    if (denied) return denied;
+
     const parsed = updateSchema.parse(await req.json());
 
-    const data: any = { ...parsed };
+    const data: Record<string, unknown> = { ...parsed };
     if (parsed.startedAt) data.startedAt = new Date(parsed.startedAt);
     if (parsed.finishedAt) data.finishedAt = new Date(parsed.finishedAt);
 
-    // Auto-set finishedAt if status is COMPLETED
     if (parsed.status === ExecutionStatus.COMPLETED && !parsed.finishedAt) {
       data.finishedAt = new Date();
     }
 
-    // Find execution by ID or Key
-    let executionId = params.id;
-
-    // First try to find by UUID
-    let execution = await prisma.testExecution.findUnique({
-      where: { id: params.id },
-      select: { id: true }
+    const updated = await prisma.testExecution.update({
+      where: { id: execution!.id },
+      data,
     });
 
-    // If not found by UUID and projectKey is provided, try to find by key
-    if (!execution && projectKey) {
-      const project = await prisma.project.findUnique({ where: { key: projectKey } });
-      if (project) {
-        execution = await prisma.testExecution.findUnique({
-          where: {
-            projectId_key: {
-              projectId: project.id,
-              key: params.id
-            }
-          },
-          select: { id: true }
-        });
-      }
-    }
+    await logAudit(auth.session.user?.id, "UPDATE", "TestExecution", updated.id, parsed);
 
-    if (!execution) {
-      return NextResponse.json({ error: "Execution not found" }, { status: 404 });
-    }
-
-    executionId = execution.id;
-
-    const updatedExecution = await prisma.testExecution.update({
-      where: { id: executionId },
-      data
-    });
-    return NextResponse.json(updatedExecution);
+    return NextResponse.json(updated);
   }
 );
 
@@ -119,7 +122,18 @@ export const DELETE = withApiHandler(
   async (req: NextRequest, { params }: { params: { id: string } }) => {
     const auth = await requireAuth(req, "execution:manage");
     if (!auth.authorized) return auth.response;
-    await prisma.testExecution.delete({ where: { id: params.id } });
+
+    const execution = await resolveExecution(params.id, null);
+    const denied = await assertProjectAccessForResource(
+      auth.session.user.id,
+      auth.session.user.role,
+      execution,
+    );
+    if (denied) return denied;
+
+    await prisma.testExecution.delete({ where: { id: execution!.id } });
+    await logAudit(auth.session.user?.id, "DELETE", "TestExecution", execution!.id, {});
+
     return NextResponse.json({ ok: true });
   }
 );

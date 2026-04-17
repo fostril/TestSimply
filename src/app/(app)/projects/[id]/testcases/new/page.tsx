@@ -15,16 +15,44 @@ const stepSchema = z.object({
   expected: z.string().optional()
 });
 
-const schema = z.object({
-  name: z.string().min(2, "Name is required"),
-  description: z.string().optional(),
-  preconditions: z.string().optional(),
-  expected: z.string().optional(),
-  priority: z.string().default("MEDIUM"),
-  component: z.string().optional(),
-  tags: z.string().optional(),
-  steps: z.array(stepSchema).min(1, "Add at least one step")
-});
+const schema = z
+  .object({
+    name: z.string().min(2, "Name is required"),
+    description: z.string().optional(),
+    preconditions: z.string().optional(),
+    expected: z.string().optional(),
+    priority: z.string().default("MEDIUM"),
+    component: z.string().optional(),
+    folderId: z.string().optional(),
+    tags: z.string().optional(),
+    type: z.enum(["MANUAL", "CUCUMBER", "GENERIC"]).default("MANUAL"),
+    steps: z.array(stepSchema),
+    gherkin: z.string().optional(),
+    genericDefinition: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.type === "MANUAL" && data.steps.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Add at least one step",
+        path: ["steps"],
+      });
+    }
+    if (data.type === "CUCUMBER" && !data.gherkin?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Gherkin body is required",
+        path: ["gherkin"],
+      });
+    }
+    if (data.type === "GENERIC" && !data.genericDefinition?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Definition is required",
+        path: ["genericDefinition"],
+      });
+    }
+  });
 
 type FormValues = z.infer<typeof schema>;
 
@@ -43,6 +71,16 @@ export default function NewTestCasePage() {
     }
   });
 
+  const { data: folders } = useQuery({
+    queryKey: ["folders", projectId],
+    enabled: Boolean(projectId),
+    queryFn: async () => {
+      const res = await fetch(`/api/folders?projectId=${projectId}`);
+      if (!res.ok) throw new Error("Failed to load folders");
+      return res.json();
+    },
+  });
+
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -52,13 +90,18 @@ export default function NewTestCasePage() {
       expected: "",
       priority: "MEDIUM",
       component: "",
+      folderId: "",
       tags: "",
-      steps: [{ action: "", data: "", expected: "" }]
+      type: "MANUAL",
+      steps: [{ action: "", data: "", expected: "" }],
+      gherkin: "",
+      genericDefinition: "",
     }
   });
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "steps" });
   const [selectedPrecondition, setSelectedPrecondition] = useState("");
+  const testType = form.watch("type");
 
   useEffect(() => {
     if (!projectId) {
@@ -74,7 +117,16 @@ export default function NewTestCasePage() {
     const payload = {
       ...values,
       projectId,
-      tags: values.tags ? values.tags.split(",").map((tag) => tag.trim()).filter(Boolean) : []
+      folderId: values.folderId || undefined,
+      // When the test type is not MANUAL, don't send the placeholder steps —
+      // the backend only accepts Gherkin or genericDefinition in that case.
+      steps: values.type === "MANUAL" ? values.steps : [],
+      gherkin: values.type === "CUCUMBER" ? values.gherkin : undefined,
+      genericDefinition:
+        values.type === "GENERIC" ? values.genericDefinition : undefined,
+      tags: values.tags
+        ? values.tags.split(",").map((tag) => tag.trim()).filter(Boolean)
+        : [],
     };
     const res = await fetch("/api/testcases", {
       method: "POST",
@@ -185,7 +237,7 @@ export default function NewTestCasePage() {
             />
           </div>
         </div>
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-6 md:grid-cols-3">
           <div>
             <label className="text-sm font-medium text-slate-300" htmlFor="component">
               Component
@@ -195,6 +247,23 @@ export default function NewTestCasePage() {
               {...form.register("component")}
               className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
             />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-slate-300" htmlFor="folderId">
+              Folder
+            </label>
+            <select
+              id="folderId"
+              {...form.register("folderId")}
+              className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+            >
+              <option value="">(unfiled)</option>
+              {folders?.map((f: { id: string; path: string; name: string }) => (
+                <option key={f.id} value={f.id}>
+                  {f.path}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="text-sm font-medium text-slate-300" htmlFor="tags">
@@ -207,67 +276,135 @@ export default function NewTestCasePage() {
             />
           </div>
         </div>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Steps</h2>
-            <button
-              type="button"
-              onClick={() => append({ action: "", data: "", expected: "" })}
-              className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-300 hover:bg-slate-800"
-            >
-              + Add step
-            </button>
+
+        <div>
+          <label className="text-sm font-medium text-slate-300">Test type</label>
+          <div className="mt-2 inline-flex rounded-xl border border-slate-800 bg-slate-950 p-1">
+            {(["MANUAL", "CUCUMBER", "GENERIC"] as const).map((t) => (
+              <label
+                key={t}
+                className={`cursor-pointer rounded-lg px-4 py-1.5 text-xs font-medium ${
+                  testType === t ? "bg-brand text-white" : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <input
+                  type="radio"
+                  value={t}
+                  {...form.register("type")}
+                  className="sr-only"
+                />
+                {t === "MANUAL" ? "Manual" : t === "CUCUMBER" ? "Cucumber (BDD)" : "Generic / Automated"}
+              </label>
+            ))}
           </div>
-          {fields.map((field, index) => (
-            <div key={field.id} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-xs uppercase tracking-wide text-slate-500">Step {index + 1}</p>
-                {fields.length > 1 ? (
-                  <button
-                    type="button"
-                    onClick={() => remove(index)}
-                    className="text-xs text-slate-500 hover:text-red-400"
-                  >
-                    Remove
-                  </button>
-                ) : null}
-              </div>
-              <div className="mt-3 grid gap-4 md:grid-cols-3">
-                <div>
-                  <label className="text-xs font-medium text-slate-300">Action</label>
-                  <textarea
-                    {...form.register(`steps.${index}.action` as const)}
-                    rows={2}
-                    className={`mt-1 w-full rounded-xl border bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand ${form.formState.errors.steps?.[index]?.action ? "border-red-500" : "border-slate-800"
-                      }`}
-                  />
-                  {form.formState.errors.steps?.[index]?.action && (
-                    <p className="mt-1 text-xs text-red-400">{form.formState.errors.steps[index]?.action?.message}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-300">Data</label>
-                  <textarea
-                    {...form.register(`steps.${index}.data` as const)}
-                    rows={2}
-                    className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-300">Expected</label>
-                  <textarea
-                    {...form.register(`steps.${index}.expected` as const)}
-                    rows={2}
-                    className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
-                  />
-                </div>
-              </div>
-            </div>
-          ))}
-          {form.formState.errors.steps ? (
-            <p className="text-xs text-red-400">{form.formState.errors.steps.message as string}</p>
-          ) : null}
         </div>
+
+        {testType === "MANUAL" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Steps</h2>
+              <button
+                type="button"
+                onClick={() => append({ action: "", data: "", expected: "" })}
+                className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-300 hover:bg-slate-800"
+              >
+                + Add step
+              </button>
+            </div>
+            {fields.map((field, index) => (
+              <div key={field.id} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Step {index + 1}</p>
+                  {fields.length > 1 ? (
+                    <button
+                      type="button"
+                      onClick={() => remove(index)}
+                      className="text-xs text-slate-500 hover:text-red-400"
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
+                <div className="mt-3 grid gap-4 md:grid-cols-3">
+                  <div>
+                    <label className="text-xs font-medium text-slate-300">Action</label>
+                    <textarea
+                      {...form.register(`steps.${index}.action` as const)}
+                      rows={2}
+                      className={`mt-1 w-full rounded-xl border bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand ${
+                        form.formState.errors.steps?.[index]?.action ? "border-red-500" : "border-slate-800"
+                      }`}
+                    />
+                    {form.formState.errors.steps?.[index]?.action && (
+                      <p className="mt-1 text-xs text-red-400">{form.formState.errors.steps[index]?.action?.message}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-300">Data</label>
+                    <textarea
+                      {...form.register(`steps.${index}.data` as const)}
+                      rows={2}
+                      className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-300">Expected</label>
+                    <textarea
+                      {...form.register(`steps.${index}.expected` as const)}
+                      rows={2}
+                      className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+            {form.formState.errors.steps ? (
+              <p className="text-xs text-red-400">{form.formState.errors.steps.message as string}</p>
+            ) : null}
+          </div>
+        )}
+
+        {testType === "CUCUMBER" && (
+          <div>
+            <label className="text-sm font-medium text-slate-300" htmlFor="gherkin">
+              Gherkin scenario
+            </label>
+            <p className="mt-1 text-xs text-slate-500">
+              Paste or write a Gherkin scenario. Imported Cucumber reports will be matched against this test.
+            </p>
+            <textarea
+              id="gherkin"
+              rows={12}
+              {...form.register("gherkin")}
+              placeholder={`Feature: Login\n  Scenario: Successful login\n    Given a registered user\n    When they submit valid credentials\n    Then they land on the dashboard`}
+              className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 font-mono text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+            />
+            {form.formState.errors.gherkin ? (
+              <p className="mt-1 text-xs text-red-400">{form.formState.errors.gherkin.message as string}</p>
+            ) : null}
+          </div>
+        )}
+
+        {testType === "GENERIC" && (
+          <div>
+            <label className="text-sm font-medium text-slate-300" htmlFor="genericDefinition">
+              Definition
+            </label>
+            <p className="mt-1 text-xs text-slate-500">
+              Free-form reference for automated tests, e.g. a pytest node id, Playwright spec path, or TestNG class.
+            </p>
+            <textarea
+              id="genericDefinition"
+              rows={8}
+              {...form.register("genericDefinition")}
+              placeholder="tests/e2e/checkout.spec.ts:should_complete_purchase"
+              className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 font-mono text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+            />
+            {form.formState.errors.genericDefinition ? (
+              <p className="mt-1 text-xs text-red-400">{form.formState.errors.genericDefinition.message as string}</p>
+            ) : null}
+          </div>
+        )}
         <div className="flex items-center justify-end gap-3">
           <button
             type="button"

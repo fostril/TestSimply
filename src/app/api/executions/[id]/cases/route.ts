@@ -1,124 +1,109 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler } from "@/lib/api";
+import { requireAuth, withApiHandler, assertProjectAccessForResource } from "@/lib/api";
 import { z } from "zod";
 
-const addCasesSchema = z.object({
+const casesSchema = z.object({
     testCaseIds: z.array(z.string()).min(1),
 });
 
+async function resolveExecution(idOrKey: string, projectKey: string | null) {
+    const byId = await prisma.testExecution.findUnique({ where: { id: idOrKey } });
+    if (byId) return byId;
+
+    if (projectKey) {
+        const project = await prisma.project.findUnique({ where: { key: projectKey } });
+        if (project) {
+            const byKey = await prisma.testExecution.findUnique({
+                where: { projectId_key: { projectId: project.id, key: idOrKey } },
+            });
+            if (byKey) return byKey;
+        }
+    }
+    return null;
+}
+
 export const POST = withApiHandler(async (req: NextRequest, { params }: { params: { id: string } }) => {
-    const auth = await requireAuth(req, "execution:edit"); // Assuming edit permission covers adding cases
+    const auth = await requireAuth(req, "execution:manage");
     if (!auth.authorized) return auth.response;
 
-    const executionId = params.id;
     const { searchParams } = new URL(req.url);
     const projectKey = searchParams.get("projectKey");
 
+    const execution = await resolveExecution(params.id, projectKey);
+    const denied = await assertProjectAccessForResource(
+        auth.session.user.id,
+        auth.session.user.role,
+        execution,
+    );
+    if (denied) return denied;
+
     const body = await req.json();
-    const { testCaseIds } = addCasesSchema.parse(body);
+    const { testCaseIds } = casesSchema.parse(body);
 
-    // Verify execution exists (by ID or Key)
-    let execution = await prisma.testExecution.findUnique({
-        where: { id: executionId },
+    // Ensure every referenced test case belongs to the same project as the
+    // execution; prevents cross-project linking via crafted IDs.
+    const validCases = await prisma.testCase.findMany({
+        where: { id: { in: testCaseIds }, projectId: execution!.projectId },
+        select: { id: true },
     });
+    const validIds = new Set(validCases.map((c) => c.id));
+    const scopedIds = testCaseIds.filter((id) => validIds.has(id));
 
-    if (!execution && projectKey) {
-        const project = await prisma.project.findUnique({ where: { key: projectKey } });
-        if (project) {
-            execution = await prisma.testExecution.findUnique({
-                where: {
-                    projectId_key: {
-                        projectId: project.id,
-                        key: executionId
-                    }
-                }
-            });
-        }
+    if (scopedIds.length === 0) {
+        return NextResponse.json(
+            { error: "No valid test cases in this project" },
+            { status: 400 },
+        );
     }
 
-    if (!execution) {
-        return NextResponse.json({ error: "Execution not found" }, { status: 404 });
-    }
-
-    // Use the actual UUID for subsequent queries
-    const actualExecutionId = execution.id;
-
-    // Filter out cases that are already part of this execution
     const existingResults = await prisma.testResult.findMany({
         where: {
-            executionId: actualExecutionId,
-            caseId: { in: testCaseIds },
+            executionId: execution!.id,
+            caseId: { in: scopedIds },
         },
         select: { caseId: true },
     });
 
     const existingCaseIds = new Set(existingResults.map((r) => r.caseId));
-    const newCaseIds = testCaseIds.filter((id) => !existingCaseIds.has(id));
+    const newCaseIds = scopedIds.filter((id) => !existingCaseIds.has(id));
 
     if (newCaseIds.length === 0) {
         return NextResponse.json({ message: "All selected cases are already in this execution" }, { status: 200 });
     }
 
-    // Create results for new cases
-    // We can use createMany if we don't need to return the created objects individually with IDs immediately,
-    // but Prisma createMany is supported.
     await prisma.testResult.createMany({
         data: newCaseIds.map((caseId) => ({
-            executionId: actualExecutionId,
+            executionId: execution!.id,
             caseId,
-            status: "SKIPPED", // Default status for added cases
+            status: "SKIPPED",
         })),
     });
 
     return NextResponse.json({ message: `Added ${newCaseIds.length} cases to execution` }, { status: 201 });
 });
 
-const removeCasesSchema = z.object({
-    testCaseIds: z.array(z.string()).min(1),
-});
-
 export const DELETE = withApiHandler(async (req: NextRequest, { params }: { params: { id: string } }) => {
-    const auth = await requireAuth(req, "execution:edit");
+    const auth = await requireAuth(req, "execution:manage");
     if (!auth.authorized) return auth.response;
 
-    const executionId = params.id;
     const { searchParams } = new URL(req.url);
     const projectKey = searchParams.get("projectKey");
 
+    const execution = await resolveExecution(params.id, projectKey);
+    const denied = await assertProjectAccessForResource(
+        auth.session.user.id,
+        auth.session.user.role,
+        execution,
+    );
+    if (denied) return denied;
+
     const body = await req.json();
-    const { testCaseIds } = removeCasesSchema.parse(body);
+    const { testCaseIds } = casesSchema.parse(body);
 
-    // Verify execution exists (by ID or Key)
-    let execution = await prisma.testExecution.findUnique({
-        where: { id: executionId },
-    });
-
-    if (!execution && projectKey) {
-        const project = await prisma.project.findUnique({ where: { key: projectKey } });
-        if (project) {
-            execution = await prisma.testExecution.findUnique({
-                where: {
-                    projectId_key: {
-                        projectId: project.id,
-                        key: executionId
-                    }
-                }
-            });
-        }
-    }
-
-    if (!execution) {
-        return NextResponse.json({ error: "Execution not found" }, { status: 404 });
-    }
-
-    // Use the actual UUID for subsequent queries
-    const actualExecutionId = execution.id;
-
-    // Delete test results for the specified cases
     const deleteResult = await prisma.testResult.deleteMany({
         where: {
-            executionId: actualExecutionId,
+            executionId: execution!.id,
             caseId: { in: testCaseIds },
         },
     });

@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler } from "@/lib/api";
+import { requireAuth, withApiHandler, requireProjectAccessOrForbid } from "@/lib/api";
 import { importCucumber } from "@/lib/importers/cucumber";
+import { validateBodySize } from "@/lib/upload";
 
 export const POST = withApiHandler(async (req: NextRequest) => {
   const auth = await requireAuth(req, "execution:manage");
   if (!auth.authorized) return auth.response;
+
+  const sizeCheck = validateBodySize(req);
+  if (sizeCheck) return sizeCheck;
 
   const body = await req.json();
   if (!Array.isArray(body)) {
@@ -28,6 +32,13 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   }
   const project = await prisma.project.findUnique({ where: { key: projectKey } });
   if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+
+  const access = await requireProjectAccessOrForbid(
+    auth.session.user.id,
+    auth.session.user.role,
+    project.id,
+  );
+  if (access instanceof NextResponse) return access;
 
   let execution = execKey
     ? await prisma.testExecution.findFirst({ where: { projectId: project.id, key: execKey } })

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler } from "@/lib/api";
+import { requireAuth, withApiHandler, requireProjectAccessOrForbid, parsePagination, paginatedJson } from "@/lib/api";
 import { z } from "zod";
 
 import { generateEntityKey } from "@/lib/keys";
@@ -23,25 +23,43 @@ export const GET = withApiHandler(async (req: NextRequest) => {
         return NextResponse.json({ error: "Project ID is required" }, { status: 400 });
     }
 
-    const preconditions = await prisma.precondition.findMany({
-        where: { projectId },
-        orderBy: { createdAt: "desc" },
-        include: {
-            _count: {
-                select: { cases: true },
-            },
-        },
-    });
+    const access = await requireProjectAccessOrForbid(auth.session.user.id, auth.session.user.role, projectId);
+    if (access instanceof NextResponse) return access;
 
-    return NextResponse.json(preconditions);
+    const pagination = parsePagination(searchParams);
+    const where = { projectId };
+
+    const [preconditions, total] = await Promise.all([
+        prisma.precondition.findMany({
+            where,
+            orderBy: { createdAt: "desc" },
+            skip: pagination.skip,
+            take: pagination.limit,
+            include: {
+                _count: {
+                    select: { cases: true },
+                },
+            },
+        }),
+        prisma.precondition.count({ where }),
+    ]);
+
+    return paginatedJson(preconditions, total, pagination);
 });
 
 export const POST = withApiHandler(async (req: NextRequest) => {
-    const auth = await requireAuth(req, "testcase:create"); // Reusing testcase permission
+    const auth = await requireAuth(req, "testcase:create");
     if (!auth.authorized) return auth.response;
 
     const body = await req.json();
     const parsed = createSchema.parse(body);
+
+    const access = await requireProjectAccessOrForbid(
+        auth.session.user.id,
+        auth.session.user.role,
+        parsed.projectId,
+    );
+    if (access instanceof NextResponse) return access;
 
     const project = await prisma.project.findUnique({
         where: { id: parsed.projectId },

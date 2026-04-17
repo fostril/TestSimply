@@ -1,23 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler } from "@/lib/api";
+import { requireAuth, withApiHandler, parsePagination, paginatedJson } from "@/lib/api";
 
 export const GET = withApiHandler(async (req: NextRequest) => {
-    const auth = await requireAuth(req, "project:view");
+    const auth = await requireAuth(req, "settings:manage");
     if (!auth.authorized) return auth.response;
 
     const { searchParams } = new URL(req.url);
     const entity = searchParams.get("entity");
     const userId = searchParams.get("userId");
+    const pagination = parsePagination(searchParams);
 
-    const logs = await prisma.auditLog.findMany({
-        where: {
-            ...(entity ? { entity } : {}),
-            ...(userId ? { userId } : {}),
-        },
-        orderBy: { createdAt: "desc" },
-        take: 100, // Limit to last 100 logs for now
-    });
+    const where = {
+        ...(entity ? { entity } : {}),
+        ...(userId ? { userId } : {}),
+    };
+
+    const [logs, total] = await Promise.all([
+        prisma.auditLog.findMany({
+            where,
+            orderBy: { createdAt: "desc" },
+            skip: pagination.skip,
+            take: pagination.limit,
+        }),
+        prisma.auditLog.count({ where }),
+    ]);
 
     // Fetch user details for the logs
     const userIds = Array.from(new Set(logs.map((log) => log.userId).filter(Boolean))) as string[];
@@ -33,5 +40,5 @@ export const GET = withApiHandler(async (req: NextRequest) => {
         user: log.userId ? userMap.get(log.userId) : null,
     }));
 
-    return NextResponse.json(enrichedLogs);
+    return paginatedJson(enrichedLogs, total, pagination);
 });

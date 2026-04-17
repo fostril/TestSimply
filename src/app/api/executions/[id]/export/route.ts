@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler } from "@/lib/api";
+import { requireAuth, withApiHandler, assertProjectAccessForResource } from "@/lib/api";
 
 export const GET = withApiHandler(
     async (req: NextRequest, { params }: { params: { id: string } }) => {
@@ -10,7 +10,6 @@ export const GET = withApiHandler(
         const { searchParams } = new URL(req.url);
         const projectKey = searchParams.get("projectKey");
 
-        // Find execution by ID or key
         let execution = await prisma.testExecution.findUnique({
             where: { id: params.id },
             include: {
@@ -26,10 +25,7 @@ export const GET = withApiHandler(
             if (project) {
                 execution = await prisma.testExecution.findUnique({
                     where: {
-                        projectId_key: {
-                            projectId: project.id,
-                            key: params.id
-                        }
+                        projectId_key: { projectId: project.id, key: params.id },
                     },
                     include: {
                         results: { include: { testCase: true, bugs: true } },
@@ -41,11 +37,16 @@ export const GET = withApiHandler(
             }
         }
 
+        const denied = await assertProjectAccessForResource(
+            auth.session.user.id,
+            auth.session.user.role,
+            execution,
+        );
+        if (denied) return denied;
         if (!execution) {
-            return NextResponse.json({ error: "Execution not found" }, { status: 404 });
+            return NextResponse.json({ error: "Not found" }, { status: 404 });
         }
 
-        // Build CSV content
         const lines: string[] = [];
 
         // Header metadata

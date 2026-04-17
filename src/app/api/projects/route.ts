@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler } from "@/lib/api";
+import { requireAuth, withApiHandler, parsePagination, paginatedJson } from "@/lib/api";
+import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 
 const projectSchema = z.object({
@@ -10,32 +11,44 @@ const projectSchema = z.object({
 });
 
 export const GET = withApiHandler(async (req: NextRequest) => {
-  const auth = await requireAuth(req, "project:list");
+  const auth = await requireAuth(req, "project:view");
   if (!auth.authorized) return auth.response;
 
+  const { searchParams } = new URL(req.url);
+  const pagination = parsePagination(searchParams);
   const userRole = auth.session.user.role;
   const userId = auth.session.user.id;
 
-  // ADMINs see all projects, others only see assigned projects
-  if (userRole === "ADMIN") {
-    const projects = await prisma.project.findMany({
+  const where =
+    userRole === "ADMIN"
+      ? undefined
+      : {
+          OR: [
+            { members: { some: { id: userId } } },
+            { leads: { some: { id: userId } } },
+          ],
+        };
+
+  const [projects, total] = await Promise.all([
+    prisma.project.findMany({
+      where,
       orderBy: { createdAt: "desc" },
       include: { settings: true },
-    });
-    return NextResponse.json(projects);
+      skip: pagination.skip,
+      take: pagination.limit,
+    }),
+    prisma.project.count({ where }),
+  ]);
+
+  // Mask sensitive credentials so the list endpoint never leaks tokens.
+  for (const project of projects) {
+    if (project.settings) {
+      project.settings.jiraApiToken = project.settings.jiraApiToken ? "********" : null;
+      project.settings.ciToken = project.settings.ciToken ? "********" : null;
+    }
   }
 
-  // Non-admin users only see their assigned projects
-  const projects = await prisma.project.findMany({
-    where: {
-      members: {
-        some: { id: userId },
-      },
-    },
-    orderBy: { createdAt: "desc" },
-    include: { settings: true },
-  });
-  return NextResponse.json(projects);
+  return paginatedJson(projects, total, pagination);
 });
 
 export const POST = withApiHandler(async (req: NextRequest) => {
@@ -73,8 +86,18 @@ export const POST = withApiHandler(async (req: NextRequest) => {
             environments: [],
           },
         },
+        // Automatically grant access to the creator so they don't get locked
+        // out of their own project after create.
+        leads: auth.session.user?.id
+          ? { connect: [{ id: auth.session.user.id }] }
+          : undefined,
       },
       include: { settings: true },
+    });
+
+    await logAudit(auth.session.user?.id, "CREATE", "Project", project.id, {
+      key: project.key,
+      name: project.name,
     });
 
     return NextResponse.json(project, { status: 201 });

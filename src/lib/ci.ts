@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/encryption";
+import { assertSafeExternalUrl } from "@/lib/ssrf";
 
 export interface CiClient {
-    triggerWorkflow(workflowId: string, inputs?: Record<string, string>): Promise<{ success: boolean; message?: string; workflowUrl?: string }>;
+    triggerWorkflow(workflowId: string, inputs?: Record<string, string>, branch?: string): Promise<{ success: boolean; message?: string; workflowUrl?: string }>;
     testConnection(): Promise<{ success: boolean; message?: string }>;
 }
 
@@ -13,6 +14,7 @@ export class GitHubCiClient implements CiClient {
     private repo: string;
 
     constructor(baseUrl: string, token: string) {
+        assertSafeExternalUrl(baseUrl);
         this.baseUrl = baseUrl.replace(/\/$/, "");
         this.token = token;
 
@@ -57,7 +59,7 @@ export class GitHubCiClient implements CiClient {
         }
     }
 
-    async triggerWorkflow(workflowId: string, inputs?: Record<string, string>): Promise<{ success: boolean; message?: string; workflowUrl?: string }> {
+    async triggerWorkflow(workflowId: string, inputs?: Record<string, string>, branch?: string): Promise<{ success: boolean; message?: string; workflowUrl?: string }> {
         // GitHub API: POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches
         const apiUrl = `https://api.github.com/repos/${this.owner}/${this.repo}/actions/workflows/${workflowId}/dispatches`;
 
@@ -71,7 +73,7 @@ export class GitHubCiClient implements CiClient {
                     "User-Agent": "TestSimply-CI",
                 },
                 body: JSON.stringify({
-                    ref: "main", // Default to main branch
+                    ref: branch || "main",
                     inputs: inputs || {},
                 }),
             });

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler } from "@/lib/api";
+import { requireAuth, withApiHandler, assertProjectAccessForResource } from "@/lib/api";
 import { z } from "zod";
 
 const reorderSchema = z.object({
@@ -15,11 +15,17 @@ export const POST = withApiHandler(
         const parsed = reorderSchema.parse(await req.json());
         const { caseIds } = parsed;
 
-        // Get current plan to verify cases belong to it
         const plan = await prisma.testPlan.findUnique({
             where: { id: params.id },
             include: { cases: { select: { caseId: true } } }
         });
+
+        const denied = await assertProjectAccessForResource(
+            auth.session.user.id,
+            auth.session.user.role,
+            plan,
+        );
+        if (denied) return denied;
 
         if (!plan) {
             return NextResponse.json({ error: "Test plan not found" }, { status: 404 });

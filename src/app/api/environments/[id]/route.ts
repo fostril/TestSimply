@@ -1,60 +1,83 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler } from "@/lib/api";
+import { requireAuth, withApiHandler, assertProjectAccessForResource } from "@/lib/api";
+import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 
 const updateSchema = z.object({
-    name: z.string().min(1).optional(),
-    description: z.string().optional(),
-    url: z.string().url().optional().or(z.literal("")),
+  name: z.string().min(1).optional(),
+  description: z.string().optional(),
+  url: z.string().url().optional().or(z.literal("")),
 });
 
 export const GET = withApiHandler(
-    async (req: NextRequest, { params }: { params: { id: string } }) => {
-        const auth = await requireAuth(req, "project:view");
-        if (!auth.authorized) return auth.response;
+  async (req: NextRequest, { params }: { params: { id: string } }) => {
+    const auth = await requireAuth(req, "project:view");
+    if (!auth.authorized) return auth.response;
 
-        const environment = await prisma.environment.findUnique({
-            where: { id: params.id },
-        });
+    const environment = await prisma.environment.findUnique({
+      where: { id: params.id },
+    });
+    const denied = await assertProjectAccessForResource(
+      auth.session.user.id,
+      auth.session.user.role,
+      environment,
+    );
+    if (denied) return denied;
 
-        if (!environment) {
-            return NextResponse.json({ error: "Environment not found" }, { status: 404 });
-        }
-
-        return NextResponse.json(environment);
-    }
+    return NextResponse.json(environment);
+  }
 );
 
 export const PATCH = withApiHandler(
-    async (req: NextRequest, { params }: { params: { id: string } }) => {
-        const auth = await requireAuth(req, "project:edit");
-        if (!auth.authorized) return auth.response;
+  async (req: NextRequest, { params }: { params: { id: string } }) => {
+    const auth = await requireAuth(req, "project:update");
+    if (!auth.authorized) return auth.response;
 
-        const body = await req.json();
-        const parsed = updateSchema.parse(body);
+    const existing = await prisma.environment.findUnique({
+      where: { id: params.id },
+    });
+    const denied = await assertProjectAccessForResource(
+      auth.session.user.id,
+      auth.session.user.role,
+      existing,
+    );
+    if (denied) return denied;
 
-        const environment = await prisma.environment.update({
-            where: { id: params.id },
-            data: {
-                ...parsed,
-                url: parsed.url || null,
-            },
-        });
+    const body = await req.json();
+    const parsed = updateSchema.parse(body);
 
-        return NextResponse.json(environment);
-    }
+    const updated = await prisma.environment.update({
+      where: { id: params.id },
+      data: {
+        ...parsed,
+        url: parsed.url || null,
+      },
+    });
+
+    await logAudit(auth.session.user?.id, "UPDATE", "Environment", updated.id, parsed);
+    return NextResponse.json(updated);
+  }
 );
 
 export const DELETE = withApiHandler(
-    async (req: NextRequest, { params }: { params: { id: string } }) => {
-        const auth = await requireAuth(req, "project:edit");
-        if (!auth.authorized) return auth.response;
+  async (req: NextRequest, { params }: { params: { id: string } }) => {
+    const auth = await requireAuth(req, "project:update");
+    if (!auth.authorized) return auth.response;
 
-        await prisma.environment.delete({
-            where: { id: params.id },
-        });
+    const existing = await prisma.environment.findUnique({
+      where: { id: params.id },
+    });
+    const denied = await assertProjectAccessForResource(
+      auth.session.user.id,
+      auth.session.user.role,
+      existing,
+    );
+    if (denied) return denied;
 
-        return NextResponse.json({ ok: true });
-    }
+    await prisma.environment.delete({ where: { id: params.id } });
+    await logAudit(auth.session.user?.id, "DELETE", "Environment", params.id, {});
+
+    return NextResponse.json({ ok: true });
+  }
 );

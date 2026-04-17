@@ -11,6 +11,7 @@ import { useProjectStore } from "@/lib/stores/project-store";
 import { CsvImporter } from "@/components/csv-importer";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { FolderTree } from "@/components/folder-tree";
 
 export type TestCaseRow = {
   id: string;
@@ -18,6 +19,8 @@ export type TestCaseRow = {
   name: string;
   priority: string;
   status: string;
+  type?: "MANUAL" | "CUCUMBER" | "GENERIC";
+  folderId?: string | null;
   component?: string;
   tags: string[];
   isAutomated: boolean;
@@ -45,12 +48,19 @@ export function TestCasesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [typeFilter, setTypeFilter] = useState<string>("ALL");
+  // null = all, "-" = unfiled, else a specific folder id
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery<TestCaseRow[]>({
-    queryKey: ["testcases", projectId],
+    queryKey: ["testcases", projectId, selectedFolderId, typeFilter],
     enabled: Boolean(projectId),
     queryFn: async () => {
-      const res = await fetch(`/api/testcases?projectId=${projectId}`);
+      const params = new URLSearchParams();
+      if (projectId) params.set("projectId", projectId);
+      if (selectedFolderId) params.set("folderId", selectedFolderId);
+      if (typeFilter !== "ALL") params.set("type", typeFilter);
+      const res = await fetch(`/api/testcases?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to load test cases");
       return res.json();
     }
@@ -80,12 +90,15 @@ export function TestCasesPage() {
     });
   }, [rows, searchQuery, priorityFilter, statusFilter]);
 
-  const hasActiveFilters = searchQuery || priorityFilter !== "ALL" || statusFilter !== "ALL";
+  const hasActiveFilters =
+    searchQuery || priorityFilter !== "ALL" || statusFilter !== "ALL" || typeFilter !== "ALL" || selectedFolderId !== null;
 
   const clearFilters = () => {
     setSearchQuery("");
     setPriorityFilter("ALL");
     setStatusFilter("ALL");
+    setTypeFilter("ALL");
+    setSelectedFolderId(null);
   };
 
   const toggleSelect = (id: string) => {
@@ -186,6 +199,18 @@ export function TestCasesPage() {
         </div>
       </div>
 
+      <div className="grid gap-6 md:grid-cols-[260px,1fr]">
+        <aside>
+          {projectId && (
+            <FolderTree
+              projectId={projectId}
+              selectedFolderId={selectedFolderId}
+              onSelect={setSelectedFolderId}
+            />
+          )}
+        </aside>
+        <div className="space-y-6">
+
       {/* Search and Filters */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px] max-w-md">
@@ -215,6 +240,16 @@ export function TestCasesPage() {
           {STATUSES.map(s => (
             <option key={s} value={s}>{s === "ALL" ? "All Statuses" : s}</option>
           ))}
+        </select>
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value)}
+          className="px-3 py-2 rounded-lg border border-border bg-card text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+        >
+          <option value="ALL">All Types</option>
+          <option value="MANUAL">Manual</option>
+          <option value="CUCUMBER">Cucumber</option>
+          <option value="GENERIC">Generic</option>
         </select>
         {hasActiveFilters && (
           <button
@@ -341,6 +376,11 @@ export function TestCasesPage() {
                   <td className="px-6 py-4 font-medium text-foreground group-hover:text-primary transition-colors">
                     <div className="flex items-center gap-2">
                       <span>{testCase.name}</span>
+                      {testCase.type && testCase.type !== "MANUAL" && (
+                        <span className="rounded bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-bold text-cyan-400 ring-1 ring-inset ring-cyan-500/20">
+                          {testCase.type === "CUCUMBER" ? "BDD" : "GEN"}
+                        </span>
+                      )}
                       {testCase.isAutomated && (
                         <span className="rounded bg-purple-500/10 px-1.5 py-0.5 text-[10px] font-bold text-purple-400 ring-1 ring-inset ring-purple-500/20">
                           AUTO
@@ -423,6 +463,8 @@ export function TestCasesPage() {
         }}
         isLoading={deleteMutation.isPending}
       />
+        </div>
+      </div>
     </div>
   );
 }

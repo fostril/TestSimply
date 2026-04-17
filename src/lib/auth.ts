@@ -1,5 +1,4 @@
 import bcrypt from "bcryptjs";
-import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GitHubProvider from "next-auth/providers/github";
 import GoogleProvider from "next-auth/providers/google";
@@ -10,6 +9,7 @@ import type { JWT } from "next-auth/jwt";
 import type { Session, DefaultUser, Account, Profile } from "next-auth";
 
 const emailPasswordEnabled = process.env.EMAIL_PASSWORD_DISABLED !== "true";
+const requireEmailVerification = process.env.REQUIRE_EMAIL_VERIFICATION === "true";
 
 export const authOptions = {
   adapter: PrismaAdapter(prisma),
@@ -31,6 +31,9 @@ export const authOptions = {
             if (!user || !user.password) return null;
             const valid = await bcrypt.compare(credentials.password, user.password);
             if (!valid) return null;
+            if (requireEmailVerification && !user.emailVerified) {
+              throw new Error("EMAIL_NOT_VERIFIED");
+            }
             return {
               id: user.id,
               name: user.name,
@@ -51,28 +54,55 @@ export const authOptions = {
       : []),
     ...(process.env.GOOGLE_CLIENT_ID
       ? [
-        (() => {
-          console.log("[Auth] Initializing Google Provider");
-          return GoogleProvider({
-            clientId: process.env.GOOGLE_CLIENT_ID ?? "",
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
-          });
-        })(),
+        GoogleProvider({
+          clientId: process.env.GOOGLE_CLIENT_ID ?? "",
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+        }),
       ]
-      : [(() => { console.log("[Auth] Google Client ID missing"); return null; })()].filter(Boolean) as any),
+      : []),
   ],
   callbacks: {
     async signIn({ account, profile }: { account: Account | null; profile?: Profile }) {
       if (account?.provider === "google") {
-        return profile?.email?.endsWith("@obdeleven.com") ?? false;
+        const allowedDomain = process.env.GOOGLE_ALLOWED_DOMAIN;
+        if (allowedDomain) {
+          return profile?.email?.endsWith(`@${allowedDomain}`) ?? false;
+        }
+        // If no domain restriction is configured, allow all Google sign-ins
+        return true;
       }
       return true;
     },
-    async jwt({ token, user }: { token: JWT; user?: (DefaultUser & { role?: Role }) | null }): Promise<JWT> {
+    async jwt({ token, user, trigger }: { token: JWT; user?: (DefaultUser & { role?: Role }) | null; trigger?: string }): Promise<JWT> {
       if (user) {
         token.id = (user as any).id as string;
         (token as any).role = user.role as Role | undefined;
+        (token as any).roleRefreshedAt = Date.now();
       }
+
+      // Refresh role from DB periodically so permission changes take effect
+      // without requiring the user to sign out. We refresh every 5 minutes
+      // or on explicit "update" triggers.
+      const refreshIntervalMs = 5 * 60 * 1000;
+      const last = (token as any).roleRefreshedAt as number | undefined;
+      const needsRefresh =
+        trigger === "update" || !last || Date.now() - last > refreshIntervalMs;
+
+      if (needsRefresh && token.id) {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: { role: true },
+          });
+          if (dbUser) {
+            (token as any).role = dbUser.role;
+            (token as any).roleRefreshedAt = Date.now();
+          }
+        } catch {
+          // Swallow DB errors during refresh; fall back to the existing token.
+        }
+      }
+
       return token;
     },
     async session({ session, token }: { session: Session; token: JWT }): Promise<Session> {
