@@ -450,5 +450,5 @@ interactive exploration.
 ---
 
 ## License
-
-MIT
+Copyright (c) [2026] [Valdas Ginkus]. All Rights Reserved.
+This software and associated documentation files are proprietary and may not be copied, distributed, modified, or used without explicit written permission from the author.
