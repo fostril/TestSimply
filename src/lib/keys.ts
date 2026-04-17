@@ -4,7 +4,7 @@ export async function generateEntityKey(
     prisma: PrismaClient,
     projectId: string,
     projectKey: string,
-    type: "TC" | "TSET" | "PLAN" | "PRECON" | "ENV" | "EXEC" | "BUG"
+    type: "TC" | "TSET" | "PLAN" | "PRECON" | "ENV" | "EXEC" | "BUG" | "REQ"
 ): Promise<string> {
     const counter = await prisma.projectCounter.upsert({
         where: {

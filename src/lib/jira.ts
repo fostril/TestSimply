@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { decrypt } from "@/lib/encryption";
+import { assertSafeExternalUrl } from "@/lib/ssrf";
 
 export class JiraClient {
     private baseUrl: string;
@@ -6,7 +8,9 @@ export class JiraClient {
     private apiToken: string;
 
     constructor(baseUrl: string, email: string, apiToken: string) {
-        this.baseUrl = baseUrl.replace(/\/$/, ""); // Remove trailing slash
+        // Ensures scheme/hostname are safe (no private IPs, no localhost, ...)
+        assertSafeExternalUrl(baseUrl);
+        this.baseUrl = baseUrl.replace(/\/$/, "");
         this.email = email;
         this.apiToken = apiToken;
     }
@@ -105,6 +109,7 @@ export class JiraClient {
             return null;
         }
 
-        return new JiraClient(settings.jiraUrl, settings.jiraEmail, settings.jiraApiToken);
+        const decryptedToken = decrypt(settings.jiraApiToken);
+        return new JiraClient(settings.jiraUrl, settings.jiraEmail, decryptedToken);
     }
 }

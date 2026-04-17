@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler } from "@/lib/api";
+import { requireAuth, withApiHandler, requireProjectAccessOrForbid } from "@/lib/api";
 
 export const GET = withApiHandler(async (req: NextRequest) => {
     const auth = await requireAuth(req, "project:view");
@@ -13,7 +13,16 @@ export const GET = withApiHandler(async (req: NextRequest) => {
         return NextResponse.json({ error: "Project ID is required" }, { status: 400 });
     }
 
-    // Fetch all requirement links with their test cases and latest results
+    const access = await requireProjectAccessOrForbid(
+        auth.session.user.id,
+        auth.session.user.role,
+        projectId,
+    );
+    if (access instanceof NextResponse) return access;
+
+    // Fetch all requirement links with their test cases, attached Requirement
+    // (if any) and latest results. Links now group by Requirement when one
+    // exists, falling back to externalUrl for legacy rows.
     const links = await prisma.requirementLink.findMany({
         where: {
             projectId,
@@ -22,6 +31,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
             },
         },
         include: {
+            requirement: true,
             testCase: {
                 include: {
                     results: {
@@ -33,9 +43,10 @@ export const GET = withApiHandler(async (req: NextRequest) => {
         },
     });
 
-    // Group by Requirement URL
     const map = new Map<string, {
         url: string;
+        key: string | null;
+        title: string | null;
         type: string;
         totalCases: number;
         passCases: number;
@@ -44,8 +55,14 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     }>();
 
     for (const link of links) {
-        const entry = map.get(link.externalUrl) ?? {
-            url: link.externalUrl,
+        // Prefer the Requirement row; fall back to the legacy externalUrl.
+        const groupKey = link.requirement?.id ?? link.externalUrl ?? "unlinked";
+        const groupUrl = link.requirement?.externalUrl ?? link.externalUrl ?? "";
+
+        const entry = map.get(groupKey) ?? {
+            url: groupUrl,
+            key: link.requirement?.key ?? null,
+            title: link.requirement?.title ?? null,
             type: link.type,
             totalCases: 0,
             passCases: 0,
@@ -65,7 +82,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
             status,
         });
 
-        map.set(link.externalUrl, entry);
+        map.set(groupKey, entry);
     }
 
     const report = Array.from(map.values()).map((req) => {

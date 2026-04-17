@@ -1,11 +1,15 @@
 generator client {
   provider      = "prisma-client-js"
-  binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+  // Targets:
+  //  native                              -> developer machine
+  //  linux-musl-openssl-3.0.x            -> Alpine on amd64 (prod container)
+  //  linux-musl-arm64-openssl-3.0.x      -> Alpine on arm64 (Apple Silicon / ARM servers)
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "linux-musl-arm64-openssl-3.0.x"]
 }
 
 datasource db {
   provider = "postgresql"
-  url      = "postgresql://postgres:postgres@localhost:5432/testsimplify"
+  url      = env("DATABASE_URL")
 }
 
 enum Role {
@@ -33,6 +37,19 @@ enum ExecutionStatus {
   ACTIVE
   COMPLETED
   BLOCKED
+}
+
+enum TestType {
+  MANUAL
+  CUCUMBER
+  GENERIC
+}
+
+enum RequirementStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  REJECTED
 }
 
 model User {
@@ -76,12 +93,14 @@ model Project {
   plans            TestPlan[]
   executions       TestExecution[]
   requirementLinks RequirementLink[]
+  requirements     Requirement[]
   settings         ProjectSetting?
   testSets         TestSet[]
   preconditions    Precondition[]
   environments     Environment[]
   bugs             Bug[]
   counters         ProjectCounter[]
+  folders          TestFolder[]
   leads            User[]            @relation("ProjectLeads")
   members          User[]            @relation("ProjectMembers")
 
@@ -113,12 +132,20 @@ model TestCase {
   name          String
   description   String?
   preconditionsText String?
+  // Test classification — MANUAL uses the `steps` JSON, CUCUMBER uses
+  // `gherkin`, GENERIC uses `genericDefinition` (free-form script body
+  // e.g. a pytest path, a Playwright spec, etc.).
+  type          TestType   @default(MANUAL)
   steps         Json
+  gherkin       String?
+  genericDefinition String?
   expected      String?
   priority      Priority   @default(MEDIUM)
   status        String     @default("Draft")
   tags          String[]   @default([])
   component     String?
+  folder        TestFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  folderId      String?
   owner         User?      @relation("TestCaseOwner", fields: [ownerId], references: [id])
   ownerId       String?
   createdAt     DateTime   @default(now())
@@ -131,6 +158,8 @@ model TestCase {
 
   @@unique([projectId, key])
   @@index([projectId])
+  @@index([projectId, deletedAt])
+  @@index([folderId])
   testSets      TestSet[]
   preconditions Precondition[]
 
@@ -140,6 +169,26 @@ model TestCase {
   isAutomated     Boolean   @default(false)
   automationId    String?
   bugs            Bug[]
+}
+
+model TestFolder {
+  id        String       @id @default(cuid())
+  project   Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  parent    TestFolder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  parentId  String?
+  children  TestFolder[] @relation("FolderHierarchy")
+  name      String
+  // Materialized path — slash-separated slugs, starts with "/". Rebuilt on
+  // rename/move. Used for fast prefix queries and breadcrumb display.
+  path      String
+  order     Int          @default(0)
+  testCases TestCase[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@unique([projectId, path])
+  @@index([projectId, parentId])
 }
 
 model TestSet {
@@ -247,6 +296,8 @@ model TestExecution {
 
   @@unique([projectId, key])
   @@index([planId])
+  @@index([projectId, status])
+  @@index([createdAt])
 }
 
 
@@ -297,20 +348,51 @@ model TestResult {
   bugs        Bug[]
 }
 
+model Requirement {
+  id               String            @id @default(cuid())
+  project          Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId        String
+  key              String
+  title            String
+  description      String?
+  status           RequirementStatus @default(OPEN)
+  priority         Priority          @default(MEDIUM)
+  // Optional linkage to an external tracker item (Jira issue key + full URL).
+  // `source` indicates where this record is authoritative — LOCAL or JIRA.
+  source           String            @default("LOCAL")
+  externalIssueKey String?
+  externalUrl      String?
+  tags             String[]          @default([])
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  links            RequirementLink[]
+
+  @@unique([projectId, key])
+  @@index([projectId])
+}
+
 model RequirementLink {
-  id         String   @id @default(cuid())
-  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  projectId  String
-  testCase   TestCase @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
-  testCaseId String
-  externalUrl String
-  type       String
-  createdAt  DateTime @default(now())
+  id            String        @id @default(cuid())
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId     String
+  testCase      TestCase      @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  testCaseId    String
+  // Preferred: point at a Requirement record. We keep `externalUrl`
+  // nullable for legacy rows migrated before the Requirement model existed.
+  requirement   Requirement?  @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  requirementId String?
+  externalUrl   String?
+  type          String        @default("covers")
+  createdAt     DateTime      @default(now())
+
+  @@unique([requirementId, testCaseId])
+  @@index([testCaseId])
 }
 
 model Attachment {
   id           String        @id @default(cuid())
   url          String
+  storageKey   String?
   fileName     String
   contentType  String
   size         Int
@@ -331,6 +413,10 @@ model AuditLog {
   userId    String?
   payload   Json
   createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model Account {

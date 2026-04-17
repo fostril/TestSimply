@@ -32,24 +32,30 @@ export function SidebarNavigation() {
 
     const canAccessSettings = isAdmin || leadHasProjectAccess;
 
+    // Project-scoped links are only meaningful when a project is active. When
+    // no project is selected we only show Dashboard and (for admins) Admin —
+    // there are no top-level routes like /testcases or /testplans.
+    const projectScoped = projectKey
+        ? [
+              { href: `/projects/${projectKey}/testcases`, label: "Test Cases" },
+              { href: `/projects/${projectKey}/testplans`, label: "Plans" },
+              { href: `/projects/${projectKey}/test-sets`, label: "Test Sets" },
+              { href: `/projects/${projectKey}/preconditions`, label: "Preconditions" },
+              { href: `/projects/${projectKey}/requirements`, label: "Requirements" },
+              { href: `/projects/${projectKey}/environments`, label: "Environments" },
+              { href: `/projects/${projectKey}/executions`, label: "Executions" },
+              { href: `/projects/${projectKey}/bugs`, label: "Bugs" },
+              { href: `/projects/${projectKey}/reports`, label: "Reports" },
+          ]
+        : [];
+
     const navItems = [
         { href: projectKey ? `/projects/${projectKey}` : "/", label: "Dashboard" },
-        { href: projectKey ? `/projects/${projectKey}/testcases` : "/testcases", label: "Test Cases" },
-        { href: projectKey ? `/projects/${projectKey}/testplans` : "/testplans", label: "Plans" },
-        { href: projectKey ? `/projects/${projectKey}/test-sets` : "/test-sets", label: "Test Sets" },
-        { href: projectKey ? `/projects/${projectKey}/preconditions` : "/preconditions", label: "Preconditions" },
-        { href: projectKey ? `/projects/${projectKey}/environments` : "/environments", label: "Environments" },
-        { href: projectKey ? `/projects/${projectKey}/executions` : "/executions", label: "Executions" },
-        { href: projectKey ? `/projects/${projectKey}/bugs` : "/bugs", label: "Bugs" },
-        { href: projectKey ? `/projects/${projectKey}/reports` : "/reports", label: "Reports" },
-        ...(canAccessSettings && projectKey ? [{
-            href: `/projects/${projectKey}/settings`,
-            label: "Settings"
-        }] : []),
-        ...(isAdmin ? [{
-            href: "/settings",
-            label: "Admin"
-        }] : [])
+        ...projectScoped,
+        ...(canAccessSettings && projectKey
+            ? [{ href: `/projects/${projectKey}/settings`, label: "Settings" }]
+            : []),
+        ...(isAdmin ? [{ href: "/settings", label: "Admin" }] : []),
     ];
 
     return (

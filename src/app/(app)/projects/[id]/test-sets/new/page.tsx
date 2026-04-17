@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
 import { useProjectStore } from "@/lib/stores/project-store";
 
@@ -17,8 +17,12 @@ type FormValues = z.infer<typeof schema>;
 
 export default function NewTestSetPage() {
     const { projectId, projectKey } = useProjectStore();
+    const params = useParams<{ id: string }>();
     const router = useRouter();
     const toast = useToast();
+    // Prefer the URL param as authoritative for navigation — the project
+    // store may not be seeded yet when landing directly on this page.
+    const projectKeyForLink = projectKey || params?.id;
 
     const form = useForm<FormValues>({
         resolver: zodResolver(schema),
@@ -56,7 +60,7 @@ export default function NewTestSetPage() {
         }
 
         toast({ title: "Test set created", description: values.name });
-        router.push(`/projects/${projectKey}/test-sets`);
+        router.push(`/projects/${projectKeyForLink}/test-sets`);
     });
 
     return (

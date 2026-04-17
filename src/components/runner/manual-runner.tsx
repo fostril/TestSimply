@@ -19,6 +19,36 @@ function useDebounce<T>(value: T, delay: number): T {
 
 type RunnerStatus = "PASS" | "FAIL" | "BLOCKED";
 
+type StepStatus = "PASS" | "FAIL" | "BLOCKED" | "SKIPPED" | "NOT_RUN";
+
+type StepResultState = {
+  stepIndex: number;
+  status: StepStatus;
+  actual: string;
+  comments: string;
+};
+
+const STEP_STATUS_ORDER: StepStatus[] = ["NOT_RUN", "PASS", "FAIL", "BLOCKED", "SKIPPED"];
+
+const stepStatusStyle: Record<StepStatus, string> = {
+  NOT_RUN: "bg-slate-800 text-slate-400 border-slate-700",
+  PASS: "bg-emerald-500 text-emerald-950 border-emerald-500",
+  FAIL: "bg-red-500 text-red-950 border-red-500",
+  BLOCKED: "bg-amber-500 text-amber-950 border-amber-500",
+  SKIPPED: "bg-slate-600 text-white border-slate-600",
+};
+
+// Collapse a set of per-step statuses into an overall result — same precedence
+// Jira Xray uses: FAIL dominates BLOCKED > SKIPPED > PASS. NOT_RUN means
+// "nothing conclusive yet" so we don't auto-submit for those.
+function deriveOverallStatus(steps: StepResultState[]): RunnerStatus | null {
+  if (steps.length === 0) return null;
+  if (steps.some((s) => s.status === "FAIL")) return "FAIL";
+  if (steps.some((s) => s.status === "BLOCKED")) return "BLOCKED";
+  if (steps.every((s) => s.status === "PASS")) return "PASS";
+  return null;
+}
+
 type Bug = {
   id: string;
   key: string;
@@ -87,6 +117,9 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
   const activeCase = cases[activeIndex];
 
   const [notes, setNotes] = useState<Record<string, string>>({});
+  // Per-step results keyed by caseId. Initialized from the existing stepsLog
+  // on the result when switching cases.
+  const [stepResults, setStepResults] = useState<Record<string, StepResultState[]>>({});
   const [selectedBugs, setSelectedBugs] = useState<Record<string, string[]>>({});
   const [bugSearchQuery, setBugSearchQuery] = useState("");
   const debouncedBugSearchQuery = useDebounce(bugSearchQuery, 300);
@@ -120,7 +153,32 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
       }
       return prev;
     });
-  }, [activeCase?.id, linkedBugsByCase]);
+
+    // Hydrate step results from existing stepsLog (if the saved shape matches
+    // the typed StepResult shape). Falls back to NOT_RUN for each step.
+    setStepResults((prev) => {
+      if (prev[id]) return prev;
+      const steps = (activeCase?.steps ?? []) as unknown[];
+      const existingResult = results.find((r: any) => r.caseId === id);
+      const existingLog = Array.isArray(existingResult?.stepsLog)
+        ? (existingResult.stepsLog as any[])
+        : [];
+
+      const hydrated: StepResultState[] = steps.map((_s, idx) => {
+        const found = existingLog.find((e) => e && typeof e === "object" && e.stepIndex === idx);
+        if (found && typeof found.status === "string" && STEP_STATUS_ORDER.includes(found.status)) {
+          return {
+            stepIndex: idx,
+            status: found.status as StepStatus,
+            actual: typeof found.actual === "string" ? found.actual : "",
+            comments: typeof found.comments === "string" ? found.comments : "",
+          };
+        }
+        return { stepIndex: idx, status: "NOT_RUN", actual: "", comments: "" };
+      });
+      return { ...prev, [id]: hydrated };
+    });
+  }, [activeCase?.id, activeCase?.steps, linkedBugsByCase, results]);
 
   // State for bulk action confirmation
   const [showBulkConfirm, setShowBulkConfirm] = useState<RunnerStatus | null>(null);
@@ -294,6 +352,24 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
 
   const mutation = useMutation({
     mutationFn: async (payload: { caseId: string; status: RunnerStatus; note?: string; bugIds?: string[] }) => {
+      // Convert the per-step state to the typed StepResult shape. Blank
+      // actuals/comments are omitted to keep the JSON small.
+      const stepState = stepResults[payload.caseId] ?? [];
+      const stepsLog = stepState
+        .filter((s) => s.status !== "NOT_RUN" || s.actual || s.comments)
+        .map((s) => ({
+          stepIndex: s.stepIndex,
+          status: s.status,
+          ...(s.actual ? { actual: s.actual } : {}),
+          ...(s.comments ? { comments: s.comments } : {}),
+        }));
+
+      // Also preserve the free-form note in a separate entry so existing
+      // screens that look for a plain `note` keep working.
+      if (payload.note) {
+        (stepsLog as any[]).push({ note: payload.note });
+      }
+
       await fetch(`/api/results`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -301,7 +377,7 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
           executionId: data?.id,
           caseId: payload.caseId,
           status: payload.status,
-          stepsLog: payload.note ? [{ note: payload.note }] : [],
+          stepsLog,
           bugIds: payload.bugIds,
         }),
       });
@@ -821,17 +897,101 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
 
         <div className="mt-8 space-y-6">
           <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Steps</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+                Steps
+              </h2>
+              {(() => {
+                const derived = deriveOverallStatus(stepResults[activeCase.id] ?? []);
+                return derived ? (
+                  <span className="text-xs text-slate-400">
+                    Derived: <span className="font-semibold text-white">{derived}</span>
+                  </span>
+                ) : null;
+              })()}
+            </div>
             <ol className="mt-4 space-y-3">
-              {(activeCase.steps ?? []).map((step: any, index: number) => (
-                <li
-                  key={index}
-                  className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-sm text-slate-200"
-                >
-                  <p className="font-semibold">{step.action}</p>
-                  <p className="mt-1 text-xs text-slate-400">Expected: {step.expected}</p>
-                </li>
-              ))}
+              {(activeCase.steps ?? []).map((step: any, index: number) => {
+                const stepState =
+                  stepResults[activeCase.id]?.[index] ??
+                  ({ stepIndex: index, status: "NOT_RUN", actual: "", comments: "" } as StepResultState);
+                return (
+                  <li
+                    key={index}
+                    className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-sm text-slate-200"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold">
+                          <span className="text-slate-500">{index + 1}.</span> {step.action}
+                        </p>
+                        {step.data && (
+                          <p className="mt-1 text-xs text-slate-500">Data: {step.data}</p>
+                        )}
+                        {step.expected && (
+                          <p className="mt-1 text-xs text-slate-400">Expected: {step.expected}</p>
+                        )}
+                      </div>
+                      <div className="flex flex-shrink-0 gap-1">
+                        {(["PASS", "FAIL", "BLOCKED", "SKIPPED"] as const).map((s) => {
+                          const isActive = stepState.status === s;
+                          return (
+                            <button
+                              key={s}
+                              type="button"
+                              onClick={() => {
+                                setStepResults((prev) => {
+                                  const existing = prev[activeCase.id] ?? [];
+                                  const next = [...existing];
+                                  next[index] = { ...stepState, status: isActive ? "NOT_RUN" : s };
+                                  return { ...prev, [activeCase.id]: next };
+                                });
+                              }}
+                              className={`rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition ${
+                                isActive
+                                  ? stepStatusStyle[s]
+                                  : "border-slate-700 bg-slate-900 text-slate-400 hover:bg-slate-800"
+                              }`}
+                            >
+                              {s === "SKIPPED" ? "Skip" : s.charAt(0) + s.slice(1).toLowerCase()}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                      <textarea
+                        placeholder="Actual result"
+                        value={stepState.actual}
+                        onChange={(e) =>
+                          setStepResults((prev) => {
+                            const existing = prev[activeCase.id] ?? [];
+                            const next = [...existing];
+                            next[index] = { ...stepState, actual: e.target.value };
+                            return { ...prev, [activeCase.id]: next };
+                          })
+                        }
+                        rows={2}
+                        className="rounded-lg border border-slate-800 bg-slate-950 px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand"
+                      />
+                      <textarea
+                        placeholder="Comments"
+                        value={stepState.comments}
+                        onChange={(e) =>
+                          setStepResults((prev) => {
+                            const existing = prev[activeCase.id] ?? [];
+                            const next = [...existing];
+                            next[index] = { ...stepState, comments: e.target.value };
+                            return { ...prev, [activeCase.id]: next };
+                          })
+                        }
+                        rows={2}
+                        className="rounded-lg border border-slate-800 bg-slate-950 px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand"
+                      />
+                    </div>
+                  </li>
+                );
+              })}
             </ol>
           </div>
 

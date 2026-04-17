@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler } from "@/lib/api";
+import { requireAuth, withApiHandler, requireProjectAccessOrForbid } from "@/lib/api";
 import { Prisma } from "@prisma/client";
 
 export const GET = withApiHandler(async (req: NextRequest) => {
@@ -8,6 +8,14 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   if (!auth.authorized) return auth.response;
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId");
+  if (projectId) {
+    const access = await requireProjectAccessOrForbid(
+      auth.session.user.id,
+      auth.session.user.role,
+      projectId,
+    );
+    if (access instanceof NextResponse) return access;
+  }
   const whereClause = projectId
     ? Prisma.sql`WHERE e."projectId" = ${projectId} AND r."createdAt" > now() - interval '14 days'`
     : Prisma.sql`WHERE r."createdAt" > now() - interval '14 days'`;

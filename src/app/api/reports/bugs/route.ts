@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler } from "@/lib/api";
+import { requireAuth, withApiHandler, requireProjectAccessOrForbid } from "@/lib/api";
 
 export const GET = withApiHandler(async (req: NextRequest) => {
     const auth = await requireAuth(req, "project:view");
@@ -12,6 +12,13 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     if (!projectId) {
         return NextResponse.json({ error: "Project ID is required" }, { status: 400 });
     }
+
+    const access = await requireProjectAccessOrForbid(
+        auth.session.user.id,
+        auth.session.user.role,
+        projectId,
+    );
+    if (access instanceof NextResponse) return access;
 
     const [topTestCases, topTestSets] = await Promise.all([
         prisma.testCase.findMany({

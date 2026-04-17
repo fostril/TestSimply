@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/api";
+import { requireAuth, withApiHandler } from "@/lib/api";
 
 // GET /api/users/me/projects - Get current user's projects (lead and assigned)
-export async function GET(req: NextRequest) {
-    const auth = await requireAuth(req);
+export const GET = withApiHandler(async (req: NextRequest) => {
+    const auth = await requireAuth(req, "project:view");
     if (!auth.authorized) return auth.response;
 
     const user = await prisma.user.findUnique({
@@ -34,4 +34,4 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json(user);
-}
+});

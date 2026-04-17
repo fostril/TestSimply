@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler } from "@/lib/api";
+import { requireAuth, withApiHandler, requireProjectAccessOrForbid, parsePagination, paginatedJson } from "@/lib/api";
 import { z } from "zod";
 
 import { generateEntityKey } from "@/lib/keys";
@@ -24,20 +24,38 @@ export const GET = withApiHandler(async (req: NextRequest) => {
         return NextResponse.json({ error: "Project ID is required" }, { status: 400 });
     }
 
-    const environments = await prisma.environment.findMany({
-        where: { projectId },
-        orderBy: { createdAt: "desc" },
-    });
+    const access = await requireProjectAccessOrForbid(auth.session.user.id, auth.session.user.role, projectId);
+    if (access instanceof NextResponse) return access;
 
-    return NextResponse.json(environments);
+    const pagination = parsePagination(searchParams);
+    const where = { projectId };
+
+    const [environments, total] = await Promise.all([
+        prisma.environment.findMany({
+            where,
+            orderBy: { createdAt: "desc" },
+            skip: pagination.skip,
+            take: pagination.limit,
+        }),
+        prisma.environment.count({ where }),
+    ]);
+
+    return paginatedJson(environments, total, pagination);
 });
 
 export const POST = withApiHandler(async (req: NextRequest) => {
-    const auth = await requireAuth(req, "project:edit");
+    const auth = await requireAuth(req, "project:update");
     if (!auth.authorized) return auth.response;
 
     const body = await req.json();
     const parsed = createSchema.parse(body);
+
+    const access = await requireProjectAccessOrForbid(
+        auth.session.user.id,
+        auth.session.user.role,
+        parsed.projectId,
+    );
+    if (access instanceof NextResponse) return access;
 
     const project = await prisma.project.findUnique({
         where: { id: parsed.projectId },

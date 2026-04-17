@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, withApiHandler } from "@/lib/api";
+import { requireAuth, withApiHandler, requireProjectAccessOrForbid } from "@/lib/api";
 import { JiraClient } from "@/lib/jira";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
@@ -9,15 +9,22 @@ const createSchema = z.object({
     summary: z.string().min(1, "Summary is required"),
     description: z.string().optional(),
     issueType: z.string().default("Bug"),
-    projectKey: z.string().optional(), // Optional override, otherwise fetch from settings or project key
+    projectKey: z.string().optional(),
 });
 
 export const POST = withApiHandler(async (req: NextRequest) => {
-    const auth = await requireAuth(req, "bug:create"); // Reusing bug:create permission
+    const auth = await requireAuth(req, "bug:manage");
     if (!auth.authorized) return auth.response;
 
     const body = await req.json();
     const parsed = createSchema.parse(body);
+
+    const access = await requireProjectAccessOrForbid(
+        auth.session.user.id,
+        auth.session.user.role,
+        parsed.projectId,
+    );
+    if (access instanceof NextResponse) return access;
 
     const jira = await JiraClient.forProject(parsed.projectId);
     if (!jira) {

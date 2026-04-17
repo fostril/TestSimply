@@ -2,12 +2,13 @@
 
 import { DashboardPage } from "@/components/pages/dashboard-page";
 import { BugReports } from "@/components/reports/bug-reports";
+import { TraceabilityMatrix } from "@/components/reports/traceability-matrix";
 import { useState } from "react";
 import { useProjectStore } from "@/lib/stores/project-store";
 import { useQuery } from "@tanstack/react-query";
 
 export default function ReportsPage() {
-  const [tab, setTab] = useState<"dashboard" | "coverage" | "bugs">("dashboard");
+  const [tab, setTab] = useState<"dashboard" | "coverage" | "traceability" | "bugs">("dashboard");
   const projectId = useProjectStore((state) => state.projectId);
 
   const { data: coverage, isLoading } = useQuery({
@@ -38,6 +39,12 @@ export default function ReportsPage() {
             Requirement Coverage
           </button>
           <button
+            onClick={() => setTab("traceability")}
+            className={`text-sm font-medium ${tab === "traceability" ? "text-white" : "text-slate-400 hover:text-slate-200"}`}
+          >
+            Traceability Matrix
+          </button>
+          <button
             onClick={() => setTab("bugs")}
             className={`text-sm font-medium ${tab === "bugs" ? "text-white" : "text-slate-400 hover:text-slate-200"}`}
           >
@@ -48,6 +55,8 @@ export default function ReportsPage() {
 
       {tab === "dashboard" ? (
         <DashboardPage />
+      ) : tab === "traceability" ? (
+        <TraceabilityMatrix projectId={projectId} />
       ) : tab === "coverage" ? (
         <div className="p-8">
           <h1 className="mb-6 text-2xl font-bold text-white">Requirement Coverage</h1>

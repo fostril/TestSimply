@@ -1,23 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler } from "@/lib/api";
+import { requireAuth, withApiHandler, requireProjectAccessOrForbid } from "@/lib/api";
+import { generateEntityKey } from "@/lib/keys";
+import { validateBodySize } from "@/lib/upload";
 import Papa from "papaparse";
 import { z } from "zod";
+import type { Priority } from "@prisma/client";
 
 const importSchema = z.object({
     projectId: z.string(),
     csvData: z.string(),
 });
 
+type Row = Record<string, string>;
+
 export const POST = withApiHandler(async (req: NextRequest) => {
     const auth = await requireAuth(req, "testcase:create");
     if (!auth.authorized) return auth.response;
+
+    const sizeCheck = validateBodySize(req);
+    if (sizeCheck) return sizeCheck;
 
     const body = await req.json();
     const parsed = importSchema.parse(body);
     const { projectId, csvData } = parsed;
 
-    const parseResult = Papa.parse(csvData, {
+    const access = await requireProjectAccessOrForbid(
+        auth.session.user.id,
+        auth.session.user.role,
+        projectId,
+    );
+    if (access instanceof NextResponse) return access;
+
+    const parseResult = Papa.parse<Row>(csvData, {
         header: true,
         skipEmptyLines: true,
     });
@@ -25,15 +40,14 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     if (parseResult.errors.length > 0) {
         return NextResponse.json(
             { error: "Failed to parse CSV", details: parseResult.errors },
-            { status: 400 }
+            { status: 400 },
         );
     }
 
-    const rows = parseResult.data as any[];
+    const rows = parseResult.data;
     const createdCases = [];
-    const errors = [];
+    const errors: string[] = [];
 
-    // Get the highest current key number to generate new keys
     const project = await prisma.project.findUnique({
         where: { id: projectId },
         select: { key: true },
@@ -41,23 +55,6 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
     if (!project) {
         return NextResponse.json({ error: "Project not found" }, { status: 404 });
-    }
-
-    // Find the last test case key number
-    // This is a bit naive for concurrent usage but sufficient for now
-    // A better approach would be a sequence or atomic increment
-    const lastCase = await prisma.testCase.findFirst({
-        where: { projectId },
-        orderBy: { createdAt: "desc" }, // This might not be accurate for key generation if keys are not strictly chronological
-        select: { key: true },
-    });
-
-    let nextNum = 1;
-    if (lastCase) {
-        const match = lastCase.key.match(/-(\d+)$/);
-        if (match) {
-            nextNum = parseInt(match[1], 10) + 1;
-        }
     }
 
     for (const [index, row] of rows.entries()) {
@@ -68,24 +65,29 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         }
 
         const description = row.description || row.Description;
-        const priority = (row.priority || row.Priority || "MEDIUM").toUpperCase();
+        const rawPriority = (row.priority || row.Priority || "MEDIUM").toUpperCase();
         const status = row.status || row.Status || "Draft";
         const preconditions = row.preconditions || row.Preconditions;
 
-        // Simple step parsing: if 'steps' column exists, try to use it. 
-        // If it's not JSON, just make it a single step.
-        let steps = [];
+        let steps: { action: string; expected: string }[] = [];
         const stepsRaw = row.steps || row.Steps;
         if (stepsRaw) {
             try {
                 steps = JSON.parse(stepsRaw);
-            } catch (e) {
-                // Treat as a single text step
+            } catch {
                 steps = [{ action: stepsRaw, expected: row.expected || row.Expected || "" }];
             }
         }
 
-        const key = `${project.key}-${nextNum++}`;
+        // Use the shared atomic counter so imports don't collide with manual
+        // creation or with each other.
+        const key = await generateEntityKey(prisma, projectId, project.key, "TC");
+
+        const priority: Priority = (["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const).includes(
+            rawPriority as Priority,
+        )
+            ? (rawPriority as Priority)
+            : "MEDIUM";
 
         try {
             const testCase = await prisma.testCase.create({
@@ -94,7 +96,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
                     key,
                     name,
                     description,
-                    priority: ["LOW", "MEDIUM", "HIGH", "CRITICAL"].includes(priority) ? priority : "MEDIUM",
+                    priority,
                     status,
                     preconditionsText: preconditions,
                     steps: steps.length > 0 ? steps : [],

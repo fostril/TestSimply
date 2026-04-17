@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler } from "@/lib/api";
+import { requireAuth, withApiHandler, requireProjectAccessOrForbid } from "@/lib/api";
 import { importJUnit } from "@/lib/importers/junit";
 
 export const POST = withApiHandler(async (req: NextRequest) => {
@@ -27,6 +27,13 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   if (!project) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
+
+  const access = await requireProjectAccessOrForbid(
+    auth.session.user.id,
+    auth.session.user.role,
+    project.id,
+  );
+  if (access instanceof NextResponse) return access;
 
   let execution = execKey
     ? await prisma.testExecution.findFirst({ where: { projectId: project.id, key: execKey } })
@@ -65,11 +72,14 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   }
 
   const form = await req.formData();
-  const file = form.get("report");
-  if (!file || typeof file === "string") {
-    return NextResponse.json({ error: "report file required" }, { status: 400 });
-  }
-  const xml = await file.text();
+  const rawFile = form.get("report");
+
+  // Validate file size and type
+  const { validateUpload } = await import("@/lib/upload");
+  const validated = validateUpload(rawFile, "report");
+  if (validated instanceof NextResponse) return validated;
+
+  const xml = await validated.text();
   await importJUnit(xml, {
     projectId: project.id,
     executionId: execution.id,

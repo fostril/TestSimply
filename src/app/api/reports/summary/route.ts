@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler } from "@/lib/api";
+import { requireAuth, withApiHandler, requireProjectAccessOrForbid } from "@/lib/api";
 import { Prisma } from "@prisma/client";
 
 export const GET = withApiHandler(async (req: NextRequest) => {
@@ -8,6 +8,16 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   if (!auth.authorized) return auth.response;
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId");
+
+  if (projectId) {
+    const access = await requireProjectAccessOrForbid(
+      auth.session.user.id,
+      auth.session.user.role,
+      projectId,
+    );
+    if (access instanceof NextResponse) return access;
+  }
+
   const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
 
   const projectFilter = projectId ? Prisma.sql`AND e."projectId" = ${projectId}` : Prisma.sql``;
