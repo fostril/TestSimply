@@ -2,8 +2,6 @@ import { ReactNode } from "react";
 import { ProjectSwitcher } from "@/components/project-switcher";
 import { CommandPalette } from "@/components/ui/command-palette";
 import { AuthGuard } from "@/components/auth/auth-guard";
-
-
 import { SidebarNavigation } from "@/components/layout/sidebar-navigation";
 import { UserProfile } from "@/components/layout/user-profile";
 
@@ -19,7 +17,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               </div>
               <div>
                 <div className="text-lg font-bold tracking-tight text-foreground">TestSimply</div>
-                <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Toolkit</p>
+                <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Test management
+                </p>
               </div>
             </div>
           </div>
@@ -35,4 +35,3 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     </AuthGuard>
   );
 }
-// Force rebuild

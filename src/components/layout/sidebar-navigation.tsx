@@ -55,6 +55,7 @@ export function SidebarNavigation() {
         ...(canAccessSettings && projectKey
             ? [{ href: `/projects/${projectKey}/settings`, label: "Settings" }]
             : []),
+        { href: "/settings/tokens", label: "Tokens" },
         ...(isAdmin ? [{ href: "/settings", label: "Admin" }] : []),
     ];
 

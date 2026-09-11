@@ -5,11 +5,11 @@ const prisma = new PrismaClient();
 
 async function createUsers() {
   const users = [
-    { name: "Ada Admin", email: "ada.admin@testsimplify.local", role: Role.ADMIN },
-    { name: "Liam Lead", email: "liam.lead@testsimplify.local", role: Role.LEAD },
-    { name: "Tara Tester", email: "tara.tester@testsimplify.local", role: Role.TESTER },
-    { name: "Vera Viewer", email: "vera.viewer@testsimplify.local", role: Role.VIEWER },
-    { id: "public-user", name: "Public User", email: "public@testsimplify.local", role: Role.ADMIN }
+    { name: "Ada Admin", email: "ada.admin@testsimply.local", role: Role.ADMIN },
+    { name: "Liam Lead", email: "liam.lead@testsimply.local", role: Role.LEAD },
+    { name: "Tara Tester", email: "tara.tester@testsimply.local", role: Role.TESTER },
+    { name: "Vera Viewer", email: "vera.viewer@testsimply.local", role: Role.VIEWER },
+    { id: "public-user", name: "Public User", email: "public@testsimply.local", role: Role.ADMIN }
   ];
 
   const passwordHash = await bcrypt.hash("ChangeMe123!", 10);

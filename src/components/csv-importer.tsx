@@ -105,7 +105,15 @@ export function CsvImporter({ projectId, onSuccess }: CsvImporterProps) {
                 {!importResult ? (
                     <div className="space-y-4">
                         <p className="text-sm text-slate-400">
-                            Upload a CSV file with headers: <code className="rounded bg-slate-900 px-1 text-slate-300">title</code>, <code className="rounded bg-slate-900 px-1 text-slate-300">description</code>, <code className="rounded bg-slate-900 px-1 text-slate-300">priority</code>, <code className="rounded bg-slate-900 px-1 text-slate-300">status</code>.
+                            Upload a CSV file. Export from TestSimply uses columns
+                            <code className="rounded bg-slate-900 px-1 text-slate-300">name</code>,
+                            <code className="rounded bg-slate-900 px-1 text-slate-300">description</code>,
+                            <code className="rounded bg-slate-900 px-1 text-slate-300">precondition</code>,
+                            <code className="rounded bg-slate-900 px-1 text-slate-300">steps.action</code>,
+                            <code className="rounded bg-slate-900 px-1 text-slate-300">steps.expected</code>,
+                            <code className="rounded bg-slate-900 px-1 text-slate-300">expected_result</code>,
+                            and <code className="rounded bg-slate-900 px-1 text-slate-300">tags</code>.
+                            <code className="rounded bg-slate-900 px-1 text-slate-300">title</code> is also accepted.
                         </p>
 
                         <div
