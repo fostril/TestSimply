@@ -18,21 +18,12 @@
     "isolatedModules": true,
     "incremental": true,
     "jsx": "preserve",
-    "baseUrl": ".",
     "paths": {
-      "@/components/*": [
-        "src/components/*"
-      ],
-      "@/lib/*": [
-        "src/lib/*"
-      ],
-      "@/app/*": [
-        "src/app/*"
-      ],
-      "@/server/*": [
-        "src/server/*"
-      ]
-    },
+  "@/components/*": ["./src/components/*"],
+  "@/lib/*": ["./src/lib/*"],
+  "@/app/*": ["./src/app/*"],
+  "@/server/*": ["./src/server/*"]
+},
     "types": [
       "node",
       "vitest/globals",           // if you run Vitest

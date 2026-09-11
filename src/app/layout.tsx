@@ -9,7 +9,7 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
   title: "TestSimply",
-  description: "Modern test management for high-velocity teams"
+  description: "Self-hostable test management for manual, BDD, and automated testing"
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

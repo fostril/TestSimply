@@ -98,12 +98,18 @@ export default function ReportsPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-800">
                     {(coverage ?? []).map((req: any) => (
-                      <tr key={req.url} className="hover:bg-slate-800/50">
+                      <tr key={req.key ?? req.url ?? req.title} className="hover:bg-slate-800/50">
                         <td className="px-6 py-4">
-                          <a href={req.url} target="_blank" rel="noopener noreferrer" className="font-medium text-blue-400 hover:underline">
-                            {req.url}
-                          </a>
-                          <p className="text-xs text-slate-500">{req.type}</p>
+                          {req.url ? (
+                            <a href={req.url} target="_blank" rel="noopener noreferrer" className="font-medium text-blue-400 hover:underline">
+                              {req.key ?? req.title ?? req.url}
+                            </a>
+                          ) : (
+                            <span className="font-medium text-white">{req.key ?? req.title ?? "Untitled requirement"}</span>
+                          )}
+                          {req.title && req.key ? (
+                            <p className="text-xs text-slate-500">{req.title}</p>
+                          ) : null}
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex flex-wrap gap-2">
@@ -118,8 +124,9 @@ export default function ReportsPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${req.status === "OK" ? "bg-emerald-900/30 text-emerald-400" :
+                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium $                            {req.status === "OK" ? "bg-emerald-900/30 text-emerald-400" :
                             req.status === "NOK" ? "bg-red-900/30 text-red-400" :
+                            req.status === "WIP" ? "bg-yellow-900/30 text-yellow-400" :
                               "bg-slate-800 text-slate-400"
                             }`}>
                             {req.status}

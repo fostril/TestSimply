@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   CommandDialog,
   CommandEmpty,
@@ -10,22 +11,16 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
-} from "@/components/ui/command"; // shadcn/ui wrapper (uses cmdk under the hood)
-
-const commands = [
-  { label: "Dashboard", href: "/" },
-  { label: "Test Cases", href: "/testcases" },
-  { label: "Test Plans", href: "/testplans" },
-  { label: "Executions", href: "/executions" },
-  { label: "Reports", href: "/reports" },
-  { label: "Settings", href: "/settings" },
-];
+} from "@/components/ui/command";
+import { useProjectStore } from "@/lib/stores/project-store";
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
+  const projectKey = useProjectStore((state) => state.projectKey);
+  const { data: session } = useSession();
+  const isAdmin = (session?.user as { role?: string } | undefined)?.role === "ADMIN";
 
-  // Open with ⌘K / Ctrl+K
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -36,6 +31,23 @@ export function CommandPalette() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
+
+  const commands = [
+    { label: "Dashboard", href: projectKey ? `/projects/${projectKey}` : "/" },
+    ...(projectKey
+      ? [
+          { label: "Test Cases", href: `/projects/${projectKey}/testcases` },
+          { label: "Test Plans", href: `/projects/${projectKey}/testplans` },
+          { label: "Test Sets", href: `/projects/${projectKey}/test-sets` },
+          { label: "Requirements", href: `/projects/${projectKey}/requirements` },
+          { label: "Executions", href: `/projects/${projectKey}/executions` },
+          { label: "Bugs", href: `/projects/${projectKey}/bugs` },
+          { label: "Reports", href: `/projects/${projectKey}/reports` },
+        ]
+      : []),
+    { label: "Personal tokens", href: "/settings/tokens" },
+    ...(isAdmin ? [{ label: "Admin", href: "/settings" }] : []),
+  ];
 
   return (
     <>

@@ -17,7 +17,7 @@ export const logger = pino({
       return { level: label };
     },
   },
-  base: { service: "testsimplify" },
+  base: { service: "testsimply" },
 });
 
 /** Scoped child loggers for specific subsystems */

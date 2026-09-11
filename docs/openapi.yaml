@@ -1,0 +1,112 @@
+openapi: 3.0.3
+info:
+  title: TestSimply API
+  version: 1.0.0
+  description: REST endpoints for CI result imports, health checks, and CSV round-tripping.
+servers:
+  - url: https://testsimply.mycorp.net
+paths:
+  /api/health:
+    get:
+      summary: Liveness / readiness probe
+      security: []
+      responses:
+        "200":
+          description: Database reachable
+        "503":
+          description: Database unreachable
+  /api/import/junit:
+    post:
+      summary: Import a JUnit XML report
+      parameters:
+        - in: query
+          name: projectKey
+          required: true
+          schema: { type: string }
+        - in: query
+          name: createExecutionIfMissing
+          schema: { type: boolean }
+        - in: query
+          name: autoCreateCases
+          schema: { type: boolean }
+        - in: query
+          name: environment
+          schema: { type: string }
+        - in: query
+          name: commitSha
+          schema: { type: string }
+        - in: query
+          name: labels
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [report]
+              properties:
+                report:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Import accepted
+  /api/import/cucumber:
+    post:
+      summary: Import a Cucumber JSON report
+      parameters:
+        - in: query
+          name: projectKey
+          required: true
+          schema: { type: string }
+        - in: query
+          name: autoCreateCases
+          schema: { type: boolean }
+        - in: query
+          name: createExecutionIfMissing
+          schema: { type: boolean }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items: { type: object }
+      responses:
+        "200":
+          description: Import accepted
+  /api/imports/csv:
+    post:
+      summary: Import test cases from CSV
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [projectId, csvData]
+              properties:
+                projectId: { type: string }
+                csvData: { type: string }
+      responses:
+        "200":
+          description: Import result
+  /api/testcases/export:
+    get:
+      summary: Export test cases as CSV
+      parameters:
+        - in: query
+          name: projectId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: CSV file
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+security:
+  - bearerAuth: []

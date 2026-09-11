@@ -2,14 +2,21 @@
 
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod"; // use official resolver
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
 
 const schema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Enter a valid email"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/,
+      "Use upper and lowercase letters and at least one number",
+    ),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -27,6 +34,7 @@ export function SignUpForm() {
 
   const [loading, setLoading] = useState(false);
   const toast = useToast();
+  const router = useRouter();
 
   const onSubmit = async (values: FormValues) => {
     setLoading(true);
@@ -38,11 +46,13 @@ export function SignUpForm() {
     setLoading(false);
     if (res.ok) {
       toast({ title: "Account created", description: "You can now sign in" });
+      router.push("/auth/login");
     } else {
       const error = await res.json().catch(() => ({}));
+      const issue = Array.isArray(error?.issues) ? error.issues[0]?.message : undefined;
       toast({
         title: "Unable to register",
-        description: error?.error ?? "Try again",
+        description: error?.error ?? issue ?? "Try again",
       });
     }
   };

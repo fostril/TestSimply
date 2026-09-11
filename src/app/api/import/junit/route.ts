@@ -4,7 +4,7 @@ import { requireAuth, withApiHandler, requireProjectAccessOrForbid } from "@/lib
 import { importJUnit } from "@/lib/importers/junit";
 
 export const POST = withApiHandler(async (req: NextRequest) => {
-  const auth = await requireAuth(req, "execution:manage");
+  const auth = await requireAuth(req, "execution:run");
   if (!auth.authorized) return auth.response;
 
   const { searchParams } = new URL(req.url);

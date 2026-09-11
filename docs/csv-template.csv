@@ -1,0 +1,3 @@
+name,description,precondition,steps.action,steps.expected,expected_result,tags,priority,status
+Login with valid credentials,User can sign in to the app,A registered user exists,Open the login page | Submit valid credentials,The form is visible | The dashboard loads,User lands on the dashboard,"smoke,auth",HIGH,Draft
+Export coverage report,Requirement coverage can be exported,Project has linked requirements,Open Reports | Export CSV,Matrix is visible | File downloads,CSV contains requirement keys,"regression,reports",MEDIUM,Draft

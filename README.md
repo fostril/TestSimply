@@ -129,7 +129,7 @@ Duplicate `.env.example` to `.env` and fill in values. The full list:
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | no | Enables GitHub OAuth. |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | no | Enables Google OAuth. |
 | `GOOGLE_ALLOWED_DOMAIN` | no | Restricts Google sign-in to a single workspace domain (e.g. `mycorp.com`). |
-| `TRUSTED_PROXY` | no | Comma-separated list of trusted proxy IPs/CIDRs so `X-Forwarded-For` is honoured behind an L7 proxy. |
+| `TRUSTED_PROXY` | no | Set to `true` so `X-Forwarded-For` / `X-Real-IP` are honoured behind a reverse proxy. |
 | `ALLOW_PRIVATE_NETWORK_URLS` | no | Set to `true` to allow Jira/CI integrations to point at private IPs (disabled by default to mitigate SSRF). |
 | `UPLOAD_DIR` | no | Directory used to persist attachments on disk. Defaults to `./uploads`. |
 | `LOG_LEVEL` | no | `trace` / `debug` / `info` / `warn` / `error` / `fatal`. Defaults to `info`. |
@@ -151,10 +151,10 @@ openssl rand -base64 32   # use for ENCRYPTION_KEY
 
 | Role   | Email                              |
 | ------ | ---------------------------------- |
-| ADMIN  | `ada.admin@testsimplify.local`     |
-| LEAD   | `liam.lead@testsimplify.local`     |
-| TESTER | `tara.tester@testsimplify.local`   |
-| VIEWER | `vera.viewer@testsimplify.local`   |
+| ADMIN  | `ada.admin@testsimply.local`     |
+| LEAD   | `liam.lead@testsimply.local`     |
+| TESTER | `tara.tester@testsimply.local`   |
+| VIEWER | `vera.viewer@testsimply.local`   |
 
 Use these to exercise the RBAC behaviour. **Change these passwords (or remove
 the users) before exposing the instance to real users.**
@@ -331,7 +331,7 @@ Then set in `.env`:
 
 ```
 NEXTAUTH_URL=https://testsimply.mycorp.net
-TRUSTED_PROXY=127.0.0.1
+TRUSTED_PROXY=true
 ```
 
 Caddy equivalent:
@@ -381,8 +381,8 @@ after the upgrade).
 
 ## CI integration
 
-Generate a **Personal Access Token** per CI user from **Settings → Personal
-Tokens** and use it as a bearer token when pushing results.
+Generate a **Personal Access Token** from **Tokens** (or **Settings → Personal
+Tokens**) and use it as a bearer token when pushing results.
 
 ### JUnit XML (most test runners)
 
@@ -422,7 +422,7 @@ interactive exploration.
 
 ## Feature overview
 
-- **Test repository** — unlimited nested folders per project, drag-free move,
+- **Test repository** — unlimited nested folders per project, with move and
   path-based filtering.
 - **Test types** — Manual (classic step table), Cucumber (Gherkin body), and
   Generic (automated test reference, e.g. a pytest node id or Playwright spec).
@@ -440,8 +440,9 @@ interactive exploration.
 - **Flakiness & automation** — heuristic flaky detection and automation flags.
 - **CSV import/export** — bulk case management via a documented column layout
   ([`docs/csv-template.csv`](docs/csv-template.csv)).
-- **RBAC & auth** — email/password + GitHub/Google OAuth; per-project LEAD /
-  MEMBER / VIEWER roles; ADMIN escape hatch via the promote-admin script.
+- **RBAC & auth** — email/password + GitHub/Google OAuth; global ADMIN / LEAD /
+  TESTER / VIEWER roles plus per-project leads and members; ADMIN escape hatch
+  via the promote-admin script.
 - **Personal Access Tokens** — scoped bearer tokens for CI integrations,
   hashed at rest.
 - **Audit logging** — every mutation is recorded in the `AuditLog` table with

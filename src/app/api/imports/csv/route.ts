@@ -67,7 +67,12 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         const description = row.description || row.Description;
         const rawPriority = (row.priority || row.Priority || "MEDIUM").toUpperCase();
         const status = row.status || row.Status || "Draft";
-        const preconditions = row.preconditions || row.Preconditions;
+        const preconditions =
+            row.preconditions || row.Preconditions || row.precondition || row.Precondition;
+        const tagsRaw = row.tags || row.Tags || "";
+        const tags = tagsRaw
+            ? tagsRaw.split(",").map((tag) => tag.trim()).filter(Boolean)
+            : [];
 
         let steps: { action: string; expected: string }[] = [];
         const stepsRaw = row.steps || row.Steps;
@@ -75,8 +80,15 @@ export const POST = withApiHandler(async (req: NextRequest) => {
             try {
                 steps = JSON.parse(stepsRaw);
             } catch {
-                steps = [{ action: stepsRaw, expected: row.expected || row.Expected || "" }];
+                steps = [{ action: stepsRaw, expected: row.expected || row.Expected || row.expected_result || "" }];
             }
+        } else if (row["steps.action"] || row["steps.expected"]) {
+            const actions = (row["steps.action"] || "").split("|").map((part) => part.trim()).filter(Boolean);
+            const expecteds = (row["steps.expected"] || "").split("|").map((part) => part.trim());
+            steps = actions.map((action, stepIndex) => ({
+                action,
+                expected: expecteds[stepIndex] ?? "",
+            }));
         }
 
         // Use the shared atomic counter so imports don't collide with manual
@@ -99,6 +111,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
                     priority,
                     status,
                     preconditionsText: preconditions,
+                    expected: row.expected_result || row.expected || row.Expected || undefined,
+                    tags,
                     steps: steps.length > 0 ? steps : [],
                     ownerId: auth.session.user?.id,
                 },

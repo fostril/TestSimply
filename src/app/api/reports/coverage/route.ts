@@ -86,23 +86,10 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     }
 
     const report = Array.from(map.values()).map((req) => {
-        let status = "NOT RUN";
-        if (req.totalCases > 0) {
-            if (req.failCases > 0) status = "NOK";
-            else if (req.passCases === req.totalCases) status = "OK";
-            else if (req.passCases > 0) status = "NOK"; // Partial pass is still NOK if not all pass? Or maybe "WIP"? Let's stick to NOK if any fail or incomplete.
-            // Actually, if pass + fail < total, it means some are not run.
-            // Let's simplify:
-            // OK = All passed.
-            // NOK = Any failed.
-            // NOT RUN = No results.
-            // MIXED = Some passed, some not run, no fails.
-        }
-
-        // Refined Status Logic
+        let status = "NOT_RUN";
         if (req.failCases > 0) status = "NOK";
-        else if (req.passCases === req.totalCases && req.totalCases > 0) status = "OK";
-        else if (req.passCases > 0) status = "OK"; // If no fails and at least one pass, let's call it OK for now, or maybe "PASSING".
+        else if (req.totalCases > 0 && req.passCases === req.totalCases) status = "OK";
+        else if (req.passCases > 0) status = "WIP";
 
         return { ...req, status };
     });

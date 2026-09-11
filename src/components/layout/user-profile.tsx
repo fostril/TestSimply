@@ -1,7 +1,8 @@
 "use client";
 
 import { useSession, signOut } from "next-auth/react";
-import { LogOut, User } from "lucide-react";
+import { LogOut, User, KeyRound } from "lucide-react";
+import Link from "next/link";
 
 export function UserProfile() {
     const { data: session } = useSession();
@@ -20,6 +21,13 @@ export function UserProfile() {
                         {session?.user?.email || ""}
                     </p>
                 </div>
+                <Link
+                    href="/settings/tokens"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+                    title="Personal tokens"
+                >
+                    <KeyRound className="h-4 w-4" />
+                </Link>
                 <button
                     onClick={() => signOut({ callbackUrl: "/auth/login" })}
                     className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"

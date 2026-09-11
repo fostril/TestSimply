@@ -59,7 +59,7 @@ export function DashboardPage() {
           ) : (
             <p className="mt-2 text-3xl font-bold">{activeExecutions}</p>
           )}
-          <p className="text-xs text-slate-500">In progress across teams</p>
+          <p className="text-xs text-slate-500">Currently in progress</p>
         </div>
         <div className="rounded-2xl bg-slate-900 p-6 shadow-xl">
           <p className="text-sm uppercase tracking-wide text-slate-400">Flaky candidates</p>
