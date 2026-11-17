@@ -35,7 +35,10 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  const rows = parseCsv(await validated.text());
+  const rows = parseCsv(await validated.text()).filter((row) => row.name?.trim());
+  if (rows.length === 0) {
+    return NextResponse.json({ error: "No valid test cases found in CSV" }, { status: 400 });
+  }
 
   // Generate keys first so the atomic counter advances once per row, rather
   // than embedding Date.now() into keys (which is non-deterministic and ugly).

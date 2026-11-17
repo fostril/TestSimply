@@ -5,6 +5,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useParams, useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/toast";
 import { useProjectStore } from "@/lib/stores/project-store";
 
@@ -19,6 +20,7 @@ export default function NewTestSetPage() {
     const { projectId, projectKey } = useProjectStore();
     const params = useParams<{ id: string }>();
     const router = useRouter();
+    const queryClient = useQueryClient();
     const toast = useToast();
     // Prefer the URL param as authoritative for navigation — the project
     // store may not be seeded yet when landing directly on this page.
@@ -59,6 +61,7 @@ export default function NewTestSetPage() {
             return;
         }
 
+        await queryClient.invalidateQueries({ queryKey: ["test-sets", projectId] });
         toast({ title: "Test set created", description: values.name });
         router.push(`/projects/${projectKeyForLink}/test-sets`);
     });

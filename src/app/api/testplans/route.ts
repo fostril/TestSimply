@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler, requireProjectAccessOrForbid, parsePagination, paginatedJson } from "@/lib/api";
+import { requireAuth, withApiHandler, requireProjectAccessOrForbid, getAccessibleProjectIds, parsePagination, paginatedJson } from "@/lib/api";
 import { z } from "zod";
 
 import { generateEntityKey } from "@/lib/keys";
@@ -12,6 +12,7 @@ const baseSchema = z.object({
   description: z.string().optional(),
   targetVersions: z.array(z.string()).optional(),
   environments: z.array(z.string()).optional(),
+  environmentIds: z.array(z.string()).optional(),
   tags: z.array(z.string()).optional()
 });
 
@@ -28,12 +29,25 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   }
 
   const pagination = parsePagination(searchParams);
-  const where = projectId ? { projectId } : undefined;
+  let where: { projectId?: string | { in: string[] } } | undefined = projectId ? { projectId } : undefined;
+  if (!where) {
+    const accessibleIds = await getAccessibleProjectIds(auth.session.user.id, auth.session.user.role);
+    if (accessibleIds !== null) {
+      where = { projectId: { in: accessibleIds } };
+    }
+  }
 
   const [plans, total] = await Promise.all([
     prisma.testPlan.findMany({
       where,
-      include: { cases: { include: { case: true } } },
+      include: {
+        cases: {
+          where: { case: { deletedAt: null } },
+          include: { case: true },
+          orderBy: { order: "asc" },
+        },
+        environmentRelations: true,
+      },
       orderBy: { createdAt: "desc" },
       skip: pagination.skip,
       take: pagination.limit,
@@ -67,11 +81,25 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
   const generatedKey = await generateEntityKey(prisma, parsed.projectId, project.key, "PLAN");
 
+  const { environmentIds, key: _ignoredKey, ...planFields } = parsed;
+  let validEnvIds: string[] = [];
+  if (environmentIds && environmentIds.length > 0) {
+    const envs = await prisma.environment.findMany({
+      where: { id: { in: environmentIds }, projectId: parsed.projectId },
+      select: { id: true },
+    });
+    validEnvIds = envs.map((e) => e.id);
+  }
+
   const plan = await prisma.testPlan.create({
     data: {
-      ...parsed,
+      ...planFields,
       key: generatedKey,
+      ...(validEnvIds.length > 0
+        ? { environmentRelations: { connect: validEnvIds.map((id) => ({ id })) } }
+        : {}),
     },
+    include: { environmentRelations: true },
   });
   return NextResponse.json(plan, { status: 201 });
 });

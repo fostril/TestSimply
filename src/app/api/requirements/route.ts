@@ -63,7 +63,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       skip: pagination.skip,
       take: pagination.limit,
       include: {
-        _count: { select: { links: true } },
+        _count: { select: { links: { where: { testCase: { deletedAt: null } } } } },
       },
     }),
     prisma.requirement.count({ where }),

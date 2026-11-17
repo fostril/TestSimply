@@ -50,12 +50,12 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   );
   if (denied) return denied;
 
-  // Case must belong to the same project as the execution
+  // Case must exist (not deleted) and belong to the same project as the execution
   const testCase = await prisma.testCase.findUnique({
     where: { id: parsed.caseId },
-    select: { projectId: true },
+    select: { projectId: true, deletedAt: true },
   });
-  if (!testCase || testCase.projectId !== execution!.projectId) {
+  if (!testCase || testCase.deletedAt || testCase.projectId !== execution!.projectId) {
     return NextResponse.json({ error: "Invalid caseId" }, { status: 400 });
   }
 
@@ -102,15 +102,23 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     });
   }
 
-  // Auto-complete the execution when every planned case has a result AND none
-  // of them are still in the default SKIPPED-not-yet-run state. We also set
-  // `status = COMPLETED` so the UI reflects the state correctly.
+  // Auto-complete the execution when every planned case has a non-SKIPPED result.
+  // We also set `status = COMPLETED` so the UI reflects the state correctly.
   if (execution!.planId && !execution!.finishedAt) {
     const [planCaseCount, resultStats] = await Promise.all([
-      prisma.testCasePlan.count({ where: { planId: execution!.planId } }),
+      prisma.testCasePlan.count({
+        where: { planId: execution!.planId, case: { deletedAt: null } },
+      }),
       prisma.testResult.groupBy({
         by: ["caseId"],
-        where: { executionId: execution!.id },
+        where: {
+          executionId: execution!.id,
+          status: { not: TestStatus.SKIPPED },
+          testCase: {
+            deletedAt: null,
+            plans: { some: { planId: execution!.planId } },
+          },
+        },
         _count: { _all: true },
       }),
     ]);

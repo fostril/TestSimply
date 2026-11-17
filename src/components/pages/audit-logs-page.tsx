@@ -47,9 +47,18 @@ export function AuditLogsPage() {
                         className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 focus:border-blue-600 focus:outline-none"
                     >
                         <option value="">All Entities</option>
+                        <option value="Project">Project</option>
+                        <option value="ProjectSetting">Project Setting</option>
                         <option value="TestCase">Test Case</option>
                         <option value="TestPlan">Test Plan</option>
+                        <option value="TestSet">Test Set</option>
                         <option value="TestExecution">Test Execution</option>
+                        <option value="TestResult">Test Result</option>
+                        <option value="Precondition">Precondition</option>
+                        <option value="Requirement">Requirement</option>
+                        <option value="Environment">Environment</option>
+                        <option value="Bug">Bug</option>
+                        <option value="Attachment">Attachment</option>
                         <option value="User">User</option>
                         <option value="PersonalAccessToken">Personal Access Token</option>
                     </select>

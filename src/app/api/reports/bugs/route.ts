@@ -22,7 +22,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
 
     const [topTestCases, topTestSets] = await Promise.all([
         prisma.testCase.findMany({
-            where: { projectId, bugs: { some: {} } }, // Only fetch if they have bugs
+            where: { projectId, deletedAt: null, bugs: { some: {} } }, // Only fetch if they have bugs
             select: {
                 id: true,
                 key: true,

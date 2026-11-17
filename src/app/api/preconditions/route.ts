@@ -37,7 +37,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
             take: pagination.limit,
             include: {
                 _count: {
-                    select: { cases: true },
+                    select: { cases: { where: { deletedAt: null } } },
                 },
             },
         }),

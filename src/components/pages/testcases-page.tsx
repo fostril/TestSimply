@@ -35,7 +35,7 @@ type Column<T> = {
 };
 
 const PRIORITIES = ["ALL", "CRITICAL", "HIGH", "MEDIUM", "LOW"] as const;
-const STATUSES = ["ALL", "DRAFT", "READY", "DEPRECATED", "ARCHIVED"] as const;
+const STATUSES = ["ALL", "Draft", "In Review", "Approved", "Deprecated", "Imported"] as const;
 
 export function TestCasesPage() {
   const projectId = useProjectStore((state) => state.projectId);
@@ -97,7 +97,8 @@ export function TestCasesPage() {
         tc.key.toLowerCase().includes(searchQuery.toLowerCase()) ||
         tc.name.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesPriority = priorityFilter === "ALL" || tc.priority === priorityFilter;
-      const matchesStatus = statusFilter === "ALL" || tc.status === statusFilter;
+      const matchesStatus =
+        statusFilter === "ALL" || tc.status.toLowerCase() === statusFilter.toLowerCase();
       return matchesSearch && matchesPriority && matchesStatus;
     });
   }, [rows, searchQuery, priorityFilter, statusFilter]);

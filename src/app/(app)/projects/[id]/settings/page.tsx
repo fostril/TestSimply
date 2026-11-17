@@ -37,7 +37,7 @@ export default function ProjectSettingsPage({ params }: { params: { id: string }
     const router = useRouter();
     const toast = useToast();
     const queryClient = useQueryClient();
-    const setProjectId = useProjectStore((state) => state.setProjectId);
+    const setProject = useProjectStore((state) => state.setProject);
     const [isDeleting, setIsDeleting] = useState(false);
     const [testConnectionResult, setTestConnectionResult] = useState<{ success: boolean; message?: string } | null>(null);
 
@@ -112,7 +112,7 @@ export default function ProjectSettingsPage({ params }: { params: { id: string }
             const res = await fetch(`/api/projects/settings`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ projectId: params.id, ...values }),
+                body: JSON.stringify({ projectId: project?.id ?? params.id, ...values }),
             });
             if (!res.ok) {
                 const error = await res.text();
@@ -135,7 +135,7 @@ export default function ProjectSettingsPage({ params }: { params: { id: string }
         },
         onSuccess: () => {
             toast({ title: "Project deleted" });
-            setProjectId(null);
+            setProject(null);
             router.push("/");
             queryClient.invalidateQueries({ queryKey: ["projects"] });
         },

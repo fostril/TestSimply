@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler, requireProjectAccessOrForbid, parsePagination, paginatedJson } from "@/lib/api";
+import { requireAuth, withApiHandler, requireProjectAccessOrForbid, getAccessibleProjectIds, parsePagination, paginatedJson } from "@/lib/api";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 import { TestStatus } from "@prisma/client";
@@ -34,7 +34,13 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   }
 
   const pagination = parsePagination(searchParams);
-  const where = projectId ? { projectId } : undefined;
+  let where: { projectId?: string | { in: string[] } } | undefined = projectId ? { projectId } : undefined;
+  if (!where) {
+    const accessibleIds = await getAccessibleProjectIds(auth.session.user.id, auth.session.user.role);
+    if (accessibleIds !== null) {
+      where = { projectId: { in: accessibleIds } };
+    }
+  }
 
   const [executions, total] = await Promise.all([
     prisma.testExecution.findMany({
@@ -43,8 +49,16 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       skip: pagination.skip,
       take: pagination.limit,
       include: {
-        results: true,
-        plan: { include: { cases: { include: { case: true } } } },
+        results: { where: { testCase: { deletedAt: null } } },
+        plan: {
+          include: {
+            cases: {
+              where: { case: { deletedAt: null } },
+              include: { case: true },
+              orderBy: { order: "asc" },
+            },
+          },
+        },
         environmentRelation: true,
       },
     }),
@@ -92,11 +106,11 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     }
   }
 
-  // Restrict caseIds to cases in the same project
+  // Restrict caseIds to non-deleted cases in the same project
   let scopedCaseIds: string[] = [];
   if (parsed.caseIds && parsed.caseIds.length > 0) {
     const cases = await prisma.testCase.findMany({
-      where: { id: { in: parsed.caseIds }, projectId: parsed.projectId },
+      where: { id: { in: parsed.caseIds }, projectId: parsed.projectId, deletedAt: null },
       select: { id: true },
     });
     scopedCaseIds = cases.map((c) => c.id);

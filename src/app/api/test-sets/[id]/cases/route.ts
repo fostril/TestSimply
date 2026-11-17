@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler, assertProjectAccessForResource } from "@/lib/api";
+import { requireAuth, withApiHandler, assertProjectAccessForResource, resolveByIdOrKey } from "@/lib/api";
 import { z } from "zod";
 
 const manageCasesSchema = z.object({
@@ -8,22 +8,17 @@ const manageCasesSchema = z.object({
 });
 
 async function resolveTestSet(idOrKey: string, projectKey: string | null) {
-    const byId = await prisma.testSet.findUnique({ where: { id: idOrKey } });
-    if (byId) return byId;
-    if (projectKey) {
-        const project = await prisma.project.findUnique({ where: { key: projectKey } });
-        if (project) {
-            return prisma.testSet.findUnique({
-                where: { projectId_key: { projectId: project.id, key: idOrKey } },
-            });
-        }
-    }
-    return null;
+    return resolveByIdOrKey(
+        (id) => prisma.testSet.findUnique({ where: { id } }),
+        (projectId, key) => prisma.testSet.findUnique({ where: { projectId_key: { projectId, key } } }),
+        idOrKey,
+        projectKey,
+    );
 }
 
 async function filterCasesToProject(caseIds: string[], projectId: string) {
     const rows = await prisma.testCase.findMany({
-        where: { id: { in: caseIds }, projectId },
+        where: { id: { in: caseIds }, projectId, deletedAt: null },
         select: { id: true },
     });
     return rows.map((r) => r.id);
@@ -55,7 +50,7 @@ export const POST = withApiHandler(
             const updated = await prisma.testSet.update({
                 where: { id: testSet!.id },
                 data: { cases: { connect: scopedIds.map((id) => ({ id })) } },
-                include: { cases: true },
+                include: { cases: { where: { deletedAt: null } } },
             });
 
             await prisma.bug.updateMany({
@@ -101,7 +96,7 @@ export const DELETE = withApiHandler(
             const updated = await prisma.testSet.update({
                 where: { id: testSet!.id },
                 data: { cases: { disconnect: scopedIds.map((id) => ({ id })) } },
-                include: { cases: true },
+                include: { cases: { where: { deletedAt: null } } },
             });
             return NextResponse.json(updated);
         } catch (error: unknown) {

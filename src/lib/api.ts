@@ -187,6 +187,74 @@ export async function assertProjectAccessForResource(
   return null;
 }
 
+/**
+ * Return the list of project IDs accessible to a non-ADMIN user, or `null` for ADMIN
+ * (meaning all projects are accessible).
+ */
+export async function getAccessibleProjectIds(
+  userId: string,
+  role: Role,
+): Promise<string[] | null> {
+  if (role === Role.ADMIN) return null;
+  const projects = await prisma.project.findMany({
+    where: {
+      OR: [
+        { members: { some: { id: userId } } },
+        { leads: { some: { id: userId } } },
+      ],
+    },
+    select: { id: true },
+  });
+  return projects.map((p) => p.id);
+}
+
+/**
+ * Resolve a project-scoped entity by either its CUID `id` or its project-scoped `key`
+ * (supporting both `"PROJ_TYPE_1"` and `"PROJ-TYPE-1"` formats, with or without `projectKey`).
+ */
+export async function resolveByIdOrKey<T>(
+  findById: (id: string) => Promise<T | null>,
+  findByProjectKey: (projectId: string, key: string) => Promise<T | null>,
+  idOrKey: string,
+  projectKey?: string | null,
+): Promise<T | null> {
+  const byId = await findById(idOrKey);
+  if (byId) return byId;
+
+  if (projectKey) {
+    const project = await prisma.project.findFirst({
+      where: { OR: [{ id: projectKey }, { key: projectKey }] },
+      select: { id: true },
+    });
+    if (project) {
+      const byKey = await findByProjectKey(project.id, idOrKey);
+      if (byKey) return byKey;
+    }
+  }
+
+  const seenProjectKeys = new Set<string>();
+  for (const sep of ["_", "-"] as const) {
+    const parts = idOrKey.split(sep);
+    for (let i = 1; i < parts.length; i++) {
+      const pKey = parts.slice(0, i).join(sep);
+      if (seenProjectKeys.has(pKey)) continue;
+      seenProjectKeys.add(pKey);
+      const project = await prisma.project.findUnique({
+        where: { key: pKey },
+        select: { id: true },
+      });
+      if (!project) continue;
+      const byFull = await findByProjectKey(project.id, idOrKey);
+      if (byFull) return byFull;
+      const suffix = parts.slice(i).join(sep);
+      const bySuffix = await findByProjectKey(project.id, suffix);
+      if (bySuffix) return bySuffix;
+    }
+  }
+
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Pagination helper
 // ---------------------------------------------------------------------------

@@ -14,16 +14,20 @@ type TokenRecord = {
   expiresAt: string | null;
 };
 
-export function SettingsPage() {
+export function SettingsPage({ section = "all" }: { section?: "all" | "tokens" | "admin" } = {}) {
   const toast = useToast();
   const { data: session } = useSession();
   const isAdmin = (session?.user as { role?: string } | undefined)?.role === "ADMIN";
+  const showTokens = section !== "admin" || !isAdmin;
+  const showAdmin = isAdmin && section !== "tokens";
   const [token, setToken] = useState<string | null>(null);
   const [label, setLabel] = useState("CI Token");
+  const [scope, setScope] = useState<"import" | "full">("import");
   const [expiryDays, setExpiryDays] = useState("90");
 
   const { data: tokens, refetch } = useQuery({
     queryKey: ["settings", "tokens"],
+    enabled: showTokens,
     queryFn: async () => {
       const res = await fetch("/api/settings/tokens");
       if (!res.ok) throw new Error("Failed to load tokens");
@@ -41,7 +45,11 @@ export function SettingsPage() {
       const res = await fetch("/api/settings/tokens", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label: label.trim() || "CI Token", expiresAt }),
+        body: JSON.stringify({
+          label: label.trim() || "CI Token",
+          scopes: [scope],
+          expiresAt,
+        }),
       });
       if (!res.ok) throw new Error("Unable to generate token");
       return (await res.json()) as { token: string };
@@ -74,31 +82,49 @@ export function SettingsPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-6 py-6">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Settings</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">
+          {section === "tokens" ? "Personal Access Tokens" : section === "admin" && isAdmin ? "Administration" : "Settings"}
+        </h1>
         <p className="mt-1 text-sm text-slate-600">
-          Manage personal access tokens{isAdmin ? ", users, and audit history" : ""}.
+          {section === "tokens"
+            ? "Create and revoke API tokens for CI imports and integrations."
+            : section === "admin" && isAdmin
+              ? "Manage users, roles, and audit history."
+              : `Manage personal access tokens${isAdmin ? ", users, and audit history" : ""}.`}
         </p>
       </div>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-base font-semibold text-slate-900">Personal Access Tokens</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Use a token as a Bearer credential when calling CI import endpoints.
-          Jira and CI workflow settings live on each project&apos;s Settings page.
-        </p>
-        <div className="mt-4 flex flex-wrap items-end gap-3">
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Label</label>
-            <input
-              type="text"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              placeholder="CI Token"
-              className="mt-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Expires</label>
+      {showTokens ? (
+        <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-base font-semibold text-slate-900">Personal Access Tokens</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Use a token as a Bearer credential when calling CI import endpoints.
+            Jira and CI workflow settings live on each project&apos;s Settings page.
+          </p>
+          <div className="mt-4 flex flex-wrap items-end gap-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Label</label>
+              <input
+                type="text"
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                placeholder="CI Token"
+                className="mt-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Scope</label>
+              <select
+                value={scope}
+                onChange={(e) => setScope(e.target.value as "import" | "full")}
+                className="mt-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+              >
+                <option value="import">Import only (CI results)</option>
+                <option value="full">Full access</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Expires</label>
             <select
               value={expiryDays}
               onChange={(e) => setExpiryDays(e.target.value)}
@@ -150,8 +176,9 @@ export function SettingsPage() {
           </ul>
         ) : null}
       </section>
+      ) : null}
 
-      {isAdmin ? (
+      {showAdmin ? (
         <>
           <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between gap-4">

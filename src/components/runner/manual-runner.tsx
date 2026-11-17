@@ -74,15 +74,33 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
     [rawPlanCases]
   );
 
-  const cases = useMemo(
-    () => (planCases.length > 0 ? planCases : results.map((r: any) => r.testCase)),
-    [planCases, results]
-  );
+  const cases = useMemo(() => {
+    const merged: any[] = [];
+    const seen = new Set<string>();
+    for (const tc of planCases) {
+      if (tc?.id && !seen.has(tc.id)) {
+        seen.add(tc.id);
+        merged.push(tc);
+      }
+    }
+    for (const r of results) {
+      const tc = r?.testCase;
+      if (tc?.id && !seen.has(tc.id)) {
+        seen.add(tc.id);
+        merged.push(tc);
+      }
+    }
+    return merged;
+  }, [planCases, results]);
 
   const statusByCase = useMemo(() => {
     const map = new Map<string, string>();
     for (const result of results) {
-      map.set(result.caseId, result.status);
+      // Ignore pre-populated SKIPPED rows with empty logs so unrun cases remain pending
+      const hasLog = Array.isArray(result.stepsLog) && result.stepsLog.length > 0;
+      if (result.status && (result.status !== "SKIPPED" || hasLog)) {
+        map.set(result.caseId, result.status);
+      }
     }
     return map;
   }, [results]);
@@ -124,11 +142,22 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
     }
   });
 
-  // Initialize notes entry when active case changes
+  // Initialize notes and step results from existing execution result when active case changes
   useEffect(() => {
     const id = activeCase?.id as string | undefined;
     if (!id) return;
-    setNotes((prev) => (prev[id] === undefined ? { ...prev, [id]: "" } : prev));
+    const existingResult = results.find((r: any) => r.caseId === id);
+    const existingLog = Array.isArray(existingResult?.stepsLog)
+      ? (existingResult.stepsLog as any[])
+      : [];
+
+    setNotes((prev) => {
+      if (prev[id] !== undefined) return prev;
+      const noteEntry = existingLog.find(
+        (e) => e && typeof e === "object" && typeof e.note === "string",
+      );
+      return { ...prev, [id]: noteEntry?.note ?? "" };
+    });
     // Initialize with linked bugs from existing results
     setSelectedBugs((prev) => {
       if (prev[id] === undefined) {
@@ -142,11 +171,7 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
     // the typed StepResult shape). Falls back to NOT_RUN for each step.
     setStepResults((prev) => {
       if (prev[id]) return prev;
-      const steps = (activeCase?.steps ?? []) as unknown[];
-      const existingResult = results.find((r: any) => r.caseId === id);
-      const existingLog = Array.isArray(existingResult?.stepsLog)
-        ? (existingResult.stepsLog as any[])
-        : [];
+      const steps = Array.isArray(activeCase?.steps) ? (activeCase.steps as unknown[]) : [];
 
       const hydrated: StepResultState[] = steps.map((_s, idx) => {
         const found = existingLog.find((e) => e && typeof e === "object" && e.stepIndex === idx);
@@ -325,8 +350,9 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
 
   const openLocalBugModal = () => {
     if (!activeCase) return;
+    const steps = Array.isArray(activeCase.steps) ? (activeCase.steps as any[]) : [];
     setLocalBugSummary(`[Failure] ${activeCase.key}: ${activeCase.name}`);
-    setLocalBugDescription(`Test Case: ${activeCase.name}\n\nSteps:\n${(activeCase.steps as any[]).map((s, i) => `${i + 1}. ${s.action} (Exp: ${s.expected})`).join("\n")}\n\nNotes:\n${notes[activeCase.id] || "No notes provided."}`);
+    setLocalBugDescription(`Test Case: ${activeCase.name}\n\nSteps:\n${steps.map((s, i) => `${i + 1}. ${s.action} (Exp: ${s.expected})`).join("\n")}\n\nNotes:\n${notes[activeCase.id] || "No notes provided."}`);
     setLocalBugPriority("MEDIUM");
     setIsLocalBugModalOpen(true);
   };
@@ -351,7 +377,7 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
         (stepsLog as any[]).push({ note: payload.note });
       }
 
-      await fetch(`/api/results`, {
+      const res = await fetch(`/api/results`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -362,16 +388,13 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
           bugIds: payload.bugIds,
         }),
       });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "Failed to record result");
+      }
+      return res.json();
     },
     onSuccess: () => {
-      const id = activeCase?.id as string | undefined;
-      if (id) {
-        setNotes((prev) => {
-          const next = { ...prev };
-          next[id] = "";
-          return next;
-        });
-      }
       void refetch();
     },
     onError: (err: unknown) => {
@@ -487,7 +510,7 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
     mutationFn: async (status: RunnerStatus) => {
       const remaining = cases.filter((c: any) => !statusByCase.has(c.id));
       for (const c of remaining) {
-        await fetch(`/api/results`, {
+        const res = await fetch(`/api/results`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -497,6 +520,10 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
             stepsLog: [],
           }),
         });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error ?? `Failed to mark ${c.key}`);
+        }
       }
     },
     onSuccess: () => {
@@ -567,8 +594,9 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
 
   const openJiraModal = () => {
     if (!activeCase) return;
+    const steps = Array.isArray(activeCase.steps) ? (activeCase.steps as any[]) : [];
     setJiraSummary(`[Failure] ${activeCase.key}: ${activeCase.name}`);
-    setJiraDescription(`Test Case: ${activeCase.name}\n\nSteps:\n${(activeCase.steps as any[]).map((s, i) => `${i + 1}. ${s.action} (Exp: ${s.expected})`).join("\n")}\n\nNotes:\n${notes[activeCase.id] || "No notes provided."}`);
+    setJiraDescription(`Test Case: ${activeCase.name}\n\nSteps:\n${steps.map((s, i) => `${i + 1}. ${s.action} (Exp: ${s.expected})`).join("\n")}\n\nNotes:\n${notes[activeCase.id] || "No notes provided."}`);
     setIsJiraModalOpen(true);
   };
 
@@ -937,22 +965,54 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
         </header>
 
         <div className="mt-6 space-y-6">
-          <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Steps
-              </h2>
-              {(() => {
-                const derived = deriveOverallStatus(stepResults[activeCase.id] ?? []);
-                return derived ? (
-                  <span className="text-xs text-slate-600">
-                    Derived: <span className="font-semibold text-slate-900">{derived}</span>
-                  </span>
-                ) : null;
-              })()}
+          {(activeCase.preconditionsText || activeCase.expected) && (
+            <div className="grid gap-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm md:grid-cols-2">
+              {activeCase.preconditionsText && (
+                <div>
+                  <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Preconditions</h2>
+                  <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{activeCase.preconditionsText}</p>
+                </div>
+              )}
+              {activeCase.expected && (
+                <div>
+                  <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Expected Result</h2>
+                  <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{activeCase.expected}</p>
+                </div>
+              )}
             </div>
-            <ol className="mt-4 space-y-3">
-              {(activeCase.steps ?? []).map((step: any, index: number) => {
+          )}
+
+          {activeCase.type === "CUCUMBER" ? (
+            <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Gherkin Scenario</h2>
+              <pre className="mt-3 whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-4 font-mono text-xs text-slate-800">
+                {activeCase.gherkin || "No Gherkin definition provided."}
+              </pre>
+            </div>
+          ) : activeCase.type === "GENERIC" ? (
+            <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Generic / Automated Definition</h2>
+              <pre className="mt-3 whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-4 font-mono text-xs text-slate-800">
+                {activeCase.genericDefinition || "No definition provided."}
+              </pre>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Steps
+                </h2>
+                {(() => {
+                  const derived = deriveOverallStatus(stepResults[activeCase.id] ?? []);
+                  return derived ? (
+                    <span className="text-xs text-slate-600">
+                      Derived: <span className="font-semibold text-slate-900">{derived}</span>
+                    </span>
+                  ) : null;
+                })()}
+              </div>
+              <ol className="mt-4 space-y-3">
+                {(Array.isArray(activeCase.steps) ? activeCase.steps : []).map((step: any, index: number) => {
                 const stepState =
                   stepResults[activeCase.id]?.[index] ??
                   ({ stepIndex: index, status: "NOT_RUN", actual: "", comments: "" } as StepResultState);
@@ -1035,6 +1095,7 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
               })}
             </ol>
           </div>
+          )}
 
           <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Notes</h2>

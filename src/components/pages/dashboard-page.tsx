@@ -34,12 +34,14 @@ export function DashboardPage() {
             Track execution health, coverage, and quality insights.
           </p>
         </div>
-        <Link
-          href={projectKey ? `/projects/${projectKey}/executions/new` : "/executions/new"}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          New Execution
-        </Link>
+        {projectKey ? (
+          <Link
+            href={`/projects/${projectKey}/executions/new`}
+            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            New Execution
+          </Link>
+        ) : null}
       </header>
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">

@@ -18,12 +18,18 @@ const bulkUpdateSchema = z.object({
 });
 
 export const POST = withApiHandler(async (req: NextRequest) => {
-    const auth = await requireAuth(req, "testcase:update");
-    if (!auth.authorized) return auth.response;
+    const preAuth = await requireAuth(req, "testcase:update");
+    if (!preAuth.authorized) return preAuth.response;
 
     const body = await req.json();
     const parsed = bulkUpdateSchema.parse(body);
     const { ids, action, data } = parsed;
+
+    const auth =
+        action === "delete"
+            ? await requireAuth(req, "testcase:delete")
+            : preAuth;
+    if (!auth.authorized) return auth.response;
 
     if (ids.length === 0) {
         return NextResponse.json({ count: 0 });
@@ -33,7 +39,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     // (fast path); for everyone else we load the owning projects and keep
     // only IDs belonging to projects they're a member/lead of.
     const cases = await prisma.testCase.findMany({
-        where: { id: { in: ids } },
+        where: { id: { in: ids }, deletedAt: null },
         select: { id: true, projectId: true },
     });
 

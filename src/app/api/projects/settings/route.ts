@@ -19,16 +19,22 @@ const updateSettingsSchema = z.object({
 });
 
 export const PATCH = withApiHandler(async (req: NextRequest) => {
-    const auth = await requireAuth(req, "project:update");
+    const auth = await requireAuth(req, "settings:manage");
     if (!auth.authorized) return auth.response;
 
     const body = await req.json();
     const parsed = updateSettingsSchema.parse(body);
 
+    const projectRecord = await prisma.project.findFirst({
+        where: { OR: [{ id: parsed.projectId }, { key: parsed.projectId }] },
+        select: { id: true },
+    });
+    const resolvedProjectId = projectRecord?.id ?? parsed.projectId;
+
     const access = await requireProjectAccessOrForbid(
         auth.session.user.id,
         auth.session.user.role,
-        parsed.projectId,
+        resolvedProjectId,
     );
     if (access instanceof NextResponse) return access;
 
@@ -49,7 +55,7 @@ export const PATCH = withApiHandler(async (req: NextRequest) => {
     // Storing tokens unencrypted was the previous fallback, which effectively
     // leaked secrets to anyone with DB access.
     const encryptToken = (token: string | undefined): string | null => {
-        if (!token) return null;
+        if (!token || token === "********") return null;
         try {
             return encrypt(token);
         } catch (err) {
@@ -67,17 +73,21 @@ export const PATCH = withApiHandler(async (req: NextRequest) => {
     const updateData: any = {};
     if (parsed.jiraUrl !== undefined) updateData.jiraUrl = parsed.jiraUrl || null;
     if (parsed.jiraEmail !== undefined) updateData.jiraEmail = parsed.jiraEmail || null;
-    if (parsed.jiraApiToken !== undefined) updateData.jiraApiToken = encryptToken(parsed.jiraApiToken);
+    if (parsed.jiraApiToken !== undefined && parsed.jiraApiToken !== "********") {
+        updateData.jiraApiToken = encryptToken(parsed.jiraApiToken);
+    }
     if (parsed.jiraProjectKey !== undefined) updateData.jiraProjectKey = parsed.jiraProjectKey || null;
     if (parsed.ciProvider !== undefined) updateData.ciProvider = parsed.ciProvider || null;
     if (parsed.ciUrl !== undefined) updateData.ciUrl = parsed.ciUrl || null;
-    if (parsed.ciToken !== undefined) updateData.ciToken = encryptToken(parsed.ciToken);
+    if (parsed.ciToken !== undefined && parsed.ciToken !== "********") {
+        updateData.ciToken = encryptToken(parsed.ciToken);
+    }
     if (parsed.ciWorkflowId !== undefined) updateData.ciWorkflowId = parsed.ciWorkflowId || null;
 
     const settings = await prisma.projectSetting.upsert({
-        where: { projectId: parsed.projectId },
+        where: { projectId: resolvedProjectId },
         create: {
-            projectId: parsed.projectId,
+            projectId: resolvedProjectId,
             jiraUrl: parsed.jiraUrl || null,
             jiraEmail: parsed.jiraEmail || null,
             jiraApiToken: encryptToken(parsed.jiraApiToken),
@@ -97,11 +107,11 @@ export const PATCH = withApiHandler(async (req: NextRequest) => {
     };
 
     await logAudit(auth.session.user?.id, "UPDATE", "ProjectSetting", settings.id, {
-        projectId: parsed.projectId,
+        projectId: resolvedProjectId,
         jiraUrl: parsed.jiraUrl,
         ciUrl: parsed.ciUrl,
         // Never log token values
-    });
+    }, resolvedProjectId);
 
     return NextResponse.json(sanitizedSettings);
 });

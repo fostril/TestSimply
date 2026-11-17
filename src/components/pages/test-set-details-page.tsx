@@ -5,16 +5,21 @@ import { useRouter } from "next/navigation";
 import { useProjectStore } from "@/lib/stores/project-store";
 import { useState } from "react";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
+import { useToast } from "@/components/ui/toast";
 
 export function TestSetDetailsPage({ id, projectKey }: { id: string, projectKey?: string }) {
     const router = useRouter();
     const queryClient = useQueryClient();
+    const toast = useToast();
     const projectId = useProjectStore((state) => state.projectId);
+    const storeProjectKey = useProjectStore((state) => state.projectKey);
+    const effectiveProjectKey = projectKey ?? storeProjectKey;
+    const keyQuery = effectiveProjectKey ? `?projectKey=${effectiveProjectKey}` : "";
 
     const { data: testSet, isLoading } = useQuery({
         queryKey: ["test-set", id],
         queryFn: async () => {
-            const res = await fetch(`/api/test-sets/${id}${projectKey ? `?projectKey=${projectKey}` : ""}`);
+            const res = await fetch(`/api/test-sets/${id}${keyQuery}`);
             if (!res.ok) throw new Error("Failed to load test set");
             return res.json();
         }
@@ -32,7 +37,7 @@ export function TestSetDetailsPage({ id, projectKey }: { id: string, projectKey?
 
     const addCasesMutation = useMutation({
         mutationFn: async (caseIds: string[]) => {
-            const res = await fetch(`/api/test-sets/${id}/cases${projectKey ? `?projectKey=${projectKey}` : ""}`, {
+            const res = await fetch(`/api/test-sets/${id}/cases${keyQuery}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ caseIds }),
@@ -42,12 +47,13 @@ export function TestSetDetailsPage({ id, projectKey }: { id: string, projectKey?
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["test-set", id] });
+            queryClient.invalidateQueries({ queryKey: ["test-sets", projectId] });
         },
     });
 
     const removeCaseMutation = useMutation({
         mutationFn: async (caseId: string) => {
-            const res = await fetch(`/api/test-sets/${id}/cases${projectKey ? `?projectKey=${projectKey}` : ""}`, {
+            const res = await fetch(`/api/test-sets/${id}/cases${keyQuery}`, {
                 method: "DELETE",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ caseIds: [caseId] }),
@@ -57,17 +63,48 @@ export function TestSetDetailsPage({ id, projectKey }: { id: string, projectKey?
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["test-set", id] });
+            queryClient.invalidateQueries({ queryKey: ["test-sets", projectId] });
+        },
+    });
+
+    const [isEditing, setIsEditing] = useState(false);
+    const [editName, setEditName] = useState("");
+    const [editDescription, setEditDescription] = useState("");
+
+    const updateSetMutation = useMutation({
+        mutationFn: async () => {
+            const res = await fetch(`/api/test-sets/${id}${keyQuery}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: editName.trim(), description: editDescription }),
+            });
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(body.error ?? "Failed to update test set");
+            }
+            return res.json();
+        },
+        onSuccess: () => {
+            toast({ title: "Test set updated" });
+            setIsEditing(false);
+            queryClient.invalidateQueries({ queryKey: ["test-set", id] });
+            queryClient.invalidateQueries({ queryKey: ["test-sets", projectId] });
+        },
+        onError: (err) => {
+            toast({ title: "Update failed", description: (err as Error).message });
         },
     });
 
     const deleteSetMutation = useMutation({
         mutationFn: async () => {
-            const res = await fetch(`/api/test-sets/${id}`, { method: "DELETE" });
+            const res = await fetch(`/api/test-sets/${id}${keyQuery}`, { method: "DELETE" });
             if (!res.ok) throw new Error("Failed to delete set");
             return res.json();
         },
         onSuccess: () => {
-            router.push("/test-sets");
+            toast({ title: "Test set deleted" });
+            queryClient.invalidateQueries({ queryKey: ["test-sets", projectId] });
+            router.push(effectiveProjectKey ? `/projects/${effectiveProjectKey}/test-sets` : "/");
         },
     });
 
@@ -93,6 +130,16 @@ export function TestSetDetailsPage({ id, projectKey }: { id: string, projectKey?
                 </div>
                 <div className="flex gap-2">
                     <button
+                        onClick={() => {
+                            setEditName(testSet.name ?? "");
+                            setEditDescription(testSet.description ?? "");
+                            setIsEditing(!isEditing);
+                        }}
+                        className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                        {isEditing ? "Close" : "Edit"}
+                    </button>
+                    <button
                         onClick={() => router.back()}
                         className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                     >
@@ -110,6 +157,54 @@ export function TestSetDetailsPage({ id, projectKey }: { id: string, projectKey?
                     </button>
                 </div>
             </div>
+
+            {isEditing && (
+                <form
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        if (!editName.trim()) {
+                            toast({ title: "Name is required" });
+                            return;
+                        }
+                        updateSetMutation.mutate();
+                    }}
+                    className="mt-6 space-y-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+                >
+                    <div>
+                        <label className="block text-xs font-medium text-slate-700">Name</label>
+                        <input
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-slate-700">Description</label>
+                        <textarea
+                            value={editDescription}
+                            onChange={(e) => setEditDescription(e.target.value)}
+                            rows={2}
+                            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
+                        />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setIsEditing(false)}
+                            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={updateSetMutation.isPending}
+                            className="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                        >
+                            {updateSetMutation.isPending ? "Saving..." : "Save"}
+                        </button>
+                    </div>
+                </form>
+            )}
 
             <div className="mt-8">
                 <div className="mb-4 flex items-center justify-between">

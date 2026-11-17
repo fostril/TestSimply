@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler, assertProjectAccessForResource } from "@/lib/api";
+import { requireAuth, withApiHandler, assertProjectAccessForResource, resolveByIdOrKey } from "@/lib/api";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 
@@ -14,44 +14,18 @@ const updateSchema = z.object({
   buildUrl: z.string().optional(),
   commitSha: z.string().optional(),
   startedAt: z.string().optional(),
-  finishedAt: z.string().optional(),
+  finishedAt: z.string().nullable().optional(),
   labels: z.array(z.string()).optional(),
   status: z.nativeEnum(ExecutionStatus).optional(),
 });
 
 async function resolveExecution(idOrKey: string, projectKey: string | null) {
-  const byId = await prisma.testExecution.findUnique({ where: { id: idOrKey } });
-  if (byId) return byId;
-
-  if (projectKey) {
-    const project = await prisma.project.findUnique({
-      where: { key: projectKey },
-      select: { id: true },
-    });
-    if (project) {
-      const byKey = await prisma.testExecution.findUnique({
-        where: { projectId_key: { projectId: project.id, key: idOrKey } },
-      });
-      if (byKey) return byKey;
-    }
-  }
-
-  // Last-resort: try to parse "<PROJECT_KEY>-<EXEC_KEY>"
-  const parts = idOrKey.split("-");
-  for (let i = 1; i < parts.length; i++) {
-    const pKey = parts.slice(0, i).join("-");
-    const eKey = parts.slice(i).join("-");
-    const project = await prisma.project.findUnique({
-      where: { key: pKey },
-      select: { id: true },
-    });
-    if (!project) continue;
-    const exec = await prisma.testExecution.findUnique({
-      where: { projectId_key: { projectId: project.id, key: eKey } },
-    });
-    if (exec) return exec;
-  }
-  return null;
+  return resolveByIdOrKey(
+    (id) => prisma.testExecution.findUnique({ where: { id } }),
+    (projectId, key) => prisma.testExecution.findUnique({ where: { projectId_key: { projectId, key } } }),
+    idOrKey,
+    projectKey,
+  );
 }
 
 export const GET = withApiHandler(
@@ -73,9 +47,21 @@ export const GET = withApiHandler(
     const full = await prisma.testExecution.findUnique({
       where: { id: execution!.id },
       include: {
-        results: { include: { testCase: true, bugs: true, Attachment: true } },
+        results: {
+          where: { testCase: { deletedAt: null } },
+          include: { testCase: true, bugs: true, Attachment: true },
+        },
         attachments: true,
-        plan: { include: { cases: { include: { case: true } } } },
+        environmentRelation: true,
+        plan: {
+          include: {
+            cases: {
+              where: { case: { deletedAt: null } },
+              include: { case: true },
+              orderBy: { order: "asc" },
+            },
+          },
+        },
       },
     });
     return NextResponse.json(full);
@@ -102,10 +88,37 @@ export const PATCH = withApiHandler(
 
     const data: Record<string, unknown> = { ...parsed };
     if (parsed.startedAt) data.startedAt = new Date(parsed.startedAt);
-    if (parsed.finishedAt) data.finishedAt = new Date(parsed.finishedAt);
+    if (parsed.finishedAt !== undefined) {
+      data.finishedAt = parsed.finishedAt ? new Date(parsed.finishedAt) : null;
+      if (parsed.finishedAt && !parsed.status) {
+        data.status = ExecutionStatus.COMPLETED;
+      }
+    }
 
-    if (parsed.status === ExecutionStatus.COMPLETED && !parsed.finishedAt) {
+    if (parsed.status === ExecutionStatus.COMPLETED && parsed.finishedAt === undefined) {
       data.finishedAt = new Date();
+    } else if (
+      parsed.status &&
+      parsed.status !== ExecutionStatus.COMPLETED &&
+      parsed.finishedAt === undefined
+    ) {
+      data.finishedAt = null;
+    }
+
+    if (parsed.environment !== undefined) {
+      if (parsed.environment === "") {
+        data.environment = null;
+        data.environmentId = null;
+      } else {
+        const envRecord = await prisma.environment.findUnique({
+          where: { id: parsed.environment },
+          select: { id: true, name: true, projectId: true },
+        });
+        if (envRecord && envRecord.projectId === execution!.projectId) {
+          data.environmentId = envRecord.id;
+          data.environment = envRecord.name;
+        }
+      }
     }
 
     const updated = await prisma.testExecution.update({
@@ -124,7 +137,8 @@ export const DELETE = withApiHandler(
     const auth = await requireAuth(req, "execution:manage");
     if (!auth.authorized) return auth.response;
 
-    const execution = await resolveExecution(params.id, null);
+    const projectKey = new URL(req.url).searchParams.get("projectKey");
+    const execution = await resolveExecution(params.id, projectKey);
     const denied = await assertProjectAccessForResource(
       auth.session.user.id,
       auth.session.user.role,

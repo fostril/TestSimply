@@ -43,7 +43,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     );
   }
 
-  const existing = await prisma.user.findUnique({ where: { email: parsed.data.email } });
+  const normalizedEmail = parsed.data.email.trim().toLowerCase();
+  const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
   if (existing) {
     return NextResponse.json({ error: "Email already in use" }, { status: 409 });
   }
@@ -56,7 +57,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   const user = await prisma.user.create({
     data: {
       name: parsed.data.name,
-      email: parsed.data.email,
+      email: normalizedEmail,
       password: await bcrypt.hash(parsed.data.password, 12),
     },
   });

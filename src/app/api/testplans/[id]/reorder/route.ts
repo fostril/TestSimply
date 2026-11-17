@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler, assertProjectAccessForResource } from "@/lib/api";
+import { requireAuth, withApiHandler, assertProjectAccessForResource, resolveByIdOrKey } from "@/lib/api";
 import { z } from "zod";
 
 const reorderSchema = z.object({
@@ -15,17 +15,22 @@ export const POST = withApiHandler(
         const parsed = reorderSchema.parse(await req.json());
         const { caseIds } = parsed;
 
-        const plan = await prisma.testPlan.findUnique({
-            where: { id: params.id },
-            include: { cases: { select: { caseId: true } } }
-        });
-
+        const resolvedPlan = await resolveByIdOrKey(
+            (id) => prisma.testPlan.findUnique({ where: { id } }),
+            (projectId, key) => prisma.testPlan.findUnique({ where: { projectId_key: { projectId, key } } }),
+            params.id,
+        );
         const denied = await assertProjectAccessForResource(
             auth.session.user.id,
             auth.session.user.role,
-            plan,
+            resolvedPlan,
         );
         if (denied) return denied;
+
+        const plan = await prisma.testPlan.findUnique({
+            where: { id: resolvedPlan!.id },
+            include: { cases: { select: { caseId: true } } }
+        });
 
         if (!plan) {
             return NextResponse.json({ error: "Test plan not found" }, { status: 404 });
@@ -48,7 +53,7 @@ export const POST = withApiHandler(
             prisma.testCasePlan.update({
                 where: {
                     planId_caseId: {
-                        planId: params.id,
+                        planId: plan.id,
                         caseId,
                     }
                 },

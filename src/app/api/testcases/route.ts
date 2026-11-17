@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler, requireProjectAccessOrForbid, parsePagination, paginatedJson } from "@/lib/api";
+import { requireAuth, withApiHandler, requireProjectAccessOrForbid, getAccessibleProjectIds, parsePagination, paginatedJson } from "@/lib/api";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 import { Priority, TestType } from "@prisma/client";
@@ -57,6 +57,11 @@ export const GET = withApiHandler(async (req: NextRequest) => {
 
   if (projectId) {
     whereClause.projectId = projectId;
+  } else {
+    const accessibleIds = await getAccessibleProjectIds(auth.session.user.id, auth.session.user.role);
+    if (accessibleIds !== null) {
+      whereClause.projectId = { in: accessibleIds };
+    }
   }
 
   if (search) {

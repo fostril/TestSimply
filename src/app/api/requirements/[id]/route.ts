@@ -4,6 +4,7 @@ import { Priority, RequirementStatus } from "@prisma/client";
 import {
   requireAuth,
   assertProjectAccessForResource,
+  resolveByIdOrKey,
   withApiHandler,
 } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
@@ -23,24 +24,11 @@ const patchSchema = z.object({
  * Resolve a requirement by cuid id or by project-scoped key (e.g. "ACME-REQ-3").
  */
 async function resolveRequirement(idOrKey: string) {
-  const byId = await prisma.requirement.findUnique({ where: { id: idOrKey } });
-  if (byId) return byId;
-
-  const parts = idOrKey.split("-");
-  for (let i = 1; i < parts.length; i++) {
-    const projectKey = parts.slice(0, i).join("-");
-    const reqKey = parts.slice(i).join("-");
-    const project = await prisma.project.findUnique({
-      where: { key: projectKey },
-      select: { id: true },
-    });
-    if (!project) continue;
-    const req = await prisma.requirement.findUnique({
-      where: { projectId_key: { projectId: project.id, key: reqKey } },
-    });
-    if (req) return req;
-  }
-  return null;
+  return resolveByIdOrKey(
+    (id) => prisma.requirement.findUnique({ where: { id } }),
+    (projectId, key) => prisma.requirement.findUnique({ where: { projectId_key: { projectId, key } } }),
+    idOrKey,
+  );
 }
 
 export const GET = withApiHandler(
@@ -60,6 +48,7 @@ export const GET = withApiHandler(
       where: { id: requirement!.id },
       include: {
         links: {
+          where: { testCase: { deletedAt: null } },
           include: {
             testCase: {
               select: { id: true, key: true, name: true, status: true, type: true },

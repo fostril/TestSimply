@@ -22,6 +22,7 @@ type Execution = {
   description?: string;
   buildUrl?: string;
   commitSha?: string;
+  status?: "ACTIVE" | "COMPLETED" | "BLOCKED";
   finishedAt?: string;
   environmentRelation?: { name: string };
   plan?: { cases?: { id: string }[] };
@@ -199,9 +200,14 @@ export function ExecutionsPage() {
                       CI Run
                     </span>
                   )}
-                  {execution.finishedAt ? (
+                  {execution.status === "COMPLETED" || (!execution.status && execution.finishedAt) ? (
                     <span className="rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-emerald-700">
                       Completed
+                    </span>
+                  ) : execution.status === "BLOCKED" ? (
+                    <span className="flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-amber-700">
+                      <AlertTriangle className="h-3 w-3" />
+                      Blocked
                     </span>
                   ) : (
                     <span className="flex items-center gap-1 rounded border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-blue-700">

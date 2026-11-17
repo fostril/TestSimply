@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler, assertProjectAccessForResource } from "@/lib/api";
+import { requireAuth, withApiHandler, assertProjectAccessForResource, resolveByIdOrKey } from "@/lib/api";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 
@@ -12,25 +12,13 @@ const updateSchema = z.object({
   tags: z.array(z.string()).optional(),
 });
 
-async function resolvePlan(idOrKey: string) {
-  const byId = await prisma.testPlan.findUnique({ where: { id: idOrKey } });
-  if (byId) return byId;
-
-  const parts = idOrKey.split("-");
-  for (let i = 1; i < parts.length; i++) {
-    const projectKey = parts.slice(0, i).join("-");
-    const planKey = parts.slice(i).join("-");
-    const project = await prisma.project.findUnique({
-      where: { key: projectKey },
-      select: { id: true },
-    });
-    if (!project) continue;
-    const plan = await prisma.testPlan.findUnique({
-      where: { projectId_key: { projectId: project.id, key: planKey } },
-    });
-    if (plan) return plan;
-  }
-  return null;
+async function resolvePlan(idOrKey: string, projectKey: string | null = null) {
+  return resolveByIdOrKey(
+    (id) => prisma.testPlan.findUnique({ where: { id } }),
+    (projectId, key) => prisma.testPlan.findUnique({ where: { projectId_key: { projectId, key } } }),
+    idOrKey,
+    projectKey,
+  );
 }
 
 export const GET = withApiHandler(
@@ -38,7 +26,7 @@ export const GET = withApiHandler(
     const auth = await requireAuth(req, "project:view");
     if (!auth.authorized) return auth.response;
 
-    const plan = await resolvePlan(params.id);
+    const plan = await resolvePlan(params.id, new URL(req.url).searchParams.get("projectKey"));
     const denied = await assertProjectAccessForResource(
       auth.session.user.id,
       auth.session.user.role,
@@ -49,7 +37,11 @@ export const GET = withApiHandler(
     const full = await prisma.testPlan.findUnique({
       where: { id: plan!.id },
       include: {
-        cases: { include: { case: true }, orderBy: { order: "asc" } },
+        cases: {
+          where: { case: { deletedAt: null } },
+          include: { case: true },
+          orderBy: { order: "asc" },
+        },
         environmentRelations: true,
       },
     });
@@ -62,7 +54,7 @@ export const PATCH = withApiHandler(
     const auth = await requireAuth(req, "testplan:manage");
     if (!auth.authorized) return auth.response;
 
-    const plan = await resolvePlan(params.id);
+    const plan = await resolvePlan(params.id, new URL(req.url).searchParams.get("projectKey"));
     const denied = await assertProjectAccessForResource(
       auth.session.user.id,
       auth.session.user.role,
@@ -76,8 +68,17 @@ export const PATCH = withApiHandler(
     const data: Record<string, unknown> = { ...parsed };
 
     if (environmentIds) {
+      const validEnvs = environmentIds.length
+        ? await prisma.environment.findMany({
+            where: { id: { in: environmentIds }, projectId: plan!.projectId },
+            select: { id: true },
+          })
+        : [];
+      if (validEnvs.length !== new Set(environmentIds).size) {
+        return NextResponse.json({ error: "Invalid environment id" }, { status: 400 });
+      }
       data.environmentRelations = {
-        set: environmentIds.map((id) => ({ id })),
+        set: validEnvs.map((e) => ({ id: e.id })),
       };
       delete data.environments;
     }

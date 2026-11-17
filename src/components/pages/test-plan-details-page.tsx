@@ -150,7 +150,10 @@ export function TestPlanDetailsPage({ id }: { id: string }) {
             return res.json();
         },
         onSuccess: (data) => {
-            toast({ title: `Imported ${data.count} cases.` });
+            toast({
+                title: `Imported ${data.count ?? 0} cases.`,
+                ...(data.message ? { description: data.message } : {}),
+            });
             queryClient.invalidateQueries({ queryKey: ["testplan", id] });
             setIsImporting(false);
         },
@@ -206,6 +209,40 @@ export function TestPlanDetailsPage({ id }: { id: string }) {
     });
 
     const [isImporting, setIsImporting] = useState(false);
+    const [isEditingMeta, setIsEditingMeta] = useState(false);
+    const [editName, setEditName] = useState("");
+    const [editDescription, setEditDescription] = useState("");
+    const [editVersions, setEditVersions] = useState("");
+    const [editTags, setEditTags] = useState("");
+
+    const updateMetaMutation = useMutation({
+        mutationFn: async () => {
+            const res = await fetch(`/api/testplans/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: editName.trim(),
+                    description: editDescription,
+                    targetVersions: editVersions.split(",").map((v) => v.trim()).filter(Boolean),
+                    tags: editTags.split(",").map((t) => t.trim()).filter(Boolean),
+                }),
+            });
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(body.error || "Failed to update test plan");
+            }
+            return res.json();
+        },
+        onSuccess: () => {
+            toast({ title: "Test plan updated" });
+            setIsEditingMeta(false);
+            queryClient.invalidateQueries({ queryKey: ["testplan", id] });
+            queryClient.invalidateQueries({ queryKey: ["testplans", projectId] });
+        },
+        onError: (err) => {
+            toast({ title: "Update failed", description: (err as Error).message });
+        },
+    });
 
     if (isLoading) return <div className="p-8"><LoadingSkeleton count={5} /></div>;
     if (!testPlan) return <div className="p-8 text-sm text-red-600">Test Plan not found</div>;
@@ -213,16 +250,50 @@ export function TestPlanDetailsPage({ id }: { id: string }) {
     return (
         <div className="mx-auto max-w-5xl px-8 py-8">
             <div className="flex items-start justify-between gap-4">
-                <div>
+                <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2.5">
                         <span className="rounded border border-slate-200 bg-slate-100 px-2 py-0.5 font-mono text-xs font-semibold text-slate-700">
                             {testPlan.key}
                         </span>
                         <h1 className="text-2xl font-semibold text-slate-900">{testPlan.name}</h1>
                     </div>
-                    <p className="mt-1.5 text-sm text-slate-600">{testPlan.description}</p>
+                    {testPlan.description && (
+                        <p className="mt-1.5 text-sm text-slate-600">{testPlan.description}</p>
+                    )}
+                    {((testPlan.targetVersions?.length ?? 0) > 0 || (testPlan.tags?.length ?? 0) > 0) && (
+                        <div className="mt-2.5 flex flex-wrap gap-2">
+                            {(testPlan.targetVersions ?? []).map((ver: string) => (
+                                <span
+                                    key={`v-${ver}`}
+                                    className="rounded border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700"
+                                >
+                                    v{ver}
+                                </span>
+                            ))}
+                            {(testPlan.tags ?? []).map((tag: string) => (
+                                <span
+                                    key={`t-${tag}`}
+                                    className="rounded border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs text-slate-700"
+                                >
+                                    #{tag}
+                                </span>
+                            ))}
+                        </div>
+                    )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 items-center gap-2">
+                    <button
+                        onClick={() => {
+                            setEditName(testPlan.name ?? "");
+                            setEditDescription(testPlan.description ?? "");
+                            setEditVersions((testPlan.targetVersions ?? []).join(", "));
+                            setEditTags((testPlan.tags ?? []).join(", "));
+                            setIsEditingMeta(!isEditingMeta);
+                        }}
+                        className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                        {isEditingMeta ? "Close" : "Edit"}
+                    </button>
                     <button
                         onClick={() => triggerCiMutation.mutate()}
                         disabled={triggerCiMutation.isPending}
@@ -249,6 +320,74 @@ export function TestPlanDetailsPage({ id }: { id: string }) {
                     </button>
                 </div>
             </div>
+
+            {isEditingMeta && (
+                <form
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        if (!editName.trim()) {
+                            toast({ title: "Plan name is required" });
+                            return;
+                        }
+                        updateMetaMutation.mutate();
+                    }}
+                    className="mt-6 space-y-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+                >
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <div>
+                            <label className="block text-xs font-medium text-slate-700">Name</label>
+                            <input
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-700">Target Versions (comma separated)</label>
+                            <input
+                                value={editVersions}
+                                onChange={(e) => setEditVersions(e.target.value)}
+                                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
+                            />
+                        </div>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <div>
+                            <label className="block text-xs font-medium text-slate-700">Description</label>
+                            <textarea
+                                value={editDescription}
+                                onChange={(e) => setEditDescription(e.target.value)}
+                                rows={2}
+                                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-700">Tags (comma separated)</label>
+                            <input
+                                value={editTags}
+                                onChange={(e) => setEditTags(e.target.value)}
+                                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
+                            />
+                        </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setIsEditingMeta(false)}
+                            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={updateMetaMutation.isPending}
+                            className="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                        >
+                            {updateMetaMutation.isPending ? "Saving..." : "Save Plan"}
+                        </button>
+                    </div>
+                </form>
+            )}
 
             <div className="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
                 <h3 className="mb-4 text-base font-semibold text-slate-900">Environments</h3>

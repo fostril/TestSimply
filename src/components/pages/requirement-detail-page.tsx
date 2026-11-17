@@ -46,6 +46,13 @@ export function RequirementDetailPage() {
   const reqId = params.reqId;
 
   const [caseSearch, setCaseSearch] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editStatus, setEditStatus] = useState("OPEN");
+  const [editPriority, setEditPriority] = useState("MEDIUM");
+  const [editExternalKey, setEditExternalKey] = useState("");
+  const [editExternalUrl, setEditExternalUrl] = useState("");
 
   const { data: req } = useQuery<RequirementDetail>({
     queryKey: ["requirement", reqId],
@@ -107,6 +114,35 @@ export function RequirementDetailPage() {
     },
   });
 
+  const updateReq = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/requirements/${reqId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: editTitle.trim(),
+          description: editDescription.trim() || null,
+          status: editStatus,
+          priority: editPriority,
+          externalIssueKey: editExternalKey.trim() || null,
+          externalUrl: editExternalUrl.trim() || null,
+        }),
+      });
+      if (!res.ok) {
+        const b = await res.json().catch(() => ({}));
+        throw new Error(b.error ?? "Failed to update requirement");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Requirement updated" });
+      setIsEditing(false);
+      qc.invalidateQueries({ queryKey: ["requirement", reqId] });
+      qc.invalidateQueries({ queryKey: ["requirements", projectId] });
+    },
+    onError: (e) => toast({ title: "Update failed", description: (e as Error).message }),
+  });
+
   const deleteReq = useMutation({
     mutationFn: async () => {
       const res = await fetch(`/api/requirements/${reqId}`, { method: "DELETE" });
@@ -114,6 +150,7 @@ export function RequirementDetailPage() {
       return res.json();
     },
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["requirements", projectId] });
       router.push(`/projects/${projectKey}/requirements`);
     },
   });
@@ -148,16 +185,127 @@ export function RequirementDetailPage() {
             )}
           </div>
         </div>
-        <button
-          onClick={() => {
-            if (window.confirm("Delete this requirement?")) deleteReq.mutate();
-          }}
-          className="rounded-md border border-slate-300 bg-white p-2 text-slate-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-          title="Delete requirement"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setEditTitle(req.title);
+              setEditDescription(req.description ?? "");
+              setEditStatus(req.status);
+              setEditPriority(req.priority);
+              setEditExternalKey(req.externalIssueKey ?? "");
+              setEditExternalUrl(req.externalUrl ?? "");
+              setIsEditing(!isEditing);
+            }}
+            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            {isEditing ? "Close" : "Edit"}
+          </button>
+          <button
+            onClick={() => {
+              if (window.confirm("Delete this requirement?")) deleteReq.mutate();
+            }}
+            className="rounded-md border border-slate-300 bg-white p-2 text-slate-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+            title="Delete requirement"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
       </div>
+
+      {isEditing && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!editTitle.trim()) {
+              toast({ title: "Title is required" });
+              return;
+            }
+            updateReq.mutate();
+          }}
+          className="space-y-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+        >
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="md:col-span-1">
+              <label className="block text-xs font-medium text-slate-700">Status</label>
+              <select
+                value={editStatus}
+                onChange={(e) => setEditStatus(e.target.value)}
+                className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
+              >
+                <option value="OPEN">Open</option>
+                <option value="IN_PROGRESS">In Progress</option>
+                <option value="DONE">Done</option>
+                <option value="REJECTED">Rejected</option>
+              </select>
+            </div>
+            <div className="md:col-span-1">
+              <label className="block text-xs font-medium text-slate-700">Priority</label>
+              <select
+                value={editPriority}
+                onChange={(e) => setEditPriority(e.target.value)}
+                className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
+              >
+                <option value="LOW">Low</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="HIGH">High</option>
+                <option value="CRITICAL">Critical</option>
+              </select>
+            </div>
+            <div className="md:col-span-1">
+              <label className="block text-xs font-medium text-slate-700">External Issue Key</label>
+              <input
+                value={editExternalKey}
+                onChange={(e) => setEditExternalKey(e.target.value)}
+                placeholder="e.g. PROJ-123"
+                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-700">Title</label>
+            <input
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-700">External URL</label>
+            <input
+              type="url"
+              value={editExternalUrl}
+              onChange={(e) => setEditExternalUrl(e.target.value)}
+              placeholder="https://..."
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-700">Description</label>
+            <textarea
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              rows={3}
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setIsEditing(false)}
+              className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={updateReq.isPending}
+              className="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {updateReq.isPending ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
+        </form>
+      )}
 
       <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex items-center justify-between">

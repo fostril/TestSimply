@@ -4,6 +4,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/toast";
 import { useProjectStore } from "@/lib/stores/project-store";
 
@@ -21,8 +22,9 @@ type FormValues = z.infer<typeof schema>;
 
 export default function NewProjectPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const toast = useToast();
-  const setProjectId = useProjectStore((state) => state.setProjectId);
+  const setProject = useProjectStore((state) => state.setProject);
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { key: "", name: "", description: "" },
@@ -41,8 +43,9 @@ export default function NewProjectPage() {
     }
     const project = await res.json();
     toast({ title: "Project created", description: `${project.name} is ready to use.` });
-    setProjectId(project.id);
-    router.push("/");
+    await queryClient.invalidateQueries({ queryKey: ["projects"] });
+    setProject({ id: project.id, key: project.key });
+    router.push(`/projects/${project.key}`);
   });
 
   return (

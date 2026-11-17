@@ -1,7 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler, assertProjectAccessForResource } from "@/lib/api";
+import { requireAuth, withApiHandler, assertProjectAccessForResource, resolveByIdOrKey } from "@/lib/api";
 import { z } from "zod";
+
+async function resolveActiveTestCase(idOrKey: string) {
+  return resolveByIdOrKey(
+    async (id) => {
+      const tc = await prisma.testCase.findUnique({ where: { id } });
+      return tc && !tc.deletedAt ? tc : null;
+    },
+    async (projectId, key) => {
+      const tc = await prisma.testCase.findUnique({ where: { projectId_key: { projectId, key } } });
+      return tc && !tc.deletedAt ? tc : null;
+    },
+    idOrKey,
+  );
+}
 
 // A link can point at either:
 //  - a pre-existing Requirement (by id), OR
@@ -23,7 +37,7 @@ export const POST = withApiHandler(
     const auth = await requireAuth(req, "testcase:update");
     if (!auth.authorized) return auth.response;
 
-    const testCase = await prisma.testCase.findUnique({ where: { id: params.id } });
+    const testCase = await resolveActiveTestCase(params.id);
     const denied = await assertProjectAccessForResource(
       auth.session.user.id,
       auth.session.user.role,
@@ -75,7 +89,7 @@ export const DELETE = withApiHandler(
     const auth = await requireAuth(req, "testcase:update");
     if (!auth.authorized) return auth.response;
 
-    const testCase = await prisma.testCase.findUnique({ where: { id: params.id } });
+    const testCase = await resolveActiveTestCase(params.id);
     const denied = await assertProjectAccessForResource(
       auth.session.user.id,
       auth.session.user.role,

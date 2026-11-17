@@ -44,6 +44,7 @@ import { POST as createTestPlan } from "@/app/api/testplans/route";
 import { POST as createProject } from "@/app/api/projects/route";
 import { PATCH as updateUserRole } from "@/app/api/users/route";
 import { GET as getTestCase } from "@/app/api/testcases/[id]/route";
+import { POST as bulkTestCases } from "@/app/api/testcases/bulk/route";
 
 describe("RBAC & access isolation", () => {
   beforeEach(() => {
@@ -183,5 +184,19 @@ describe("RBAC & access isolation", () => {
     });
     const res = await createTestCase(req, {});
     expect(res.status).toBe(401);
+  });
+
+  it("forbids TESTER from bulk-deleting test cases (403)", async () => {
+    (getServerSession as ReturnType<typeof vi.fn>).mockResolvedValue({
+      user: { id: "u-tester", name: "Tara", email: "tara@test.local", role: Role.TESTER },
+    });
+
+    const req = new NextRequest("http://localhost:3000/api/testcases/bulk", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ids: ["tc-1"], action: "delete" }),
+    });
+    const res = await bulkTestCases(req, {});
+    expect(res.status).toBe(403);
   });
 });

@@ -35,7 +35,7 @@ vi.mock("next-auth", () => ({
 
 import { getServerSession } from "next-auth";
 import { POST as createTestCase } from "@/app/api/testcases/route";
-import { DELETE as deleteTestCase } from "@/app/api/testcases/[id]/route";
+import { GET as getTestCase, DELETE as deleteTestCase } from "@/app/api/testcases/[id]/route";
 import { POST as bulkTestCases } from "@/app/api/testcases/bulk/route";
 
 describe("Test cases API", () => {
@@ -219,5 +219,30 @@ describe("Test cases API", () => {
     });
     const badRes = await bulkTestCases(badReq, {});
     expect(badRes.status).toBe(400);
+  });
+
+  it("resolves underscore keys (ALPHA_TC_1) and returns 404 for soft-deleted cases", async () => {
+    mockPrisma.testCase.findUnique.mockImplementation(async ({ where }: any) => {
+      if (where.id === "ALPHA_TC_1") return null;
+      if (where.id === "tc-1") {
+        return { id: "tc-1", key: "ALPHA_TC_1", projectId: "proj-1", deletedAt: null };
+      }
+      if (where.id === "tc-del") {
+        return { id: "tc-del", key: "ALPHA_TC_9", projectId: "proj-1", deletedAt: new Date() };
+      }
+      if (where.projectId_key?.key === "ALPHA_TC_1") {
+        return { id: "tc-1", key: "ALPHA_TC_1", projectId: "proj-1", deletedAt: null };
+      }
+      return null;
+    });
+
+    const keyReq = new NextRequest("http://localhost:3000/api/testcases/ALPHA_TC_1");
+    const keyRes = await getTestCase(keyReq, { params: { id: "ALPHA_TC_1" } });
+    expect(keyRes.status).toBe(200);
+    expect((await keyRes.json()).key).toBe("ALPHA_TC_1");
+
+    const delReq = new NextRequest("http://localhost:3000/api/testcases/tc-del");
+    const delRes = await getTestCase(delReq, { params: { id: "tc-del" } });
+    expect(delRes.status).toBe(404);
   });
 });

@@ -174,6 +174,7 @@ export const importJUnit = async (
       let testCase = await tx.testCase.findFirst({
         where: {
           projectId: options.projectId,
+          deletedAt: null,
           OR: [{ key: name }, { name }],
         },
       });

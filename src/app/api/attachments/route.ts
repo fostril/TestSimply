@@ -42,30 +42,49 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       );
     }
 
-    // Derive project from the linked resource and enforce access.
-    let projectId: string | null = null;
+    // Derive project from ALL supplied linked resources and ensure they belong
+    // to the same project so callers cannot mix IDs across projects.
+    const linkedProjectIds: string[] = [];
     if (testCaseId) {
       const tc = await prisma.testCase.findUnique({
         where: { id: testCaseId },
-        select: { projectId: true },
+        select: { projectId: true, deletedAt: true },
       });
-      projectId = tc?.projectId ?? null;
-    } else if (executionId) {
+      if (!tc || tc.deletedAt) {
+        return NextResponse.json({ error: "Linked testCaseId not found" }, { status: 404 });
+      }
+      linkedProjectIds.push(tc.projectId);
+    }
+    if (executionId) {
       const exec = await prisma.testExecution.findUnique({
         where: { id: executionId },
         select: { projectId: true },
       });
-      projectId = exec?.projectId ?? null;
-    } else if (testResultId) {
+      if (!exec) {
+        return NextResponse.json({ error: "Linked executionId not found" }, { status: 404 });
+      }
+      linkedProjectIds.push(exec.projectId);
+    }
+    if (testResultId) {
       const result = await prisma.testResult.findUnique({
         where: { id: testResultId },
         select: { execution: { select: { projectId: true } } },
       });
-      projectId = result?.execution?.projectId ?? null;
+      if (!result?.execution?.projectId) {
+        return NextResponse.json({ error: "Linked testResultId not found" }, { status: 404 });
+      }
+      linkedProjectIds.push(result.execution.projectId);
     }
 
+    const projectId = linkedProjectIds[0] ?? null;
     if (!projectId) {
       return NextResponse.json({ error: "Linked resource not found" }, { status: 404 });
+    }
+    if (new Set(linkedProjectIds).size > 1) {
+      return NextResponse.json(
+        { error: "Linked resources must belong to the same project" },
+        { status: 400 },
+      );
     }
 
     const denied = await assertProjectAccessForResource(

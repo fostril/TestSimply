@@ -66,9 +66,13 @@ export function ProjectSwitcher() {
 
     const path = window.location.pathname;
     const parts = path.split("/");
-    if (parts[1] === "projects" && parts[2]) {
-      parts[2] = project.key;
-      router.push(parts.join("/"));
+    if (parts[1] === "projects" && parts[2] && parts[2] !== "new") {
+      if (parts.length > 4 && parts[4] !== "new") {
+        router.push(`/projects/${project.key}/${parts[3]}`);
+      } else {
+        parts[2] = project.key;
+        router.push(parts.join("/"));
+      }
     } else {
       router.push(`/projects/${project.key}`);
     }

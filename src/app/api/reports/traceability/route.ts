@@ -5,7 +5,7 @@ import {
   requireProjectAccessOrForbid,
   withApiHandler,
 } from "@/lib/api";
-import type { TestStatus } from "@prisma/client";
+import { TestStatus } from "@prisma/client";
 
 type EnvId = string | null;
 
@@ -79,7 +79,13 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   if (planId) {
     const plan = await prisma.testPlan.findUnique({
       where: { id: planId },
-      select: { projectId: true, cases: { select: { caseId: true } } },
+      select: {
+        projectId: true,
+        cases: {
+          where: { case: { deletedAt: null } },
+          select: { caseId: true },
+        },
+      },
     });
     if (!plan || plan.projectId !== projectId) {
       return NextResponse.json({ error: "Invalid planId" }, { status: 400 });
@@ -142,6 +148,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     ? await prisma.testResult.findMany({
         where: {
           caseId: { in: Array.from(caseIds) },
+          status: { not: TestStatus.SKIPPED },
           ...(environmentId
             ? { execution: { environmentId } }
             : {}),

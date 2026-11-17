@@ -37,7 +37,7 @@ export const GET = withApiHandler(
     const children = await prisma.testFolder.findMany({
       where: { parentId: params.id },
       orderBy: [{ name: "asc" }],
-      include: { _count: { select: { testCases: true, children: true } } },
+      include: { _count: { select: { testCases: { where: { deletedAt: null } }, children: true } } },
     });
 
     const cases = await prisma.testCase.findMany({

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler, assertProjectAccessForResource } from "@/lib/api";
+import { requireAuth, withApiHandler, assertProjectAccessForResource, resolveByIdOrKey } from "@/lib/api";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 
@@ -10,37 +10,12 @@ const updateSchema = z.object({
 });
 
 async function resolveTestSet(idOrKey: string, projectKey: string | null) {
-  const byId = await prisma.testSet.findUnique({ where: { id: idOrKey } });
-  if (byId) return byId;
-
-  if (projectKey) {
-    const project = await prisma.project.findUnique({
-      where: { key: projectKey },
-      select: { id: true },
-    });
-    if (project) {
-      const byKey = await prisma.testSet.findUnique({
-        where: { projectId_key: { projectId: project.id, key: idOrKey } },
-      });
-      if (byKey) return byKey;
-    }
-  }
-
-  const parts = idOrKey.split("-");
-  for (let i = 1; i < parts.length; i++) {
-    const pKey = parts.slice(0, i).join("-");
-    const sKey = parts.slice(i).join("-");
-    const project = await prisma.project.findUnique({
-      where: { key: pKey },
-      select: { id: true },
-    });
-    if (!project) continue;
-    const ts = await prisma.testSet.findUnique({
-      where: { projectId_key: { projectId: project.id, key: sKey } },
-    });
-    if (ts) return ts;
-  }
-  return null;
+  return resolveByIdOrKey(
+    (id) => prisma.testSet.findUnique({ where: { id } }),
+    (projectId, key) => prisma.testSet.findUnique({ where: { projectId_key: { projectId, key } } }),
+    idOrKey,
+    projectKey,
+  );
 }
 
 export const GET = withApiHandler(
@@ -77,7 +52,8 @@ export const PATCH = withApiHandler(
     const auth = await requireAuth(req, "testset:manage");
     if (!auth.authorized) return auth.response;
 
-    const testSet = await resolveTestSet(params.id, null);
+    const projectKey = new URL(req.url).searchParams.get("projectKey");
+    const testSet = await resolveTestSet(params.id, projectKey);
     const denied = await assertProjectAccessForResource(
       auth.session.user.id,
       auth.session.user.role,
@@ -103,7 +79,8 @@ export const DELETE = withApiHandler(
     const auth = await requireAuth(req, "testset:manage");
     if (!auth.authorized) return auth.response;
 
-    const testSet = await resolveTestSet(params.id, null);
+    const projectKey = new URL(req.url).searchParams.get("projectKey");
+    const testSet = await resolveTestSet(params.id, projectKey);
     const denied = await assertProjectAccessForResource(
       auth.session.user.id,
       auth.session.user.role,

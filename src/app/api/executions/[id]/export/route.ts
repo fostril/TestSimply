@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler, assertProjectAccessForResource } from "@/lib/api";
+import { requireAuth, withApiHandler, assertProjectAccessForResource, resolveByIdOrKey } from "@/lib/api";
 
 export const GET = withApiHandler(
     async (req: NextRequest, { params }: { params: { id: string } }) => {
@@ -10,32 +10,38 @@ export const GET = withApiHandler(
         const { searchParams } = new URL(req.url);
         const projectKey = searchParams.get("projectKey");
 
-        let execution = await prisma.testExecution.findUnique({
-            where: { id: params.id },
-            include: {
-                results: { include: { testCase: true, bugs: true } },
-                plan: { include: { cases: { include: { case: true } } } },
-                project: true,
-                environmentRelation: true,
-            }
-        });
-
-        if (!execution && projectKey) {
-            const project = await prisma.project.findUnique({ where: { key: projectKey } });
-            if (project) {
-                execution = await prisma.testExecution.findUnique({
-                    where: {
-                        projectId_key: { projectId: project.id, key: params.id },
+        const exportInclude = {
+            results: {
+                where: { testCase: { deletedAt: null } },
+                include: { testCase: true, bugs: true },
+            },
+            plan: {
+                include: {
+                    cases: {
+                        where: { case: { deletedAt: null } },
+                        include: { case: true },
+                        orderBy: { order: "asc" as const },
                     },
-                    include: {
-                        results: { include: { testCase: true, bugs: true } },
-                        plan: { include: { cases: { include: { case: true } } } },
-                        project: true,
-                        environmentRelation: true,
-                    }
-                });
-            }
-        }
+                },
+            },
+            project: true,
+            environmentRelation: true,
+        };
+
+        const execution = await resolveByIdOrKey<any>(
+            (id) =>
+                prisma.testExecution.findUnique({
+                    where: { id },
+                    include: exportInclude,
+                }),
+            (projectId, key) =>
+                prisma.testExecution.findUnique({
+                    where: { projectId_key: { projectId, key } },
+                    include: exportInclude,
+                }),
+            params.id,
+            projectKey,
+        );
 
         const denied = await assertProjectAccessForResource(
             auth.session.user.id,
@@ -53,7 +59,7 @@ export const GET = withApiHandler(
         lines.push(`Execution Report: ${execution.name}`);
         lines.push(`Key: ${execution.key}`);
         lines.push(`Project: ${execution.project?.name || "N/A"}`);
-        lines.push(`Environment: ${execution.environmentRelation?.name || "N/A"}`);
+        lines.push(`Environment: ${execution.environmentRelation?.name || execution.environment || "N/A"}`);
         lines.push(`Status: ${execution.status}`);
         lines.push(`Started: ${execution.startedAt ? new Date(execution.startedAt).toISOString() : "N/A"}`);
         lines.push(`Finished: ${execution.finishedAt ? new Date(execution.finishedAt).toISOString() : "N/A"}`);
@@ -62,9 +68,22 @@ export const GET = withApiHandler(
         // Results header
         lines.push("Test Case Key,Test Case Name,Status,Notes,Linked Bugs");
 
-        // Get all test cases (from plan or results)
-        const planCases = execution.plan?.cases?.map((c: any) => c.case) || [];
-        const resultCases = execution.results.map((r: any) => r.testCase);
+        // Merge planned cases and any extra result cases (e.g. ad-hoc additions), excluding deleted cases
+        const planCases = (execution.plan?.cases?.map((c: any) => c.case) || []).filter(
+            (c: any) => c && !c.deletedAt,
+        );
+        const resultCases = (execution.results || [])
+            .map((r: any) => r.testCase)
+            .filter((c: any) => c && !c.deletedAt);
+
+        const seenCaseIds = new Set<string>();
+        const cases: any[] = [];
+        for (const c of [...planCases, ...resultCases]) {
+            if (!seenCaseIds.has(c.id)) {
+                seenCaseIds.add(c.id);
+                cases.push(c);
+            }
+        }
 
         // Create a map of results by case ID
         const resultsByCaseId = new Map<string, any>();
@@ -72,13 +91,15 @@ export const GET = withApiHandler(
             resultsByCaseId.set(result.caseId, result);
         }
 
-        // If we have plan cases, iterate over them. Otherwise use result cases.
-        const cases = planCases.length > 0 ? planCases : resultCases;
-
         for (const testCase of cases) {
             const result = resultsByCaseId.get(testCase.id);
             const status = result?.status || "NOT_RUN";
-            const notes = result?.stepsLog?.map((s: any) => s.note || "").filter(Boolean).join("; ") || "";
+            const notes = Array.isArray(result?.stepsLog)
+                ? result.stepsLog
+                    .map((s: any) => s?.note || s?.notes || s?.comments || "")
+                    .filter(Boolean)
+                    .join("; ")
+                : "";
             const bugs = result?.bugs?.map((b: any) => b.key).join(", ") || "";
 
             // Escape CSV fields
@@ -98,12 +119,20 @@ export const GET = withApiHandler(
             ].join(","));
         }
 
-        // Summary
+        // Summary computed strictly across the exported `cases` list
         const totalCases = cases.length;
-        const passed = execution.results.filter((r: any) => r.status === "PASS").length;
-        const failed = execution.results.filter((r: any) => r.status === "FAIL").length;
-        const blocked = execution.results.filter((r: any) => r.status === "BLOCKED").length;
-        const notRun = totalCases - passed - failed - blocked;
+        let passed = 0;
+        let failed = 0;
+        let blocked = 0;
+        let skipped = 0;
+        for (const c of cases) {
+            const st = resultsByCaseId.get(c.id)?.status;
+            if (st === "PASS") passed++;
+            else if (st === "FAIL") failed++;
+            else if (st === "BLOCKED") blocked++;
+            else if (st === "SKIPPED") skipped++;
+        }
+        const notRun = Math.max(0, totalCases - passed - failed - blocked - skipped);
 
         lines.push("");
         lines.push("Summary");

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler, assertProjectAccessForResource } from "@/lib/api";
+import { requireAuth, withApiHandler, assertProjectAccessForResource, resolveByIdOrKey } from "@/lib/api";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 import { Priority } from "@prisma/client";
@@ -14,37 +14,12 @@ const updateSchema = z.object({
 });
 
 async function resolveBug(idOrKey: string, projectKey: string | null) {
-  const byId = await prisma.bug.findUnique({ where: { id: idOrKey } });
-  if (byId) return byId;
-
-  if (projectKey) {
-    const project = await prisma.project.findUnique({
-      where: { key: projectKey },
-      select: { id: true },
-    });
-    if (project) {
-      const byKey = await prisma.bug.findUnique({
-        where: { projectId_key: { projectId: project.id, key: idOrKey } },
-      });
-      if (byKey) return byKey;
-    }
-  }
-
-  const parts = idOrKey.split("-");
-  for (let i = 1; i < parts.length; i++) {
-    const pKey = parts.slice(0, i).join("-");
-    const bKey = parts.slice(i).join("-");
-    const project = await prisma.project.findUnique({
-      where: { key: pKey },
-      select: { id: true },
-    });
-    if (!project) continue;
-    const b = await prisma.bug.findUnique({
-      where: { projectId_key: { projectId: project.id, key: bKey } },
-    });
-    if (b) return b;
-  }
-  return null;
+  return resolveByIdOrKey(
+    (id) => prisma.bug.findUnique({ where: { id } }),
+    (projectId, key) => prisma.bug.findUnique({ where: { projectId_key: { projectId, key } } }),
+    idOrKey,
+    projectKey,
+  );
 }
 
 export const GET = withApiHandler(
@@ -76,7 +51,10 @@ export const PATCH = withApiHandler(
     const auth = await requireAuth(req, "bug:manage");
     if (!auth.authorized) return auth.response;
 
-    const bug = await resolveBug(params.id, null);
+    const { searchParams } = new URL(req.url);
+    const projectKey = searchParams.get("projectKey");
+
+    const bug = await resolveBug(params.id, projectKey);
     const denied = await assertProjectAccessForResource(
       auth.session.user.id,
       auth.session.user.role,
@@ -87,9 +65,25 @@ export const PATCH = withApiHandler(
     const body = await req.json();
     const parsed = updateSchema.parse(body);
 
+    const normalizedTestSetId =
+      parsed.testSetId === "" ? null : parsed.testSetId;
+
+    if (normalizedTestSetId) {
+      const ts = await prisma.testSet.findUnique({
+        where: { id: normalizedTestSetId },
+        select: { projectId: true },
+      });
+      if (!ts || ts.projectId !== bug!.projectId) {
+        return NextResponse.json({ error: "Invalid testSetId" }, { status: 400 });
+      }
+    }
+
     const updated = await prisma.bug.update({
       where: { id: bug!.id },
-      data: parsed,
+      data: {
+        ...parsed,
+        ...(parsed.testSetId !== undefined ? { testSetId: normalizedTestSetId } : {}),
+      },
     });
 
     await logAudit(auth.session.user?.id, "UPDATE", "Bug", updated.id, parsed, updated.projectId);
@@ -102,7 +96,10 @@ export const DELETE = withApiHandler(
     const auth = await requireAuth(req, "bug:manage");
     if (!auth.authorized) return auth.response;
 
-    const bug = await resolveBug(params.id, null);
+    const { searchParams } = new URL(req.url);
+    const projectKey = searchParams.get("projectKey");
+
+    const bug = await resolveBug(params.id, projectKey);
     const denied = await assertProjectAccessForResource(
       auth.session.user.id,
       auth.session.user.role,

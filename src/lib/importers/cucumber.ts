@@ -106,6 +106,7 @@ export const importCucumber = async (
         let testCase = await tx.testCase.findFirst({
           where: {
             projectId: options.projectId,
+            deletedAt: null,
             OR: orFilters,
           },
         });

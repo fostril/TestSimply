@@ -5,7 +5,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/toast";
 import { useProjectStore } from "@/lib/stores/project-store";
 
@@ -22,6 +22,7 @@ type FormValues = z.infer<typeof schema>;
 export default function NewTestPlanPage() {
   const { projectId, projectKey } = useProjectStore();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const toast = useToast();
   const { data: cases } = useQuery({
     queryKey: ["testcases", projectId, "select"],
@@ -33,7 +34,18 @@ export default function NewTestPlanPage() {
     }
   });
 
+  const { data: projectEnvs } = useQuery<{ id: string; key: string; name: string }[]>({
+    queryKey: ["environments", projectId],
+    enabled: Boolean(projectId),
+    queryFn: async () => {
+      const res = await fetch(`/api/environments?projectId=${projectId}`);
+      if (!res.ok) throw new Error("Failed to load environments");
+      return res.json();
+    },
+  });
+
   const [selected, setSelected] = useState<string[]>([]);
+  const [selectedEnvIds, setSelectedEnvIds] = useState<string[]>([]);
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -71,6 +83,7 @@ export default function NewTestPlanPage() {
         environments: values.environments
           ? values.environments.split(",").map((value) => value.trim()).filter(Boolean)
           : [],
+        environmentIds: selectedEnvIds,
         tags: values.tags ? values.tags.split(",").map((value) => value.trim()).filter(Boolean) : []
       })
     });
@@ -85,6 +98,7 @@ export default function NewTestPlanPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ caseIds: selected })
     });
+    await queryClient.invalidateQueries({ queryKey: ["testplans", projectId] });
     toast({ title: "Plan created", description: `${plan.name} with ${selected.length} cases.` });
     router.push(`/projects/${projectKey}/testplans`);
   });
@@ -135,9 +149,39 @@ export default function NewTestPlanPage() {
             <label className="text-sm font-medium text-slate-700" htmlFor="environments">
               Environments
             </label>
+            {(projectEnvs ?? []).length > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-2">
+                {(projectEnvs ?? []).map((env) => {
+                  const active = selectedEnvIds.includes(env.id);
+                  return (
+                    <label
+                      key={env.id}
+                      className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition ${
+                        active
+                          ? "border-blue-600 bg-blue-50 text-blue-700"
+                          : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={active}
+                        onChange={(e) =>
+                          setSelectedEnvIds((prev) =>
+                            e.target.checked ? [...prev, env.id] : prev.filter((id) => id !== env.id),
+                          )
+                        }
+                        className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600"
+                      />
+                      {env.name}
+                    </label>
+                  );
+                })}
+              </div>
+            )}
             <input
               id="environments"
               {...form.register("environments")}
+              placeholder="Optional custom names (comma separated)"
               className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
             />
           </div>

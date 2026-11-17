@@ -178,6 +178,54 @@ describe("Execution results & runner", () => {
         }),
       }),
     );
+    expect(mockPrisma.testResult.groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          executionId: "exec-1",
+          status: { not: TestStatus.SKIPPED },
+        }),
+      }),
+    );
+  });
+
+  it("does not auto-complete execution when completed count < planned count (e.g. only 1 non-SKIPPED)", async () => {
+    mockPrisma.testCasePlan.count.mockResolvedValue(2);
+    mockPrisma.testResult.groupBy.mockResolvedValue([{ caseId: "tc-1" }]);
+
+    const req = new NextRequest("http://localhost:3000/api/results", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        executionId: "exec-1",
+        caseId: "tc-1",
+        status: TestStatus.PASS,
+      }),
+    });
+
+    const res = await recordResult(req, {});
+    expect(res.status).toBe(201);
+    expect(mockPrisma.testExecution.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects recording results for soft-deleted test cases (400)", async () => {
+    mockPrisma.testCase.findUnique.mockResolvedValue({
+      id: "tc-deleted",
+      projectId: "proj-1",
+      deletedAt: new Date(),
+    });
+
+    const req = new NextRequest("http://localhost:3000/api/results", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        executionId: "exec-1",
+        caseId: "tc-deleted",
+        status: TestStatus.PASS,
+      }),
+    });
+
+    const res = await recordResult(req, {});
+    expect(res.status).toBe(400);
   });
 
   it("exports execution results as CSV", async () => {

@@ -1,3 +1,5 @@
+"use client";
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useProjectStore } from "@/lib/stores/project-store";
 import { useToast } from "@/components/ui/toast";
@@ -120,6 +122,7 @@ export function EnvironmentsPage() {
                         {editingEnvironment ? "Edit Environment" : "Create Environment"}
                     </h2>
                     <form
+                        key={editingEnvironment?.id ?? "new"}
                         onSubmit={(e) => {
                             e.preventDefault();
                             const formData = new FormData(e.currentTarget);

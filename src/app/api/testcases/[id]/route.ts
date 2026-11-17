@@ -1,37 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler, assertProjectAccessForResource } from "@/lib/api";
+import { requireAuth, withApiHandler, assertProjectAccessForResource, resolveByIdOrKey } from "@/lib/api";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 import { Prisma, Priority, TestType } from "@prisma/client";
 
 /**
- * Resolve a test case by either its cuid `id` or its project-scoped `key`
- * (e.g. "ACME-TC-123"). When a key is used, the project is inferred from the
- * project key prefix.
+ * Resolve a non-deleted test case by either its cuid `id` or its project-scoped `key`
+ * (e.g. "ACME_TC_123" or "ACME-TC-123").
  */
-async function resolveTestCase(idOrKey: string) {
-  // Plain cuid lookup is cheap and the common case
-  const byId = await prisma.testCase.findUnique({ where: { id: idOrKey } });
-  if (byId) return byId;
-
-  // Fall back to "<PROJECT_KEY>-<CASE_KEY>" matching. The case key itself may
-  // contain dashes, so split on the last "-" relative to a known project.
-  const parts = idOrKey.split("-");
-  for (let i = 1; i < parts.length; i++) {
-    const projectKey = parts.slice(0, i).join("-");
-    const caseKey = parts.slice(i).join("-");
-    const project = await prisma.project.findUnique({
-      where: { key: projectKey },
-      select: { id: true },
-    });
-    if (!project) continue;
-    const tc = await prisma.testCase.findUnique({
-      where: { projectId_key: { projectId: project.id, key: caseKey } },
-    });
-    if (tc) return tc;
-  }
-  return null;
+async function resolveTestCase(idOrKey: string, projectKey: string | null = null) {
+  return resolveByIdOrKey(
+    async (id) => {
+      const tc = await prisma.testCase.findUnique({ where: { id } });
+      return tc && !tc.deletedAt ? tc : null;
+    },
+    async (projectId, key) => {
+      const tc = await prisma.testCase.findUnique({
+        where: { projectId_key: { projectId, key } },
+      });
+      return tc && !tc.deletedAt ? tc : null;
+    },
+    idOrKey,
+    projectKey,
+  );
 }
 
 const updateSchema = z.object({
@@ -71,7 +63,7 @@ export const GET = withApiHandler(
       where: { id: testCase!.id },
       include: {
         folder: { select: { id: true, name: true, path: true } },
-        requirements: true,
+        requirements: { include: { requirement: true } },
         preconditions: true,
         bugs: true,
       },
@@ -104,6 +96,17 @@ export const PATCH = withApiHandler(
       });
       if (!folder || folder.projectId !== testCase!.projectId) {
         return NextResponse.json({ error: "Invalid folderId" }, { status: 400 });
+      }
+    }
+
+    // If owner is being changed, make sure the target user exists.
+    if (parsed.ownerId) {
+      const owner = await prisma.user.findUnique({
+        where: { id: parsed.ownerId },
+        select: { id: true },
+      });
+      if (!owner) {
+        return NextResponse.json({ error: "Invalid ownerId" }, { status: 400 });
       }
     }
 

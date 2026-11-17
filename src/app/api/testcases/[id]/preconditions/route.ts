@@ -1,14 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler, assertProjectAccessForResource } from "@/lib/api";
+import { requireAuth, withApiHandler, assertProjectAccessForResource, resolveByIdOrKey } from "@/lib/api";
 import { z } from "zod";
 
 const linkSchema = z.object({
     preconditionId: z.string().min(1),
 });
 
-async function resolveTestCaseAndPrecondition(testCaseId: string, preconditionId: string) {
-    const testCase = await prisma.testCase.findUnique({ where: { id: testCaseId } });
+async function resolveTestCaseAndPrecondition(testCaseIdOrKey: string, preconditionId: string) {
+    const testCase = await resolveByIdOrKey(
+        async (id) => {
+            const tc = await prisma.testCase.findUnique({ where: { id } });
+            return tc && !tc.deletedAt ? tc : null;
+        },
+        async (projectId, key) => {
+            const tc = await prisma.testCase.findUnique({ where: { projectId_key: { projectId, key } } });
+            return tc && !tc.deletedAt ? tc : null;
+        },
+        testCaseIdOrKey,
+    );
     if (!testCase) return { testCase: null, precondition: null };
     const precondition = await prisma.precondition.findUnique({ where: { id: preconditionId } });
     return { testCase, precondition };

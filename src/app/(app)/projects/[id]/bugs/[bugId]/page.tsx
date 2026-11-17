@@ -74,7 +74,10 @@ export default function BugDetailPage({ params }: { params: { id: string, bugId:
             const res = await fetch(`/api/bugs/${bug.id}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(values)
+                body: JSON.stringify({
+                    ...values,
+                    testSetId: values.testSetId || null,
+                }),
             });
             if (!res.ok) {
                 const body = await res.json().catch(() => ({}));
@@ -86,6 +89,7 @@ export default function BugDetailPage({ params }: { params: { id: string, bugId:
             toast({ title: "Bug updated" });
             setIsEditing(false);
             queryClient.invalidateQueries({ queryKey: ["bug", params.bugId] });
+            queryClient.invalidateQueries({ queryKey: ["bugs", projectId] });
         },
         onError: (err) => {
             toast({ title: "Update failed", description: err.message });

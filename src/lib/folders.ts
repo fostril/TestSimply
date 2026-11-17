@@ -1,4 +1,4 @@
-import type { PrismaClient, TestFolder } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
 
 /**
  * Slugify a folder name into a path segment. Matches basic filesystem-safe
@@ -43,43 +43,6 @@ export async function wouldIntroduceCycle(
     cursor = node.parentId;
   }
   return false;
-}
-
-/**
- * Cascade a path change to all descendants. Called whenever a folder is
- * renamed or moved. Operates in a single transaction chunk per call.
- */
-export async function rewriteSubtreePaths(
-  prisma: PrismaClient,
-  folder: TestFolder,
-): Promise<void> {
-  const descendants = await prisma.testFolder.findMany({
-    where: {
-      projectId: folder.projectId,
-      path: { startsWith: `${folder.path}/` },
-    },
-  });
-
-  // Each descendant's new path replaces the old prefix with the new one.
-  // We compute that by stripping `oldPrefix` and splicing on `folder.path`.
-  const oldPrefixByChild: Record<string, string> = {};
-  for (const d of descendants) {
-    oldPrefixByChild[d.id] = d.path;
-  }
-
-  // Nothing to do if folder has no children.
-  if (descendants.length === 0) return;
-
-  // Determine the previous folder path by looking up a direct child's parent
-  // - but we already have the new `folder.path`. The caller is expected to
-  // have set folder.path to the new value BEFORE calling this helper; we
-  // compute the delta from each descendant's own path which still starts
-  // with the old prefix.
-  //
-  // To do that, we need the old prefix. The caller passes the updated
-  // folder, so we need the previous path — handle this via a separate
-  // `oldPath` parameter in the caller instead.
-  // Callers should use `rewriteSubtreePathsWithPrefix` below.
 }
 
 export async function rewriteSubtreePathsWithPrefix(

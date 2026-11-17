@@ -83,7 +83,12 @@ export function TestPlansPage() {
               </div>
               <p className="mt-2 text-sm text-slate-600">{plan.description}</p>
               <div className="mt-3 flex flex-wrap gap-1.5 text-xs text-slate-600">
-                {(plan.environments ?? []).map((env: string) => (
+                {Array.from(
+                  new Set([
+                    ...((plan.environmentRelations ?? []).map((e: any) => e.name) as string[]),
+                    ...((plan.environments ?? []) as string[]),
+                  ]),
+                ).map((env) => (
                   <span key={env} className="rounded border border-slate-200 bg-slate-100 px-2 py-0.5 font-medium">
                     {env}
                   </span>

@@ -73,7 +73,7 @@ model User {
 
 model PersonalAccessToken {
   id        String   @id @default(cuid())
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String
   tokenHash String
   label     String
@@ -147,7 +147,7 @@ model TestCase {
   component     String?
   folder        TestFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
   folderId      String?
-  owner         User?      @relation("TestCaseOwner", fields: [ownerId], references: [id])
+  owner         User?      @relation("TestCaseOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   ownerId       String?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
@@ -288,7 +288,7 @@ model TestExecution {
   startedAt   DateTime?
   finishedAt  DateTime?
   status      ExecutionStatus @default(ACTIVE)
-  createdBy   User?         @relation("ExecutionCreator", fields: [createdById], references: [id])
+  createdBy   User?         @relation("ExecutionCreator", fields: [createdById], references: [id], onDelete: SetNull)
   createdById String?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -316,9 +316,9 @@ model Bug {
   
   // Relations
   testResults TestResult[]
-  testCase    TestCase?    @relation(fields: [testCaseId], references: [id])
+  testCase    TestCase?    @relation(fields: [testCaseId], references: [id], onDelete: SetNull)
   testCaseId  String?
-  testSet     TestSet?     @relation(fields: [testSetId], references: [id])
+  testSet     TestSet?     @relation(fields: [testSetId], references: [id], onDelete: SetNull)
   testSetId   String?
 
   @@unique([projectId, key])

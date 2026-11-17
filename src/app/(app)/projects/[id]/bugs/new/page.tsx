@@ -5,6 +5,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/toast";
 import { useProjectStore } from "@/lib/stores/project-store";
 
@@ -19,6 +20,7 @@ type FormValues = z.infer<typeof schema>;
 export default function NewBugPage() {
     const { projectId, projectKey } = useProjectStore();
     const router = useRouter();
+    const queryClient = useQueryClient();
     const toast = useToast();
 
     const form = useForm<FormValues>({
@@ -55,6 +57,7 @@ export default function NewBugPage() {
             toast({ title: "Unable to report bug", description: body.error ?? "Unknown error" });
             return;
         }
+        await queryClient.invalidateQueries({ queryKey: ["bugs", projectId] });
         toast({ title: "Bug reported", description: values.summary });
         router.push(`/projects/${projectKey}/bugs`);
     });

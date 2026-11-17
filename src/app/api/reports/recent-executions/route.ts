@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler, requireProjectAccessOrForbid } from "@/lib/api";
-import { Role } from "@prisma/client";
+import {
+  requireAuth,
+  withApiHandler,
+  requireProjectAccessOrForbid,
+  getAccessibleProjectIds,
+} from "@/lib/api";
+import { ExecutionStatus, TestStatus } from "@prisma/client";
 
 export const GET = withApiHandler(async (req: NextRequest) => {
   const auth = await requireAuth(req, "project:view");
@@ -18,37 +23,47 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       projectId,
     );
     if (access instanceof NextResponse) return access;
-    whereClause = { projectId };
-  } else if (auth.session.user.role !== Role.ADMIN) {
-    // Restrict to projects the user is a member/lead of.
-    const accessibleProjects = await prisma.project.findMany({
-      where: {
-        OR: [
-          { members: { some: { id: auth.session.user.id } } },
-          { leads: { some: { id: auth.session.user.id } } },
-        ],
-      },
-      select: { id: true },
-    });
-    whereClause = { projectId: { in: accessibleProjects.map((p) => p.id) } };
+    whereClause = { projectId: access.id };
+  } else {
+    const accessibleIds = await getAccessibleProjectIds(
+      auth.session.user.id,
+      auth.session.user.role,
+    );
+    if (accessibleIds) {
+      whereClause = { projectId: { in: accessibleIds } };
+    }
   }
 
   const executions = await prisma.testExecution.findMany({
     where: whereClause,
     orderBy: { createdAt: "desc" },
     take: 5,
-    include: { results: true },
+    include: {
+      results: {
+        where: {
+          testCase: { deletedAt: null },
+          status: { not: TestStatus.SKIPPED },
+        },
+        select: { status: true },
+      },
+    },
   });
 
   const data = executions.map((execution) => {
-    const total = execution.results.length || 1;
-    const pass = execution.results.filter((r) => r.status === "PASS").length;
+    const total = execution.results.length;
+    const pass = execution.results.filter((r) => r.status === TestStatus.PASS).length;
+    const status =
+      execution.status === ExecutionStatus.COMPLETED
+        ? "Completed"
+        : execution.status === ExecutionStatus.BLOCKED
+          ? "Blocked"
+          : "In progress";
     return {
       id: execution.id,
       key: execution.key,
       name: execution.name,
-      status: execution.finishedAt ? "Completed" : "In progress",
-      passRate: Math.round((pass / total) * 100),
+      status,
+      passRate: total === 0 ? 0 : Math.round((pass / total) * 100),
     };
   });
   return NextResponse.json(data);

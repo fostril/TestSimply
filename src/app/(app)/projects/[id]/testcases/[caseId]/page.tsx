@@ -16,22 +16,49 @@ const stepSchema = z.object({
   expected: z.string().optional()
 });
 
-const schema = z.object({
-  key: z.string().min(2, "Key is required"),
-  name: z.string().min(2, "Name is required"),
-  description: z.string().optional(),
-  preconditions: z.string().optional(),
-  expected: z.string().optional(),
-  priority: z.string().default("MEDIUM"),
-  status: z.string().optional(),
-  component: z.string().optional(),
-  folderId: z.string().nullable().optional(),
-  tags: z.string().optional(),
-  steps: z.array(stepSchema).min(1, "Add at least one step"),
-  isAutomated: z.boolean().default(false),
-  automationId: z.string().optional(),
-  isFlaky: z.boolean().default(false),
-});
+const schema = z
+  .object({
+    key: z.string().min(2, "Key is required"),
+    name: z.string().min(2, "Name is required"),
+    description: z.string().optional(),
+    preconditions: z.string().optional(),
+    expected: z.string().optional(),
+    priority: z.string().default("MEDIUM"),
+    status: z.string().optional(),
+    component: z.string().optional(),
+    folderId: z.string().nullable().optional(),
+    tags: z.string().optional(),
+    type: z.enum(["MANUAL", "CUCUMBER", "GENERIC"]).default("MANUAL"),
+    steps: z.array(stepSchema),
+    gherkin: z.string().optional(),
+    genericDefinition: z.string().optional(),
+    isAutomated: z.boolean().default(false),
+    automationId: z.string().optional(),
+    isFlaky: z.boolean().default(false),
+  })
+  .superRefine((data, ctx) => {
+    if (data.type === "MANUAL" && data.steps.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Add at least one step",
+        path: ["steps"],
+      });
+    }
+    if (data.type === "CUCUMBER" && !data.gherkin?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Gherkin body is required",
+        path: ["gherkin"],
+      });
+    }
+    if (data.type === "GENERIC" && !data.genericDefinition?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Definition is required",
+        path: ["genericDefinition"],
+      });
+    }
+  });
 
 type FormValues = z.infer<typeof schema>;
 
@@ -74,17 +101,24 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
       component: "",
       folderId: "",
       tags: "",
+      type: "MANUAL",
       steps: [{ action: "", data: "", expected: "" }],
+      gherkin: "",
+      genericDefinition: "",
       isAutomated: false,
       automationId: "",
       isFlaky: false,
     }
   });
 
-  const { fields, append, remove, replace } = useFieldArray({ control: form.control, name: "steps" });
+  const currentType = form.watch("type");
+  const isAutomated = form.watch("isAutomated");
+  const { fields, append, remove } = useFieldArray({ control: form.control, name: "steps" });
 
   useEffect(() => {
     if (testCase) {
+      const resolvedType = (testCase.type as "MANUAL" | "CUCUMBER" | "GENERIC") || "MANUAL";
+      const rawSteps = Array.isArray(testCase.steps) ? (testCase.steps as any[]) : [];
       form.reset({
         key: testCase.key,
         name: testCase.name,
@@ -95,8 +129,16 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
         status: testCase.status,
         component: testCase.component ?? "",
         folderId: testCase.folderId ?? "",
-        tags: testCase.tags.join(", "),
-        steps: (testCase.steps as any[]).length > 0 ? (testCase.steps as any[]) : [{ action: "", data: "", expected: "" }],
+        tags: Array.isArray(testCase.tags) ? testCase.tags.join(", ") : "",
+        type: resolvedType,
+        steps:
+          rawSteps.length > 0
+            ? rawSteps
+            : resolvedType === "MANUAL"
+              ? [{ action: "", data: "", expected: "" }]
+              : [],
+        gherkin: testCase.gherkin ?? "",
+        genericDefinition: testCase.genericDefinition ?? "",
         isAutomated: testCase.isAutomated ?? false,
         automationId: testCase.automationId ?? "",
         isFlaky: testCase.isFlaky ?? false,
@@ -107,9 +149,22 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
   const updateMutation = useMutation({
     mutationFn: async (values: FormValues) => {
       const payload = {
-        ...values,
+        name: values.name,
+        description: values.description,
+        preconditions: values.preconditions,
+        expected: values.expected,
+        priority: values.priority,
+        status: values.status,
+        component: values.component,
         folderId: values.folderId || null,
-        tags: values.tags ? values.tags.split(",").map((tag) => tag.trim()).filter(Boolean) : []
+        tags: values.tags ? values.tags.split(",").map((tag) => tag.trim()).filter(Boolean) : [],
+        type: values.type,
+        steps: values.type === "MANUAL" ? values.steps : [],
+        gherkin: values.type === "CUCUMBER" ? (values.gherkin ?? "") : null,
+        genericDefinition: values.type === "GENERIC" ? (values.genericDefinition ?? "") : null,
+        isAutomated: values.isAutomated,
+        automationId: values.isAutomated ? (values.automationId ?? "") : "",
+        isFlaky: values.isFlaky,
       };
       const res = await fetch(`/api/testcases/${params.caseId}`, {
         method: "PATCH",
@@ -244,8 +299,17 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
   });
 
   const [isAddingPrecondition, setIsAddingPrecondition] = useState(false);
+  const [preconditionSearch, setPreconditionSearch] = useState("");
   const linkedPreconditionIds = new Set((testCase?.preconditions || []).map((p: any) => p.id));
-  const availablePreconditions = (allPreconditions || []).filter((p: any) => !linkedPreconditionIds.has(p.id));
+  const availablePreconditions = (allPreconditions || []).filter((p: any) => {
+    if (linkedPreconditionIds.has(p.id)) return false;
+    const q = preconditionSearch.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      String(p.key ?? "").toLowerCase().includes(q) ||
+      String(p.name ?? "").toLowerCase().includes(q)
+    );
+  });
 
   const submit = form.handleSubmit(
     (values) => {
@@ -299,6 +363,16 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
               </div>
             </div>
 
+            {/* Preconditions Text */}
+            {testCase.preconditionsText && (
+              <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+                <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Preconditions Text</h3>
+                <div className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
+                  {testCase.preconditionsText}
+                </div>
+              </div>
+            )}
+
             {/* Expected Result */}
             {testCase.expected && (
               <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
@@ -309,35 +383,51 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
               </div>
             )}
 
-            {/* Steps */}
-            <div>
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Test Steps</h3>
-              <div className="space-y-3">
-                {(testCase.steps as any[]).map((step, i) => (
-                  <div key={i} className="flex gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-slate-100 text-xs font-semibold text-slate-700">
-                      {i + 1}
-                    </div>
-                    <div className="grid w-full gap-4 md:grid-cols-3">
-                      <div>
-                        <p className="mb-1 text-xs font-semibold uppercase text-slate-500">Action</p>
-                        <p className="text-sm text-slate-900">{step.action}</p>
-                      </div>
-                      <div>
-                        <p className="mb-1 text-xs font-semibold uppercase text-slate-500">Data</p>
-                        <p className="text-sm text-slate-700">{step.data || "-"}</p>
-                      </div>
-                      {step.expected && (
-                        <div>
-                          <p className="mb-1 text-xs font-semibold uppercase text-slate-500">Expected Result</p>
-                          <p className="text-sm text-slate-700">{step.expected}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
+            {/* Body by Test Type */}
+            {testCase.type === "CUCUMBER" ? (
+              <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+                <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Gherkin Scenario</h3>
+                <pre className="whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-4 font-mono text-xs text-slate-800">
+                  {testCase.gherkin || "No Gherkin body provided."}
+                </pre>
               </div>
-            </div>
+            ) : testCase.type === "GENERIC" ? (
+              <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+                <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Automated / Generic Definition</h3>
+                <pre className="whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-4 font-mono text-xs text-slate-800">
+                  {testCase.genericDefinition || "No definition provided."}
+                </pre>
+              </div>
+            ) : (
+              <div>
+                <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Test Steps</h3>
+                <div className="space-y-3">
+                  {(Array.isArray(testCase.steps) ? (testCase.steps as any[]) : []).map((step, i) => (
+                    <div key={i} className="flex gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-slate-100 text-xs font-semibold text-slate-700">
+                        {i + 1}
+                      </div>
+                      <div className="grid w-full gap-4 md:grid-cols-3">
+                        <div>
+                          <p className="mb-1 text-xs font-semibold uppercase text-slate-500">Action</p>
+                          <p className="text-sm text-slate-900">{step.action}</p>
+                        </div>
+                        <div>
+                          <p className="mb-1 text-xs font-semibold uppercase text-slate-500">Data</p>
+                          <p className="text-sm text-slate-700">{step.data || "-"}</p>
+                        </div>
+                        {step.expected && (
+                          <div>
+                            <p className="mb-1 text-xs font-semibold uppercase text-slate-500">Expected Result</p>
+                            <p className="text-sm text-slate-700">{step.expected}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Sidebar (Right) */}
@@ -366,6 +456,12 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
                   </span>
                 </div>
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <span className="text-sm text-slate-600">Type</span>
+                  <span className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-700">
+                    {testCase.type ?? "MANUAL"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <span className="text-sm text-slate-600">Component</span>
                   <span className="text-sm font-medium text-slate-900">{testCase.component || "-"}</span>
                 </div>
@@ -386,12 +482,12 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
                     ))}
                   </select>
                 </div>
-                <div className="flex items-center justify-between pt-1">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3 pt-1">
                   <span className="text-sm text-slate-600">Automation</span>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap justify-end gap-2">
                     {testCase.isAutomated && (
                       <span className="rounded border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-700">
-                        AUTO
+                        AUTO{testCase.automationId ? `: ${testCase.automationId}` : ""}
                       </span>
                     )}
                     {testCase.isFlaky && (
@@ -404,6 +500,21 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
                     )}
                   </div>
                 </div>
+                {Array.isArray(testCase.tags) && testCase.tags.length > 0 && (
+                  <div className="flex items-start justify-between gap-2 pt-1">
+                    <span className="text-sm text-slate-600">Tags</span>
+                    <div className="flex flex-wrap justify-end gap-1.5">
+                      {(testCase.tags as string[]).map((tag) => (
+                        <span
+                          key={tag}
+                          className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-700"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -423,8 +534,10 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
                 <div className="mb-4 rounded-md border border-slate-200 bg-slate-50 p-3">
                   <input
                     type="text"
+                    value={preconditionSearch}
+                    onChange={(e) => setPreconditionSearch(e.target.value)}
                     placeholder="Search preconditions..."
-                    className="mb-2 w-full bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
+                    className="mb-2 w-full rounded border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none"
                   />
                   <div className="max-h-40 space-y-1 overflow-y-auto pr-1">
                     {(availablePreconditions || []).length === 0 ? (
@@ -497,6 +610,7 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
                       key={req.id}
                       requirement={req}
                       projectId={projectId}
+                      projectKey={projectKey}
                       onDelete={() => deleteRequirementMutation.mutate(req.id)}
                     />
                   ))
@@ -598,6 +712,21 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
                 <option value="In Review">In Review</option>
                 <option value="Approved">Approved</option>
                 <option value="Deprecated">Deprecated</option>
+                <option value="Imported">Imported</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-700" htmlFor="type">
+                Test Type
+              </label>
+              <select
+                id="type"
+                {...form.register("type")}
+                className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+              >
+                <option value="MANUAL">Manual (Step-by-step)</option>
+                <option value="CUCUMBER">Cucumber / Gherkin</option>
+                <option value="GENERIC">Generic / Automated</option>
               </select>
             </div>
           </div>
@@ -622,6 +751,17 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
               id="description"
               rows={5}
               {...form.register("description")}
+              className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-slate-700" htmlFor="preconditions">
+              Preconditions
+            </label>
+            <textarea
+              id="preconditions"
+              rows={2}
+              {...form.register("preconditions")}
               className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
             />
           </div>
@@ -675,63 +815,119 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
               />
             </div>
           </div>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-600">Steps</h2>
-              <button
-                type="button"
-                onClick={() => append({ action: "", data: "", expected: "" })}
-                className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-              >
-                + Add step
-              </button>
-            </div>
-            {fields.map((field, index) => (
-              <div key={field.id} className="rounded-md border border-slate-200 bg-slate-50 p-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Step {index + 1}</p>
-                  {fields.length > 1 ? (
-                    <button
-                      type="button"
-                      onClick={() => remove(index)}
-                      className="text-xs text-slate-500 hover:text-red-600"
-                    >
-                      Remove
-                    </button>
-                  ) : null}
-                </div>
-                <div className="mt-3 grid gap-4 md:grid-cols-3">
-                  <div>
-                    <label className="text-xs font-medium text-slate-700">Action</label>
-                    <textarea
-                      {...form.register(`steps.${index}.action` as const)}
-                      rows={2}
-                      className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-700">Data</label>
-                    <textarea
-                      {...form.register(`steps.${index}.data` as const)}
-                      rows={2}
-                      className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-700">Expected</label>
-                    <textarea
-                      {...form.register(`steps.${index}.expected` as const)}
-                      rows={2}
-                      className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
-                    />
-                  </div>
-                </div>
+          <div className="grid gap-4 rounded-md border border-slate-200 bg-slate-50 p-4 md:grid-cols-3">
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <input type="checkbox" {...form.register("isAutomated")} className="h-4 w-4 rounded border-slate-300 text-blue-600" />
+              Automated
+            </label>
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <input type="checkbox" {...form.register("isFlaky")} className="h-4 w-4 rounded border-slate-300 text-blue-600" />
+              Flaky
+            </label>
+            {isAutomated && (
+              <div>
+                <label className="text-xs font-medium text-slate-700" htmlFor="automationId">
+                  Automation ID
+                </label>
+                <input
+                  id="automationId"
+                  {...form.register("automationId")}
+                  placeholder="e.g. specs/login.spec.ts#should-sign-in"
+                  className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+                />
               </div>
-            ))}
-            {form.formState.errors.steps ? (
-              <p className="text-xs text-red-600">{form.formState.errors.steps.message as string}</p>
-            ) : null}
+            )}
           </div>
+          {currentType === "CUCUMBER" ? (
+            <div>
+              <label className="text-sm font-medium text-slate-700" htmlFor="gherkin">
+                Gherkin Scenario
+              </label>
+              <textarea
+                id="gherkin"
+                rows={8}
+                {...form.register("gherkin")}
+                className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 font-mono text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+                placeholder={"Feature: ...\n  Scenario: ...\n    Given ...\n    When ...\n    Then ..."}
+              />
+              {form.formState.errors.gherkin ? (
+                <p className="mt-1 text-xs text-red-600">{form.formState.errors.gherkin.message}</p>
+              ) : null}
+            </div>
+          ) : currentType === "GENERIC" ? (
+            <div>
+              <label className="text-sm font-medium text-slate-700" htmlFor="genericDefinition">
+                Test Definition / Spec Reference
+              </label>
+              <textarea
+                id="genericDefinition"
+                rows={5}
+                {...form.register("genericDefinition")}
+                className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 font-mono text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+              />
+              {form.formState.errors.genericDefinition ? (
+                <p className="mt-1 text-xs text-red-600">{form.formState.errors.genericDefinition.message}</p>
+              ) : null}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-600">Steps</h2>
+                <button
+                  type="button"
+                  onClick={() => append({ action: "", data: "", expected: "" })}
+                  className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  + Add step
+                </button>
+              </div>
+              {fields.map((field, index) => (
+                <div key={field.id} className="rounded-md border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Step {index + 1}</p>
+                    {fields.length > 1 ? (
+                      <button
+                        type="button"
+                        onClick={() => remove(index)}
+                        className="text-xs text-slate-500 hover:text-red-600"
+                      >
+                        Remove
+                      </button>
+                    ) : null}
+                  </div>
+                  <div className="mt-3 grid gap-4 md:grid-cols-3">
+                    <div>
+                      <label className="text-xs font-medium text-slate-700">Action</label>
+                      <textarea
+                        {...form.register(`steps.${index}.action` as const)}
+                        rows={2}
+                        className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-slate-700">Data</label>
+                      <textarea
+                        {...form.register(`steps.${index}.data` as const)}
+                        rows={2}
+                        className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-slate-700">Expected</label>
+                      <textarea
+                        {...form.register(`steps.${index}.expected` as const)}
+                        rows={2}
+                        className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {form.formState.errors.steps ? (
+                <p className="text-xs text-red-600">{form.formState.errors.steps.message as string}</p>
+              ) : null}
+            </div>
+          )}
         </form>
       )}
     </div>

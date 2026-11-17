@@ -5,7 +5,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/toast";
 import { useProjectStore } from "@/lib/stores/project-store";
 
@@ -26,6 +26,7 @@ export default function NewExecutionPage() {
   const projectId = useProjectStore((state) => state.projectId);
   const projectKey = useProjectStore((state) => state.projectKey);
   const router = useRouter();
+  const queryClient = useQueryClient();
   const toast = useToast();
   const { data: plans } = useQuery({
     queryKey: ["testplans", projectId, "select"],
@@ -93,6 +94,7 @@ export default function NewExecutionPage() {
       return;
     }
     const execution = await res.json();
+    await queryClient.invalidateQueries({ queryKey: ["executions", projectId] });
     toast({ title: "Execution created", description: execution.name });
     router.push(`/projects/${projectKey}/executions/${execution.id}`);
   });

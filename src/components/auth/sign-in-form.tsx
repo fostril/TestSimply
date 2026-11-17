@@ -60,10 +60,16 @@ export function SignInForm() {
 
   const onSubmit = async (values: FormValues) => {
     setLoading(true);
+    const params = new URLSearchParams(window.location.search);
+    const rawCallback = params.get("callbackUrl");
+    const callbackUrl =
+      rawCallback && rawCallback.startsWith("/") && !rawCallback.startsWith("//")
+        ? rawCallback
+        : "/";
     const result = await signIn("credentials", {
       ...values,
       redirect: true,
-      callbackUrl: "/",
+      callbackUrl,
     });
     if (result?.error) {
       toast({ title: "Login failed", description: result.error });

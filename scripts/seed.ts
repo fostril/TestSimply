@@ -1,4 +1,4 @@
-import { PrismaClient, Role, Priority, TestStatus } from "@prisma/client";
+import { PrismaClient, Role, Priority, TestStatus, ExecutionStatus } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -28,7 +28,7 @@ async function createUsers() {
   );
 }
 
-async function createProjects() {
+async function createProjects(leadIds: string[], memberIds: string[]) {
   return Promise.all(
     [
       {
@@ -52,6 +52,8 @@ async function createProjects() {
         update: {},
         create: {
           ...project,
+          leads: { connect: leadIds.map((id) => ({ id })) },
+          members: { connect: memberIds.map((id) => ({ id })) },
           settings: {
             create: {
               tags: ["regression", "smoke", "accessibility"],
@@ -86,7 +88,7 @@ async function createTestCases(projectId: string, ownerId: string) {
         steps: baseSteps,
         expected: "Scenario completes successfully",
         priority: priorities[index % priorities.length],
-        status: index % 3 === 0 ? "APPROVED" : "DRAFT",
+        status: index % 3 === 0 ? "Approved" : "Draft",
         tags: index % 2 === 0 ? ["regression"] : ["smoke"],
         component: index % 2 === 0 ? "web" : "api",
         ownerId
@@ -129,6 +131,7 @@ async function createExecution(projectId: string, planId: string, key: string, n
       labels: ["nightly", "ui"],
       startedAt: new Date(Date.now() - 1000 * 60 * 60),
       finishedAt: new Date(),
+      status: ExecutionStatus.COMPLETED,
       createdById
     }
   });
@@ -174,6 +177,7 @@ async function main() {
   await prisma.testExecution.deleteMany();
   await prisma.testCasePlan.deleteMany();
   await prisma.testPlan.deleteMany();
+  await prisma.bug.deleteMany();
   await prisma.testCase.deleteMany();
   await prisma.requirementLink.deleteMany();
   await prisma.projectSetting.deleteMany();
@@ -185,7 +189,9 @@ async function main() {
   await prisma.user.deleteMany();
 
   const users = await createUsers();
-  const projects = await createProjects();
+  const leadIds = users.filter((u) => u.role === Role.LEAD).map((u) => u.id);
+  const memberIds = users.filter((u) => u.role === Role.TESTER || u.role === Role.VIEWER).map((u) => u.id);
+  const projects = await createProjects(leadIds, memberIds);
 
   for (const project of projects) {
     const owner = users[0];

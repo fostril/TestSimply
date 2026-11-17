@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useCallback, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useProjectStore } from "@/lib/stores/project-store";
@@ -108,6 +108,21 @@ export function TraceabilityMatrix({ projectId }: { projectId: string | null }) 
     },
   });
 
+  const envNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const env of environments ?? []) {
+      if (env?.id && env?.name) {
+        map.set(env.id, env.name);
+      }
+    }
+    return map;
+  }, [environments]);
+
+  const envLabel = useCallback(
+    (envKey: string) => (envKey === "-" ? "(no env)" : envNameById.get(envKey) ?? envKey),
+    [envNameById],
+  );
+
   // Flatten env columns — every env that appears in at least one row.
   const envColumns = useMemo(() => {
     const set = new Set<string>();
@@ -116,8 +131,8 @@ export function TraceabilityMatrix({ projectId }: { projectId: string | null }) 
         Object.keys(c.latestByEnv).forEach((e) => set.add(e));
       }
     }
-    return Array.from(set).sort();
-  }, [data]);
+    return Array.from(set).sort((a, b) => envLabel(a).localeCompare(envLabel(b)));
+  }, [data, envLabel]);
 
   const exportCsv = () => {
     if (!data) return;
@@ -134,7 +149,7 @@ export function TraceabilityMatrix({ projectId }: { projectId: string | null }) 
       "CaseName",
       "CaseType",
       "Bugs",
-      ...envColumns.map((e) => `Env:${e}`),
+      ...envColumns.map((e) => `Env:${envLabel(e)}`),
     ];
     const rows: string[] = [headers.join(",")];
     for (const r of data.rows) {
@@ -252,7 +267,7 @@ export function TraceabilityMatrix({ projectId }: { projectId: string | null }) 
                   <th className="px-4 py-3">Case</th>
                   {envColumns.map((e) => (
                     <th key={e} className="px-4 py-3">
-                      {e === "-" ? "(no env)" : e}
+                      {envLabel(e)}
                     </th>
                   ))}
                   <th className="px-4 py-3">Bugs</th>
@@ -262,7 +277,7 @@ export function TraceabilityMatrix({ projectId }: { projectId: string | null }) 
                 {(data?.rows ?? []).map((r) => {
                   const rowSpan = Math.max(1, r.cases.length);
                   return (
-                    <>
+                    <Fragment key={r.id ?? "unlinked"}>
                       {r.cases.length === 0 ? (
                         <tr key={`${r.id ?? "none"}-empty`} className="text-slate-500">
                           <td className="px-4 py-3">
@@ -347,7 +362,7 @@ export function TraceabilityMatrix({ projectId }: { projectId: string | null }) 
                           </tr>
                         ))
                       )}
-                    </>
+                    </Fragment>
                   );
                 })}
                 {(data?.rows ?? []).length === 0 && (

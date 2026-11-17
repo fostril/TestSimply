@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler, requireProjectAccessOrForbid, parsePagination, paginatedJson } from "@/lib/api";
+import { requireAuth, withApiHandler, requireProjectAccessOrForbid, getAccessibleProjectIds, parsePagination, paginatedJson } from "@/lib/api";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 import { Priority } from "@prisma/client";
@@ -36,6 +36,11 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     const whereClause: any = {};
     if (projectId) {
         whereClause.projectId = projectId;
+    } else {
+        const accessibleIds = await getAccessibleProjectIds(auth.session.user.id, auth.session.user.role);
+        if (accessibleIds !== null) {
+            whereClause.projectId = { in: accessibleIds };
+        }
     }
     if (search) {
         whereClause.OR = [
@@ -81,9 +86,9 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     if (parsed.testCaseId) {
         const tc = await prisma.testCase.findUnique({
             where: { id: parsed.testCaseId },
-            select: { projectId: true },
+            select: { projectId: true, deletedAt: true },
         });
-        if (!tc || tc.projectId !== parsed.projectId) {
+        if (!tc || tc.deletedAt || tc.projectId !== parsed.projectId) {
             return NextResponse.json({ error: "Invalid testCaseId" }, { status: 400 });
         }
     }

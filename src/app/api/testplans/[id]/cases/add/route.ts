@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, withApiHandler, assertProjectAccessForResource } from "@/lib/api";
+import { requireAuth, withApiHandler, assertProjectAccessForResource, resolveByIdOrKey } from "@/lib/api";
 import { z } from "zod";
 
 const bodySchema = z.object({ caseIds: z.array(z.string()) });
@@ -10,7 +10,11 @@ export const POST = withApiHandler(
         const auth = await requireAuth(req, "testplan:manage");
         if (!auth.authorized) return auth.response;
 
-        const plan = await prisma.testPlan.findUnique({ where: { id: params.id } });
+        const plan = await resolveByIdOrKey(
+            (id) => prisma.testPlan.findUnique({ where: { id } }),
+            (projectId, key) => prisma.testPlan.findUnique({ where: { projectId_key: { projectId, key } } }),
+            params.id,
+        );
         const denied = await assertProjectAccessForResource(
             auth.session.user.id,
             auth.session.user.role,
@@ -25,7 +29,7 @@ export const POST = withApiHandler(
         }
 
         const scoped = await prisma.testCase.findMany({
-            where: { id: { in: parsed.caseIds }, projectId: plan!.projectId },
+            where: { id: { in: parsed.caseIds }, projectId: plan!.projectId, deletedAt: null },
             select: { id: true },
         });
         const scopedIds = scoped.map((c) => c.id);
