@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/encryption";
-import { assertSafeExternalUrl } from "@/lib/ssrf";
+import { assertSafeExternalUrl, assertSafeExternalUrlSyntax } from "@/lib/ssrf";
 
 export interface CiClient {
     triggerWorkflow(workflowId: string, inputs?: Record<string, string>, branch?: string): Promise<{ success: boolean; message?: string; workflowUrl?: string }>;
@@ -14,7 +14,7 @@ export class GitHubCiClient implements CiClient {
     private repo: string;
 
     constructor(baseUrl: string, token: string) {
-        assertSafeExternalUrl(baseUrl);
+        assertSafeExternalUrlSyntax(baseUrl);
         this.baseUrl = baseUrl.replace(/\/$/, "");
         this.token = token;
 
@@ -30,6 +30,7 @@ export class GitHubCiClient implements CiClient {
     }
 
     async testConnection(): Promise<{ success: boolean; message?: string }> {
+        await assertSafeExternalUrl(this.baseUrl);
         // Test by fetching repository info
         const apiUrl = `https://api.github.com/repos/${this.owner}/${this.repo}`;
 
@@ -60,6 +61,7 @@ export class GitHubCiClient implements CiClient {
     }
 
     async triggerWorkflow(workflowId: string, inputs?: Record<string, string>, branch?: string): Promise<{ success: boolean; message?: string; workflowUrl?: string }> {
+        await assertSafeExternalUrl(this.baseUrl);
         // GitHub API: POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches
         const apiUrl = `https://api.github.com/repos/${this.owner}/${this.repo}/actions/workflows/${workflowId}/dispatches`;
 
@@ -101,6 +103,7 @@ export class GitHubCiClient implements CiClient {
         }
 
         // Decrypt the CI token before use
+        await assertSafeExternalUrl(settings.ciUrl);
         const decryptedToken = decrypt(settings.ciToken);
 
         if (settings.ciProvider === "GITHUB") {

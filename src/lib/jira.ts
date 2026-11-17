@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/encryption";
-import { assertSafeExternalUrl } from "@/lib/ssrf";
+import { assertSafeExternalUrl, assertSafeExternalUrlSyntax } from "@/lib/ssrf";
 
 export class JiraClient {
     private baseUrl: string;
@@ -8,8 +8,8 @@ export class JiraClient {
     private apiToken: string;
 
     constructor(baseUrl: string, email: string, apiToken: string) {
-        // Ensures scheme/hostname are safe (no private IPs, no localhost, ...)
-        assertSafeExternalUrl(baseUrl);
+        // Ensures scheme/hostname/literal-IP are safe synchronously
+        assertSafeExternalUrlSyntax(baseUrl);
         this.baseUrl = baseUrl.replace(/\/$/, "");
         this.email = email;
         this.apiToken = apiToken;
@@ -20,6 +20,7 @@ export class JiraClient {
     }
 
     async getIssue(issueKey: string) {
+        await assertSafeExternalUrl(this.baseUrl);
         const url = `${this.baseUrl}/rest/api/3/issue/${issueKey}?fields=status,summary`;
 
         const response = await fetch(url, {
@@ -44,6 +45,7 @@ export class JiraClient {
     }
 
     async createIssue(projectKey: string, summary: string, description: string, issueType: string = "Bug") {
+        await assertSafeExternalUrl(this.baseUrl);
         const url = `${this.baseUrl}/rest/api/3/issue`;
 
         // Basic ADF format for description if it's a string
@@ -109,6 +111,7 @@ export class JiraClient {
             return null;
         }
 
+        await assertSafeExternalUrl(settings.jiraUrl);
         const decryptedToken = decrypt(settings.jiraApiToken);
         return new JiraClient(settings.jiraUrl, settings.jiraEmail, decryptedToken);
     }

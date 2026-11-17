@@ -33,8 +33,8 @@ export const PATCH = withApiHandler(async (req: NextRequest) => {
 
     // SSRF guard for user-provided integration URLs
     try {
-        if (parsed.jiraUrl) assertSafeExternalUrl(parsed.jiraUrl);
-        if (parsed.ciUrl) assertSafeExternalUrl(parsed.ciUrl);
+        if (parsed.jiraUrl) await assertSafeExternalUrl(parsed.jiraUrl);
+        if (parsed.ciUrl) await assertSafeExternalUrl(parsed.ciUrl);
     } catch (err) {
         return NextResponse.json(
             { error: "Invalid integration URL", message: (err as Error).message },
