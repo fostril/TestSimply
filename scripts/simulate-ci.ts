@@ -23,12 +23,18 @@ async function main() {
 
     const url = `http://localhost:3000/api/import/junit?projectKey=${projectKey}&execKey=${execKey}&createExecutionIfMissing=true&autoCreateCases=true&buildUrl=${encodeURIComponent(buildUrl)}&commitSha=${commitSha}`;
 
+    const token = process.env.TESTSIMPLY_TOKEN;
+    if (!token) {
+        console.warn("Warning: TESTSIMPLY_TOKEN is not set; request may fail with 401.");
+    }
+
     console.log(`Simulating CI run for project ${projectKey}...`);
     console.log(`Uploading to: ${url}`);
 
     try {
         const res = await fetch(url, {
             method: "POST",
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
             body: formData,
             // Note: When using FormData with fetch, do NOT set Content-Type header manually, 
             // the browser/environment sets it with the boundary.
