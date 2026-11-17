@@ -5,7 +5,10 @@ COPY package*.json ./
 RUN npm ci
 COPY . .
 RUN npx prisma generate
-RUN npm run build
+RUN DATABASE_URL="postgresql://postgres:postgres@localhost:5432/testsimplify" \
+    NEXTAUTH_URL="http://localhost:3000" \
+    NEXTAUTH_SECRET="build-time-placeholder" \
+    npm run build
 RUN PRISMA_VER=$(node -p "require('./node_modules/prisma/package.json').version") \
     && mkdir -p /prisma-cli \
     && npm install --prefix /prisma-cli --no-save --no-audit --no-fund "prisma@${PRISMA_VER}"
