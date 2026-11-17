@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { CheckSquare } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -72,49 +73,53 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950">
-      <div className="w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900/80 p-8 shadow-2xl">
-        <h1 className="text-2xl font-semibold text-white">Choose a new password</h1>
-        <p className="mt-2 text-sm text-slate-400">
-          Password must be at least 8 characters with uppercase, lowercase, and a digit.
+    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4 py-12">
+      <div className="mb-6 flex items-center gap-2 text-slate-900">
+        <CheckSquare className="h-6 w-6 text-blue-600" />
+        <span className="text-xl font-semibold tracking-tight">TestSimply</span>
+      </div>
+      <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
+        <h1 className="text-xl font-semibold text-slate-900">Choose a new password</h1>
+        <p className="mt-1 text-sm text-slate-600">
+          Use at least 8 characters with uppercase, lowercase, and a number.
         </p>
 
         <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4" noValidate>
           <div>
-            <label className="text-xs uppercase tracking-wide text-slate-400">New Password</label>
+            <label className="block text-sm font-medium text-slate-700">New Password</label>
             <input
               type="password"
-              className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+              className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
               {...register("password")}
             />
             {errors.password && (
-              <p className="mt-1 text-xs text-red-400">{errors.password.message}</p>
+              <p className="mt-1 text-xs text-red-600">{errors.password.message}</p>
             )}
           </div>
 
           <div>
-            <label className="text-xs uppercase tracking-wide text-slate-400">Confirm Password</label>
+            <label className="block text-sm font-medium text-slate-700">Confirm Password</label>
             <input
               type="password"
-              className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+              className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
               {...register("confirmPassword")}
             />
             {errors.confirmPassword && (
-              <p className="mt-1 text-xs text-red-400">{errors.confirmPassword.message}</p>
+              <p className="mt-1 text-xs text-red-600">{errors.confirmPassword.message}</p>
             )}
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-full bg-brand px-4 py-2 text-sm font-medium text-white shadow-lg transition hover:bg-blue-500 disabled:opacity-60"
+            className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-60"
           >
             {loading ? "Updating..." : "Update password"}
           </button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-slate-500">
-          <Link href="/auth/login" className="text-brand">
+        <p className="mt-6 border-t border-slate-100 pt-4 text-center text-sm text-slate-600">
+          <Link href="/auth/login" className="font-medium text-blue-600 hover:underline">
             Back to sign in
           </Link>
         </p>

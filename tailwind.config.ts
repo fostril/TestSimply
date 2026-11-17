@@ -10,48 +10,48 @@ const config: Config = {
         sans: ["var(--font-sans)", ...fontFamily.sans],
       },
       colors: {
-        background: "#09090b", // Zinc 950
-        foreground: "#fafafa", // Zinc 50
+        background: "#f8fafc",
+        foreground: "#0f172a",
         card: {
-          DEFAULT: "#18181b", // Zinc 900
-          foreground: "#fafafa",
+          DEFAULT: "#ffffff",
+          foreground: "#0f172a",
         },
         popover: {
-          DEFAULT: "#18181b",
-          foreground: "#fafafa",
+          DEFAULT: "#ffffff",
+          foreground: "#0f172a",
         },
         primary: {
-          DEFAULT: "#3b82f6", // Blue 500
+          DEFAULT: "#2563eb",
           foreground: "#ffffff",
         },
         secondary: {
-          DEFAULT: "#27272a", // Zinc 800
-          foreground: "#fafafa",
+          DEFAULT: "#f1f5f9",
+          foreground: "#0f172a",
         },
         muted: {
-          DEFAULT: "#27272a",
-          foreground: "#a1a1aa", // Zinc 400
+          DEFAULT: "#f1f5f9",
+          foreground: "#64748b",
         },
         accent: {
-          DEFAULT: "#27272a",
-          foreground: "#fafafa",
+          DEFAULT: "#f1f5f9",
+          foreground: "#0f172a",
         },
         destructive: {
-          DEFAULT: "#ef4444", // Red 500
-          foreground: "#fafafa",
+          DEFAULT: "#dc2626",
+          foreground: "#ffffff",
         },
-        border: "#27272a",
-        input: "#27272a",
-        ring: "#3b82f6",
+        border: "#e2e8f0",
+        input: "#cbd5e1",
+        ring: "#2563eb",
         brand: {
-          DEFAULT: "#3b82f6",
+          DEFAULT: "#2563eb",
           foreground: "#ffffff",
         },
       },
       borderRadius: {
         lg: "0.5rem",
-        md: "calc(0.5rem - 2px)",
-        sm: "calc(0.5rem - 4px)",
+        md: "0.375rem",
+        sm: "0.25rem",
       },
     },
   },

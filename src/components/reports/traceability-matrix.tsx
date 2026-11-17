@@ -53,18 +53,18 @@ type Report = {
 };
 
 const statusStyles: Record<Status, string> = {
-  OK: "bg-emerald-500/10 text-emerald-400 ring-emerald-500/20",
-  NOK: "bg-red-500/10 text-red-400 ring-red-500/20",
-  WIP: "bg-yellow-500/10 text-yellow-400 ring-yellow-500/20",
-  NOT_RUN: "bg-slate-500/10 text-slate-400 ring-slate-500/20",
+  OK: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  NOK: "border-red-200 bg-red-50 text-red-700",
+  WIP: "border-amber-200 bg-amber-50 text-amber-700",
+  NOT_RUN: "border-slate-200 bg-slate-100 text-slate-700",
 };
 
 const caseStatusStyle = (status: string | undefined) => {
-  if (!status) return "bg-slate-800 text-slate-400";
-  if (status === "PASS") return "bg-emerald-900/40 text-emerald-400";
-  if (status === "FAIL") return "bg-red-900/40 text-red-400";
-  if (status === "BLOCKED") return "bg-yellow-900/40 text-yellow-400";
-  return "bg-slate-800 text-slate-400";
+  if (!status) return "border-slate-200 bg-slate-100 text-slate-600";
+  if (status === "PASS") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (status === "FAIL") return "border-red-200 bg-red-50 text-red-700";
+  if (status === "BLOCKED") return "border-amber-200 bg-amber-50 text-amber-700";
+  return "border-slate-200 bg-slate-100 text-slate-600";
 };
 
 export function TraceabilityMatrix({ projectId }: { projectId: string | null }) {
@@ -177,17 +177,17 @@ export function TraceabilityMatrix({ projectId }: { projectId: string | null }) 
   };
 
   if (!projectId) {
-    return <div className="p-8 text-slate-400">Select a project to view traceability.</div>;
+    return <div className="p-8 text-sm text-slate-500">Select a project to view traceability.</div>;
   }
 
   return (
-    <div className="p-8">
+    <div className="mx-auto max-w-6xl p-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Traceability Matrix</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">Traceability Matrix</h1>
         <button
           onClick={exportCsv}
           disabled={!data}
-          className="inline-flex items-center gap-2 rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
         >
           <Download className="h-4 w-4" />
           Export CSV
@@ -198,7 +198,7 @@ export function TraceabilityMatrix({ projectId }: { projectId: string | null }) 
         <select
           value={planId}
           onChange={(e) => setPlanId(e.target.value)}
-          className="rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-200"
+          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
         >
           <option value="">All plans</option>
           {(plans ?? []).map((p: { id: string; name: string; key: string }) => (
@@ -210,7 +210,7 @@ export function TraceabilityMatrix({ projectId }: { projectId: string | null }) 
         <select
           value={environmentId}
           onChange={(e) => setEnvironmentId(e.target.value)}
-          className="rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-200"
+          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
         >
           <option value="">All environments</option>
           {(environments ?? []).map((e: { id: string; name: string }) => (
@@ -219,19 +219,19 @@ export function TraceabilityMatrix({ projectId }: { projectId: string | null }) 
             </option>
           ))}
         </select>
-        <label className="flex items-center gap-2 text-sm text-slate-300">
+        <label className="flex items-center gap-2 text-sm text-slate-700">
           <input
             type="checkbox"
             checked={includeUnlinked}
             onChange={(e) => setIncludeUnlinked(e.target.checked)}
-            className="rounded border-slate-700 bg-slate-800"
+            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
           />
           Include unlinked tests
         </label>
       </div>
 
       {isLoading ? (
-        <div className="mt-6 text-slate-400">Loading…</div>
+        <div className="mt-6 text-sm text-slate-500">Loading…</div>
       ) : (
         <>
           <div className="mt-6 grid gap-4 md:grid-cols-5">
@@ -242,9 +242,9 @@ export function TraceabilityMatrix({ projectId }: { projectId: string | null }) 
             <SummaryCard label="Not run" value={data?.summary.notRun ?? 0} color="slate" />
           </div>
 
-          <div className="mt-6 overflow-auto rounded-xl border border-slate-800 bg-slate-900/50">
+          <div className="mt-6 overflow-auto rounded-lg border border-slate-200 bg-white shadow-sm">
             <table className="w-full text-left text-sm">
-              <thead className="bg-slate-900 text-xs uppercase text-slate-500">
+              <thead className="border-b border-slate-200 bg-slate-50 text-xs font-medium uppercase text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Requirement</th>
                   <th className="px-4 py-3">Status</th>
@@ -258,7 +258,7 @@ export function TraceabilityMatrix({ projectId }: { projectId: string | null }) 
                   <th className="px-4 py-3">Bugs</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800">
+              <tbody className="divide-y divide-slate-200">
                 {(data?.rows ?? []).map((r) => {
                   const rowSpan = Math.max(1, r.cases.length);
                   return (
@@ -269,7 +269,7 @@ export function TraceabilityMatrix({ projectId }: { projectId: string | null }) 
                             <RequirementCell r={r} projectKey={projectKey ?? null} />
                           </td>
                           <td className="px-4 py-3">
-                            <span className={`rounded px-2 py-0.5 text-xs ring-1 ring-inset ${statusStyles[r.coverage.derivedStatus]}`}>
+                            <span className={`rounded border px-2 py-0.5 text-xs font-medium ${statusStyles[r.coverage.derivedStatus]}`}>
                               {r.coverage.derivedStatus}
                             </span>
                           </td>
@@ -282,18 +282,18 @@ export function TraceabilityMatrix({ projectId }: { projectId: string | null }) 
                         </tr>
                       ) : (
                         r.cases.map((c, i) => (
-                          <tr key={`${r.id ?? "none"}-${c.id}`} className="hover:bg-slate-800/50">
+                          <tr key={`${r.id ?? "none"}-${c.id}`} className="hover:bg-slate-50">
                             {i === 0 && (
                               <>
-                                <td rowSpan={rowSpan} className="align-top px-4 py-3">
+                                <td rowSpan={rowSpan} className="px-4 py-3 align-top">
                                   <RequirementCell r={r} projectKey={projectKey ?? null} />
                                 </td>
-                                <td rowSpan={rowSpan} className="align-top px-4 py-3">
-                                  <span className={`rounded px-2 py-0.5 text-xs ring-1 ring-inset ${statusStyles[r.coverage.derivedStatus]}`}>
+                                <td rowSpan={rowSpan} className="px-4 py-3 align-top">
+                                  <span className={`rounded border px-2 py-0.5 text-xs font-medium ${statusStyles[r.coverage.derivedStatus]}`}>
                                     {r.coverage.derivedStatus}
                                   </span>
                                 </td>
-                                <td rowSpan={rowSpan} className="align-top px-4 py-3 text-slate-400">
+                                <td rowSpan={rowSpan} className="px-4 py-3 align-top text-slate-600">
                                   {r.coverage.passCases}/{r.coverage.totalCases}
                                 </td>
                               </>
@@ -301,13 +301,13 @@ export function TraceabilityMatrix({ projectId }: { projectId: string | null }) 
                             <td className="px-4 py-3">
                               <Link
                                 href={`/projects/${projectKey}/testcases/${c.id}`}
-                                className="text-slate-200 hover:text-primary"
+                                className="text-slate-900 hover:text-blue-600"
                               >
-                                <span className="text-xs text-slate-500">{c.key}</span>{" "}
+                                <span className="font-mono text-xs text-slate-500">{c.key}</span>{" "}
                                 {c.name}
                               </Link>
                               {c.folderPath && (
-                                <p className="mt-0.5 text-[11px] text-slate-600">{c.folderPath}</p>
+                                <p className="mt-0.5 text-[11px] text-slate-500">{c.folderPath}</p>
                               )}
                             </td>
                             {envColumns.map((e) => {
@@ -316,13 +316,13 @@ export function TraceabilityMatrix({ projectId }: { projectId: string | null }) 
                                 <td key={e} className="px-4 py-3">
                                   {cell ? (
                                     <span
-                                      className={`rounded px-2 py-0.5 text-xs font-medium ${caseStatusStyle(cell.status)}`}
+                                      className={`rounded border px-2 py-0.5 text-xs font-medium ${caseStatusStyle(cell.status)}`}
                                       title={`${cell.executionKey} · ${new Date(cell.executedAt).toLocaleString()}`}
                                     >
                                       {cell.status}
                                     </span>
                                   ) : (
-                                    <span className="text-xs text-slate-600">—</span>
+                                    <span className="text-xs text-slate-400">—</span>
                                   )}
                                 </td>
                               );
@@ -334,14 +334,14 @@ export function TraceabilityMatrix({ projectId }: { projectId: string | null }) 
                                     <span
                                       key={b.id}
                                       title={b.summary}
-                                      className="rounded bg-orange-900/30 px-1.5 py-0.5 text-[10px] font-medium text-orange-300"
+                                      className="rounded border border-orange-200 bg-orange-50 px-1.5 py-0.5 text-[10px] font-medium text-orange-700"
                                     >
                                       {b.key}
                                     </span>
                                   ))}
                                 </div>
                               ) : (
-                                <span className="text-xs text-slate-600">—</span>
+                                <span className="text-xs text-slate-400">—</span>
                               )}
                             </td>
                           </tr>
@@ -377,16 +377,16 @@ function SummaryCard({
 }) {
   const colorClass =
     color === "emerald"
-      ? "text-emerald-400"
+      ? "text-emerald-600"
       : color === "red"
-        ? "text-red-400"
+        ? "text-red-600"
         : color === "yellow"
-          ? "text-yellow-400"
-          : "text-white";
+          ? "text-amber-600"
+          : "text-slate-900";
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
-      <p className="text-xs font-medium uppercase text-slate-500">{label}</p>
-      <p className={`mt-2 text-3xl font-bold ${colorClass}`}>{value}</p>
+    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
+      <p className={`mt-2 text-2xl font-semibold ${colorClass}`}>{value}</p>
     </div>
   );
 }
@@ -401,7 +401,7 @@ function RequirementCell({
   if (!r.id) {
     return (
       <div>
-        <p className="font-medium italic text-slate-400">{r.title ?? "(unlinked)"}</p>
+        <p className="font-medium italic text-slate-500">{r.title ?? "(unlinked)"}</p>
       </div>
     );
   }
@@ -409,9 +409,9 @@ function RequirementCell({
     <div>
       <Link
         href={`/projects/${projectKey}/requirements/${r.id}`}
-        className="font-medium text-slate-200 hover:text-primary"
+        className="font-medium text-slate-900 hover:text-blue-600"
       >
-        <span className="text-xs text-slate-500">{r.key}</span>{" "}
+        <span className="font-mono text-xs text-slate-500">{r.key}</span>{" "}
         {r.title}
       </Link>
       {r.externalUrl && (
@@ -419,7 +419,7 @@ function RequirementCell({
           href={r.externalUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-0.5 flex items-center gap-1 text-xs text-primary hover:underline"
+          className="mt-0.5 flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline"
         >
           <ExternalLink className="h-3 w-3" />
           External

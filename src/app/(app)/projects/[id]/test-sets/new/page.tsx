@@ -64,49 +64,49 @@ export default function NewTestSetPage() {
     });
 
     return (
-        <div className="mx-auto max-w-2xl px-8 py-10">
-            <h1 className="text-3xl font-semibold text-white">New Test Set</h1>
-            <p className="mt-2 text-sm text-slate-400">Group related test cases together.</p>
-            <form onSubmit={submit} className="mt-8 space-y-6">
+        <div className="mx-auto max-w-2xl px-6 py-8">
+            <h1 className="text-2xl font-semibold text-slate-900">New Test Set</h1>
+            <p className="mt-1 text-sm text-slate-600">Group related test cases together.</p>
+            <form onSubmit={submit} className="mt-6 space-y-5 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
                 <div>
-                    <label className="text-sm font-medium text-slate-300" htmlFor="name">
+                    <label className="block text-sm font-medium text-slate-700" htmlFor="name">
                         Name
                     </label>
                     <input
                         id="name"
                         {...form.register("name")}
-                        className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                        className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                         placeholder="e.g. Login Tests"
                     />
                     {form.formState.errors.name ? (
-                        <p className="mt-1 text-xs text-red-400">{form.formState.errors.name.message}</p>
+                        <p className="mt-1 text-xs text-red-600">{form.formState.errors.name.message}</p>
                     ) : null}
                 </div>
 
                 <div>
-                    <label className="text-sm font-medium text-slate-300" htmlFor="description">
+                    <label className="block text-sm font-medium text-slate-700" htmlFor="description">
                         Description
                     </label>
                     <textarea
                         id="description"
                         rows={5}
                         {...form.register("description")}
-                        className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                        className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                         placeholder="Describe the purpose of this test set..."
                     />
                 </div>
 
-                <div className="flex items-center justify-end gap-3">
+                <div className="flex items-center justify-end gap-2 pt-2">
                     <button
                         type="button"
                         onClick={() => router.back()}
-                        className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+                        className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                     >
                         Cancel
                     </button>
                     <button
                         type="submit"
-                        className="rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white shadow-lg hover:bg-blue-500"
+                        className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                         disabled={form.formState.isSubmitting}
                     >
                         {form.formState.isSubmitting ? "Creating..." : "Create Set"}

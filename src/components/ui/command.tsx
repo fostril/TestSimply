@@ -112,10 +112,10 @@ export function CommandDialog({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" />
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-slate-900/50" />
         <Dialog.Content
           aria-label={label}
-          className="fixed left-1/2 top-20 z-50 w-[90vw] max-w-xl -translate-x-1/2 overflow-hidden rounded-xl border bg-popover shadow-xl"
+          className="fixed left-1/2 top-20 z-50 w-[90vw] max-w-xl -translate-x-1/2 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg"
         >
           <Command className="bg-popover">
             {children}

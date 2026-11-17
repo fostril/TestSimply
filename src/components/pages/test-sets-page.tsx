@@ -43,15 +43,15 @@ export function TestSetsPage() {
     });
 
     return (
-        <div className="px-8 py-6">
+        <div className="mx-auto max-w-6xl px-6 py-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-semibold">Test Sets</h1>
-                    <p className="text-sm text-slate-400">Group test cases for easier management.</p>
+                    <h1 className="text-2xl font-semibold text-slate-900">Test Sets</h1>
+                    <p className="mt-1 text-sm text-slate-600">Group test cases for easier management.</p>
                 </div>
                 <Link
                     href={`/projects/${projectKey}/test-sets/new`}
-                    className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white shadow-lg hover:bg-blue-500"
+                    className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
                 >
                     New Set
                 </Link>
@@ -59,33 +59,33 @@ export function TestSetsPage() {
             <div className="mt-6 grid gap-4 lg:grid-cols-2">
                 {(data ?? []).map((set: any) => (
                     <Link key={set.id} href={`/projects/${projectKey}/test-sets/${set.key}`}>
-                        <div className="group rounded-2xl border border-slate-800 bg-slate-900/60 p-6 hover:bg-slate-800/80 transition-colors relative">
+                        <div className="group relative rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50/50">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-xs uppercase tracking-wide text-slate-500">{set.key}</p>
-                                    <h2 className="text-xl font-semibold text-white">{set.name}</h2>
+                                    <p className="font-mono text-xs text-slate-500">{set.key}</p>
+                                    <h2 className="text-lg font-semibold text-slate-900">{set.name}</h2>
                                 </div>
-                                <div className="flex items-center gap-4">
-                                    <span className="text-xs text-slate-400">{set._count.cases} cases</span>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-xs text-slate-500">{set._count.cases} cases</span>
                                     <button
                                         onClick={(e) => {
                                             e.preventDefault();
                                             e.stopPropagation();
                                             setItemToDelete(set.id);
                                         }}
-                                        className="opacity-0 group-hover:opacity-100 p-2 text-slate-500 hover:text-red-400 transition-all"
+                                        className="rounded p-1.5 text-slate-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
                                         title="Delete Test Set"
                                     >
-                                        <Trash2 className="h-5 w-5" />
+                                        <Trash2 className="h-4 w-4" />
                                     </button>
                                 </div>
                             </div>
-                            <p className="mt-3 text-sm text-slate-400">{set.description || "No description"}</p>
+                            <p className="mt-2 text-sm text-slate-600">{set.description || "No description"}</p>
                         </div>
                     </Link>
                 ))}
                 {(data ?? []).length === 0 && (
-                    <div className="col-span-2 py-12 text-center text-slate-500">
+                    <div className="col-span-2 py-12 text-center text-sm text-slate-500">
                         No test sets found. Create one to get started.
                     </div>
                 )}

@@ -74,27 +74,27 @@ export function TestSetDetailsPage({ id, projectKey }: { id: string, projectKey?
     const [isAdding, setIsAdding] = useState(false);
 
     if (isLoading) return <div className="p-8"><LoadingSkeleton count={5} /></div>;
-    if (!testSet) return <div className="p-8 text-red-400">Test Set not found</div>;
+    if (!testSet) return <div className="p-8 text-sm text-red-600">Test Set not found</div>;
 
     const existingCaseIds = new Set((testSet.cases || []).map((c: any) => c.id));
     const availableCases = (allCases || []).filter((c: any) => !existingCaseIds.has(c.id));
 
     return (
-        <div className="mx-auto max-w-5xl px-8 py-10">
-            <div className="flex items-center justify-between">
+        <div className="mx-auto max-w-5xl px-8 py-8">
+            <div className="flex items-start justify-between gap-4">
                 <div>
-                    <div className="flex items-center gap-3">
-                        <span className="rounded bg-slate-800 px-2 py-0.5 text-xs font-bold text-slate-300">
+                    <div className="flex items-center gap-2.5">
+                        <span className="rounded border border-slate-200 bg-slate-100 px-2 py-0.5 font-mono text-xs font-semibold text-slate-700">
                             {testSet.key}
                         </span>
-                        <h1 className="text-3xl font-semibold text-white">{testSet.name}</h1>
+                        <h1 className="text-2xl font-semibold text-slate-900">{testSet.name}</h1>
                     </div>
-                    <p className="mt-2 text-slate-400">{testSet.description}</p>
+                    <p className="mt-1.5 text-sm text-slate-600">{testSet.description}</p>
                 </div>
                 <div className="flex gap-2">
                     <button
                         onClick={() => router.back()}
-                        className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+                        className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                     >
                         Back
                     </button>
@@ -104,7 +104,7 @@ export function TestSetDetailsPage({ id, projectKey }: { id: string, projectKey?
                                 deleteSetMutation.mutate();
                             }
                         }}
-                        className="rounded-full border border-red-900/50 px-4 py-2 text-sm text-red-400 hover:bg-red-900/30"
+                        className="rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
                     >
                         Delete
                     </button>
@@ -112,32 +112,32 @@ export function TestSetDetailsPage({ id, projectKey }: { id: string, projectKey?
             </div>
 
             <div className="mt-8">
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-semibold text-white">Test Cases ({testSet.cases?.length || 0})</h2>
+                <div className="mb-4 flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-slate-900">Test Cases ({testSet.cases?.length || 0})</h2>
                     <button
                         onClick={() => setIsAdding(!isAdding)}
-                        className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white shadow-lg hover:bg-blue-500"
+                        className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
                     >
                         {isAdding ? "Done" : "Add Cases"}
                     </button>
                 </div>
 
                 {isAdding && (
-                    <div className="mb-8 rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-                        <h3 className="mb-3 text-sm font-medium text-slate-300">Select Cases to Add</h3>
-                        <div className="max-h-60 overflow-y-auto space-y-2">
+                    <div className="mb-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                        <h3 className="mb-3 text-sm font-medium text-slate-700">Select Cases to Add</h3>
+                        <div className="max-h-60 space-y-2 overflow-y-auto">
                             {availableCases.length === 0 ? (
                                 <p className="text-sm text-slate-500">No more cases available to add.</p>
                             ) : (
                                 availableCases.map((c: any) => (
-                                    <div key={c.id} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950 p-3">
+                                    <div key={c.id} className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 p-3">
                                         <div>
-                                            <span className="mr-2 font-mono text-xs text-slate-500">{c.key}</span>
-                                            <span className="text-sm text-slate-300">{c.name}</span>
+                                            <span className="mr-2 font-mono text-xs font-medium text-slate-500">{c.key}</span>
+                                            <span className="text-sm text-slate-900">{c.name}</span>
                                         </div>
                                         <button
                                             onClick={() => addCasesMutation.mutate([c.id])}
-                                            className="text-xs font-medium text-blue-400 hover:text-blue-300"
+                                            className="text-xs font-medium text-blue-600 hover:text-blue-700"
                                         >
                                             Add
                                         </button>
@@ -148,25 +148,27 @@ export function TestSetDetailsPage({ id, projectKey }: { id: string, projectKey?
                     </div>
                 )}
 
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                     {(testSet.cases || []).map((c: any) => (
-                        <div key={c.id} className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/30 p-4">
+                        <div key={c.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                             <div>
-                                <span className="mr-3 rounded bg-slate-800 px-2 py-0.5 text-xs font-bold text-slate-300">
+                                <span className="mr-3 rounded border border-slate-200 bg-slate-100 px-2 py-0.5 font-mono text-xs font-semibold text-slate-700">
                                     {c.key}
                                 </span>
-                                <span className="font-medium text-slate-200">{c.name}</span>
+                                <span className="font-medium text-slate-900">{c.name}</span>
                             </div>
                             <button
                                 onClick={() => removeCaseMutation.mutate(c.id)}
-                                className="text-sm text-slate-500 hover:text-red-400"
+                                className="text-sm text-slate-500 hover:text-red-600"
                             >
                                 Remove
                             </button>
                         </div>
                     ))}
                     {(testSet.cases || []).length === 0 && (
-                        <p className="text-center text-slate-500 py-8">No test cases in this set yet.</p>
+                        <div className="rounded-lg border border-dashed border-slate-300 bg-white py-8 text-center text-sm text-slate-500">
+                            No test cases in this set yet.
+                        </div>
                     )}
                 </div>
             </div>

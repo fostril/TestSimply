@@ -75,10 +75,10 @@ export function SignInForm() {
     <div className="mt-6 space-y-4">
       {banner ? (
         <div
-          className={`rounded-xl border px-3 py-2 text-xs ${
+          className={`rounded-md border px-3 py-2 text-sm ${
             banner.type === "success"
-              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
-              : "border-red-500/40 bg-red-500/10 text-red-300"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : "border-red-200 bg-red-50 text-red-700"
           }`}
         >
           {banner.text}
@@ -87,38 +87,39 @@ export function SignInForm() {
       {credentialsEnabled ? (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <div>
-            <label className="text-xs uppercase tracking-wide text-slate-400">Email</label>
+            <label className="block text-sm font-medium text-slate-700">Email</label>
             <input
               type="email"
-              className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+              placeholder="name@company.com"
+              className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
               {...register("email")}
             />
             {errors.email && (
-              <p className="mt-1 text-xs text-red-400">{errors.email.message}</p>
+              <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>
             )}
           </div>
 
           <div>
             <div className="flex items-center justify-between">
-              <label className="text-xs uppercase tracking-wide text-slate-400">Password</label>
-              <Link href="/auth/forgot-password" className="text-xs text-brand hover:underline">
+              <label className="block text-sm font-medium text-slate-700">Password</label>
+              <Link href="/auth/forgot-password" className="text-xs font-medium text-blue-600 hover:underline">
                 Forgot password?
               </Link>
             </div>
             <input
               type="password"
-              className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+              className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
               {...register("password")}
             />
             {errors.password && (
-              <p className="mt-1 text-xs text-red-400">{errors.password.message}</p>
+              <p className="mt-1 text-xs text-red-600">{errors.password.message}</p>
             )}
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-full bg-brand px-4 py-2 text-sm font-medium text-white shadow-lg transition hover:bg-blue-500 disabled:opacity-60"
+            className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-60"
           >
             {loading ? "Signing in..." : "Sign in"}
           </button>
@@ -126,12 +127,12 @@ export function SignInForm() {
       ) : null}
 
       {oauthEnabled ? (
-        <div className={credentialsEnabled ? "space-y-2 border-t border-slate-800 pt-4" : "space-y-2"}>
+        <div className={credentialsEnabled ? "space-y-2 border-t border-slate-200 pt-4" : "space-y-2"}>
           {googleEnabled ? (
             <button
               type="button"
               onClick={() => signIn("google", { callbackUrl: "/" })}
-              className="w-full rounded-full border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
+              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
               Continue with Google
             </button>
@@ -140,7 +141,7 @@ export function SignInForm() {
             <button
               type="button"
               onClick={() => signIn("github", { callbackUrl: "/" })}
-              className="w-full rounded-full border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
+              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
               Continue with GitHub
             </button>

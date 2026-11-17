@@ -8,29 +8,29 @@ export function UserProfile() {
     const { data: session } = useSession();
 
     return (
-        <div className="mt-auto border-t border-border pt-4">
-            <div className="flex items-center gap-3 rounded-xl bg-card/30 p-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
+        <div className="mt-auto border-t border-slate-200 pt-3">
+            <div className="flex items-center gap-2.5 rounded-md p-2">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600">
                     <User className="h-4 w-4" />
                 </div>
-                <div className="flex-1 overflow-hidden">
-                    <p className="truncate text-sm font-medium text-foreground">
+                <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-slate-900">
                         {session?.user?.name || "User"}
                     </p>
-                    <p className="truncate text-xs text-muted-foreground">
+                    <p className="truncate text-xs text-slate-500">
                         {session?.user?.email || ""}
                     </p>
                 </div>
                 <Link
                     href="/settings/tokens"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900"
                     title="Personal tokens"
                 >
                     <KeyRound className="h-4 w-4" />
                 </Link>
                 <button
                     onClick={() => signOut({ callbackUrl: "/auth/login" })}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-red-50 hover:text-red-600"
                     title="Sign out"
                 >
                     <LogOut className="h-4 w-4" />

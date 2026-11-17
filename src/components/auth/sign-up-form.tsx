@@ -60,44 +60,46 @@ export function SignUpForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4" noValidate>
       <div>
-        <label className="text-xs uppercase tracking-wide text-slate-400">Name</label>
+        <label className="block text-sm font-medium text-slate-700">Name</label>
         <input
-          className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+          placeholder="Jane Doe"
+          className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
           {...register("name")}
         />
         {errors.name && (
-          <p className="mt-1 text-xs text-red-400">{errors.name.message}</p>
+          <p className="mt-1 text-xs text-red-600">{errors.name.message}</p>
         )}
       </div>
 
       <div>
-        <label className="text-xs uppercase tracking-wide text-slate-400">Email</label>
+        <label className="block text-sm font-medium text-slate-700">Email</label>
         <input
           type="email"
-          className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+          placeholder="name@company.com"
+          className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
           {...register("email")}
         />
         {errors.email && (
-          <p className="mt-1 text-xs text-red-400">{errors.email.message}</p>
+          <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>
         )}
       </div>
 
       <div>
-        <label className="text-xs uppercase tracking-wide text-slate-400">Password</label>
+        <label className="block text-sm font-medium text-slate-700">Password</label>
         <input
           type="password"
-          className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+          className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
           {...register("password")}
         />
         {errors.password && (
-          <p className="mt-1 text-xs text-red-400">{errors.password.message}</p>
+          <p className="mt-1 text-xs text-red-600">{errors.password.message}</p>
         )}
       </div>
 
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-full bg-brand px-4 py-2 text-sm font-medium text-white shadow-lg transition hover:bg-blue-500 disabled:opacity-60"
+        className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-60"
       >
         {loading ? "Creating..." : "Create account"}
       </button>

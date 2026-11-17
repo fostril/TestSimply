@@ -26,11 +26,11 @@ function useDebounce<T>(value: T, delay: number): T {
 const STEP_STATUS_ORDER: StepStatus[] = ["NOT_RUN", "PASS", "FAIL", "BLOCKED", "SKIPPED"];
 
 const stepStatusStyle: Record<StepStatus, string> = {
-  NOT_RUN: "bg-slate-800 text-slate-400 border-slate-700",
-  PASS: "bg-emerald-500 text-emerald-950 border-emerald-500",
-  FAIL: "bg-red-500 text-red-950 border-red-500",
-  BLOCKED: "bg-amber-500 text-amber-950 border-amber-500",
-  SKIPPED: "bg-slate-600 text-white border-slate-600",
+  NOT_RUN: "border-slate-300 bg-slate-100 text-slate-700",
+  PASS: "border-emerald-600 bg-emerald-600 text-white",
+  FAIL: "border-red-600 bg-red-600 text-white",
+  BLOCKED: "border-amber-500 bg-amber-500 text-white",
+  SKIPPED: "border-slate-500 bg-slate-500 text-white",
 };
 
 type Bug = {
@@ -537,8 +537,8 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
   if (isLoading) {
     return (
       <div className="px-8 py-6">
-        <h1 className="text-3xl font-semibold">Manual Runner</h1>
-        <p className="mt-2 text-slate-400">Loading execution…</p>
+        <h1 className="text-2xl font-semibold text-slate-900">Manual Runner</h1>
+        <p className="mt-2 text-sm text-slate-500">Loading execution…</p>
       </div>
     );
   }
@@ -546,8 +546,8 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
   if (error) {
     return (
       <div className="px-8 py-6">
-        <h1 className="text-3xl font-semibold">Manual Runner</h1>
-        <p className="mt-2 text-slate-400">
+        <h1 className="text-2xl font-semibold text-slate-900">Manual Runner</h1>
+        <p className="mt-2 text-sm text-red-600">
           Unable to load execution: {(error as Error).message}
         </p>
       </div>
@@ -557,8 +557,8 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
   if (!activeCase) {
     return (
       <div className="px-8 py-6">
-        <h1 className="text-3xl font-semibold">Manual Runner</h1>
-        <p className="mt-2 text-slate-400">No test cases available for this execution.</p>
+        <h1 className="text-2xl font-semibold text-slate-900">Manual Runner</h1>
+        <p className="mt-2 text-sm text-slate-500">No test cases available for this execution.</p>
       </div>
     );
   }
@@ -575,39 +575,39 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
   return (
     <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[320px,1fr]">
       {isJiraModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-950 p-6 shadow-2xl">
-            <h2 className="text-xl font-semibold text-white">Create Jira Bug</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white p-6 shadow-lg">
+            <h2 className="text-lg font-semibold text-slate-900">Create Jira Bug</h2>
             <div className="mt-4 space-y-4">
               <div>
-                <label className="text-sm font-medium text-slate-300">Summary</label>
+                <label className="text-sm font-medium text-slate-700">Summary</label>
                 <input
                   value={jiraSummary}
                   onChange={(e) => setJiraSummary(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                  className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-slate-300">Description</label>
+                <label className="text-sm font-medium text-slate-700">Description</label>
                 <textarea
                   value={jiraDescription}
                   onChange={(e) => setJiraDescription(e.target.value)}
                   rows={5}
-                  className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                  className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                 />
               </div>
             </div>
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="mt-6 flex justify-end gap-2">
               <button
                 onClick={() => setIsJiraModalOpen(false)}
-                className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
                 Cancel
               </button>
               <button
                 onClick={() => createJiraMutation.mutate()}
                 disabled={createJiraMutation.isPending}
-                className="rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white shadow-lg hover:bg-blue-500 disabled:opacity-50"
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
               >
                 {createJiraMutation.isPending ? "Creating..." : "Create Bug"}
               </button>
@@ -617,33 +617,33 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
       )}
 
       {isLocalBugModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-950 p-6 shadow-2xl">
-            <h2 className="text-xl font-semibold text-white">Create Local Bug</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white p-6 shadow-lg">
+            <h2 className="text-lg font-semibold text-slate-900">Create Local Bug</h2>
             <div className="mt-4 space-y-4">
               <div>
-                <label className="text-sm font-medium text-slate-300">Summary</label>
+                <label className="text-sm font-medium text-slate-700">Summary</label>
                 <input
                   value={localBugSummary}
                   onChange={(e) => setLocalBugSummary(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                  className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-slate-300">Description</label>
+                <label className="text-sm font-medium text-slate-700">Description</label>
                 <textarea
                   value={localBugDescription}
                   onChange={(e) => setLocalBugDescription(e.target.value)}
                   rows={5}
-                  className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                  className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-slate-300">Priority</label>
+                <label className="text-sm font-medium text-slate-700">Priority</label>
                 <select
                   value={localBugPriority}
                   onChange={(e) => setLocalBugPriority(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                  className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                 >
                   <option value="LOW">Low</option>
                   <option value="MEDIUM">Medium</option>
@@ -652,17 +652,17 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
                 </select>
               </div>
             </div>
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="mt-6 flex justify-end gap-2">
               <button
                 onClick={() => setIsLocalBugModalOpen(false)}
-                className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
                 Cancel
               </button>
               <button
                 onClick={() => createLocalBugMutation.mutate()}
                 disabled={createLocalBugMutation.isPending}
-                className="rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white shadow-lg hover:bg-blue-500 disabled:opacity-50"
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
               >
                 {createLocalBugMutation.isPending ? "Creating..." : "Create Bug"}
               </button>
@@ -672,24 +672,24 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
       )}
 
       {isAddCaseModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-950 p-6 shadow-2xl">
-            <h2 className="text-xl font-semibold text-white">Add Test Cases</h2>
-            <div className="mt-4 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white p-6 shadow-lg">
+            <h2 className="text-lg font-semibold text-slate-900">Add Test Cases</h2>
+            <div className="mt-4 space-y-3">
               <input
                 type="text"
                 placeholder="Search cases..."
                 value={caseSearchQuery}
                 onChange={(e) => setCaseSearchQuery(e.target.value)}
-                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
               />
-              <div className="h-64 overflow-y-auto rounded-xl border border-slate-800 bg-slate-900 p-2">
+              <div className="h-64 overflow-y-auto rounded-md border border-slate-200 bg-slate-50 p-2">
                 {(availableCases ?? [])
                   .filter((c) => !cases.some((existing: any) => existing.id === c.id)) // Client-side filter for already added cases
                   .map((c) => {
                     const isSelected = selectedCasesToAdd.includes(c.id);
                     return (
-                      <label key={c.id} className="flex items-center gap-2 rounded-lg p-2 hover:bg-slate-800 cursor-pointer">
+                      <label key={c.id} className="flex cursor-pointer items-center gap-2 rounded p-2 hover:bg-slate-100">
                         <input
                           type="checkbox"
                           checked={isSelected}
@@ -700,10 +700,10 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
                               setSelectedCasesToAdd((prev) => prev.filter((id) => id !== c.id));
                             }
                           }}
-                          className="rounded border-slate-700 bg-slate-900 text-brand focus:ring-brand"
+                          className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
                         />
-                        <span className="text-sm text-slate-300">
-                          <span className="font-medium text-white">{c.key}</span>: {c.name}
+                        <span className="text-sm text-slate-700">
+                          <span className="font-mono font-medium text-slate-900">{c.key}</span>: {c.name}
                         </span>
                       </label>
                     );
@@ -713,17 +713,17 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
                 )}
               </div>
             </div>
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="mt-6 flex justify-end gap-2">
               <button
                 onClick={() => setIsAddCaseModalOpen(false)}
-                className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
                 Cancel
               </button>
               <button
                 onClick={() => addCasesMutation.mutate()}
                 disabled={addCasesMutation.isPending || selectedCasesToAdd.length === 0}
-                className="rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white shadow-lg hover:bg-blue-500 disabled:opacity-50"
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
               >
                 {addCasesMutation.isPending ? "Adding..." : `Add ${selectedCasesToAdd.length} Cases`}
               </button>
@@ -733,23 +733,23 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
       )}
 
       {caseToRemove && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-6 shadow-2xl">
-            <h2 className="text-xl font-semibold text-white">Remove Test Case?</h2>
-            <p className="mt-2 text-sm text-slate-400">
-              Are you sure you want to remove <span className="font-semibold text-white">{caseToRemove.name}</span> from this execution?
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-lg">
+            <h2 className="text-lg font-semibold text-slate-900">Remove Test Case?</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Are you sure you want to remove <span className="font-semibold text-slate-900">{caseToRemove.name}</span> from this execution?
             </p>
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="mt-6 flex justify-end gap-2">
               <button
                 onClick={() => setCaseToRemove(null)}
-                className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
                 Cancel
               </button>
               <button
                 onClick={() => removeCaseMutation.mutate(caseToRemove.id)}
                 disabled={removeCaseMutation.isPending}
-                className="rounded-full bg-red-500 px-5 py-2 text-sm font-semibold text-white shadow-lg hover:bg-red-600 disabled:opacity-50"
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
               >
                 {removeCaseMutation.isPending ? "Removing..." : "Remove"}
               </button>
@@ -759,13 +759,13 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
       )}
 
 
-      <aside className="border-r border-slate-800 bg-slate-950/80 p-6">
+      <aside className="border-r border-slate-200 bg-white p-6">
         <div className="mb-6">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Status</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</h2>
           <select
             value={data?.status || "ACTIVE"}
             onChange={(e) => statusMutation.mutate(e.target.value)}
-            className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+            className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
           >
             <option value="ACTIVE">Active</option>
             <option value="COMPLETED">Completed</option>
@@ -773,32 +773,32 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
           </select>
         </div>
 
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Progress</h2>
-        <div className="mt-2 h-2 rounded-full bg-slate-800">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Progress</h2>
+        <div className="mt-2 h-2 rounded-full bg-slate-100">
           <div className="h-full rounded-full bg-emerald-500" style={{ width: `${progress}%` }} />
         </div>
 
         <div className="mt-6 flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Test Cases</h2>
-          <button onClick={() => setIsAddCaseModalOpen(true)} className="text-xs font-medium text-brand hover:text-brand/80">+ Add Case</button>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Test Cases</h2>
+          <button onClick={() => setIsAddCaseModalOpen(true)} className="text-xs font-medium text-blue-600 hover:text-blue-700">+ Add Case</button>
         </div>
-        <ol className="mt-2 space-y-2 text-sm">
+        <ol className="mt-2 space-y-1.5 text-sm">
           {cases.map((testCase: any, index: number) => (
             <li key={testCase.id} className="group relative">
               <button
                 type="button"
                 onClick={() => setActiveIndex(index)}
-                className={`w-full rounded-xl px-3 py-2 pr-10 text-left transition ${activeIndex === index
-                  ? "bg-slate-900 text-white"
-                  : "text-slate-400 hover:bg-slate-900/60"
+                className={`w-full rounded-md px-3 py-2 pr-10 text-left transition ${activeIndex === index
+                  ? "border border-blue-200 bg-blue-50 text-blue-900"
+                  : "border border-transparent text-slate-700 hover:bg-slate-100"
                   }`}
               >
-                <div className="text-xs uppercase tracking-wide text-slate-500">
+                <div className="font-mono text-xs uppercase tracking-wide text-slate-500">
                   {testCase.key}
                 </div>
                 <div className="text-sm font-medium">{testCase.name}</div>
                 {statusByCase.has(testCase.id) ? (
-                  <span className="mt-1 inline-flex rounded-full bg-slate-800 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-300">
+                  <span className="mt-1 inline-flex rounded border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-700">
                     {statusByCase.get(testCase.id)}
                   </span>
                 ) : null}
@@ -809,7 +809,7 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
                   e.stopPropagation();
                   setCaseToRemove(testCase);
                 }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-500 opacity-0 transition hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-slate-400 opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
                 title="Remove from execution"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -822,20 +822,20 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
 
         {/* Bulk Actions */}
         {remainingCases.length > 0 && (
-          <div className="mt-6 border-t border-slate-800 pt-6">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400 mb-3">Quick Actions</h2>
+          <div className="mt-6 border-t border-slate-200 pt-6">
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Quick Actions</h2>
             <div className="space-y-2">
               <button
                 onClick={() => setShowBulkConfirm("PASS")}
                 disabled={bulkMarkMutation.isPending}
-                className="w-full rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-xs font-medium text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+                className="w-full rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50"
               >
                 Mark {remainingCases.length} remaining as Passed
               </button>
               <button
                 onClick={() => setShowBulkConfirm("BLOCKED")}
                 disabled={bulkMarkMutation.isPending}
-                className="w-full rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-xs font-medium text-amber-400 hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+                className="w-full rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-50"
               >
                 Mark {remainingCases.length} remaining as Blocked
               </button>
@@ -844,49 +844,49 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
         )}
 
         {/* Keyboard shortcuts hint */}
-        <div className="mt-6 border-t border-slate-800 pt-6">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400 mb-2">Shortcuts</h2>
-          <div className="text-xs text-slate-500 space-y-1">
-            <p><kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">P</kbd> Pass</p>
-            <p><kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">F</kbd> Fail</p>
-            <p><kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">B</kbd> Blocked</p>
+        <div className="mt-6 border-t border-slate-200 pt-6">
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Shortcuts</h2>
+          <div className="space-y-1 text-xs text-slate-600">
+            <p><kbd className="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 font-mono text-slate-700">P</kbd> Pass</p>
+            <p><kbd className="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 font-mono text-slate-700">F</kbd> Fail</p>
+            <p><kbd className="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 font-mono text-slate-700">B</kbd> Blocked</p>
           </div>
         </div>
 
         {/* Export */}
-        <div className="mt-6 border-t border-slate-800 pt-6">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400 mb-3">Export</h2>
+        <div className="mt-6 border-t border-slate-200 pt-6">
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Export</h2>
           <a
             href={`/api/executions/${executionId}/export${projectKey ? `?projectKey=${projectKey}` : ""}`}
             download
-            className="block w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-center text-xs font-medium text-slate-300 hover:bg-slate-700 transition-colors"
+            className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
           >
-            📥 Download CSV Report
+            Download CSV Report
           </a>
         </div>
       </aside>
 
       {/* Bulk action confirmation */}
       {showBulkConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-6 shadow-2xl">
-            <h2 className="text-xl font-semibold text-white">Confirm Bulk Action</h2>
-            <p className="mt-2 text-sm text-slate-400">
-              Mark {remainingCases.length} remaining test case(s) as <span className="font-semibold text-white">{showBulkConfirm}</span>?
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-lg">
+            <h2 className="text-lg font-semibold text-slate-900">Confirm Bulk Action</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Mark {remainingCases.length} remaining test case(s) as <span className="font-semibold text-slate-900">{showBulkConfirm}</span>?
             </p>
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="mt-6 flex justify-end gap-2">
               <button
                 onClick={() => setShowBulkConfirm(null)}
-                className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
                 Cancel
               </button>
               <button
                 onClick={() => bulkMarkMutation.mutate(showBulkConfirm)}
                 disabled={bulkMarkMutation.isPending}
-                className={`rounded-full px-5 py-2 text-sm font-semibold shadow-lg disabled:opacity-50 ${showBulkConfirm === "PASS"
-                  ? "bg-emerald-500 text-emerald-950 hover:bg-emerald-400"
-                  : "bg-amber-500 text-amber-950 hover:bg-amber-400"
+                className={`rounded-md px-4 py-2 text-sm font-medium text-white disabled:opacity-50 ${showBulkConfirm === "PASS"
+                  ? "bg-emerald-600 hover:bg-emerald-700"
+                  : "bg-amber-600 hover:bg-amber-700"
                   }`}
               >
                 {bulkMarkMutation.isPending ? "Processing..." : `Mark as ${showBulkConfirm}`}
@@ -896,19 +896,19 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
         </div>
       )}
 
-      <section className="px-10 py-8">
-        <header className="flex items-start justify-between">
+      <section className="bg-slate-50 px-8 py-8">
+        <header className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-wide text-slate-500">{activeCase.key}</p>
-            <h1 className="text-2xl font-semibold text-white">{activeCase.name}</h1>
-            <p className="mt-2 max-w-2xl text-sm text-slate-400">{activeCase.description}</p>
+            <p className="font-mono text-xs uppercase tracking-wide text-slate-500">{activeCase.key}</p>
+            <h1 className="text-2xl font-semibold text-slate-900">{activeCase.name}</h1>
+            <p className="mt-1.5 max-w-2xl text-sm text-slate-600">{activeCase.description}</p>
           </div>
           <div className="flex gap-2">
             <button
               onClick={() =>
                 mutation.mutate({ caseId: activeCase.id, status: "PASS", note: notes[activeCase.id], bugIds: selectedBugs[activeCase.id] })
               }
-              className="rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-950 shadow-lg hover:bg-emerald-400"
+              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
             >
               Pass
             </button>
@@ -916,7 +916,7 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
               onClick={() =>
                 mutation.mutate({ caseId: activeCase.id, status: "FAIL", note: notes[activeCase.id], bugIds: selectedBugs[activeCase.id] })
               }
-              className="rounded-full bg-red-500 px-4 py-2 text-sm font-semibold text-red-950 shadow-lg hover:bg-red-400"
+              className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
             >
               Fail
             </button>
@@ -929,24 +929,24 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
                   bugIds: selectedBugs[activeCase.id],
                 })
               }
-              className="rounded-full bg-amber-500 px-4 py-2 text-sm font-semibold text-amber-950 shadow-lg hover:bg-amber-400"
+              className="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
             >
               Blocked
             </button>
           </div>
         </header>
 
-        <div className="mt-8 space-y-6">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
+        <div className="mt-6 space-y-6">
+          <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Steps
               </h2>
               {(() => {
                 const derived = deriveOverallStatus(stepResults[activeCase.id] ?? []);
                 return derived ? (
-                  <span className="text-xs text-slate-400">
-                    Derived: <span className="font-semibold text-white">{derived}</span>
+                  <span className="text-xs text-slate-600">
+                    Derived: <span className="font-semibold text-slate-900">{derived}</span>
                   </span>
                 ) : null;
               })()}
@@ -959,18 +959,18 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
                 return (
                   <li
                     key={index}
-                    className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-sm text-slate-200"
+                    className="rounded-md border border-slate-200 bg-slate-50 p-3.5 text-sm text-slate-900"
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold">
+                        <p className="font-medium text-slate-900">
                           <span className="text-slate-500">{index + 1}.</span> {step.action}
                         </p>
                         {step.data && (
-                          <p className="mt-1 text-xs text-slate-500">Data: {step.data}</p>
+                          <p className="mt-1 text-xs text-slate-600">Data: {step.data}</p>
                         )}
                         {step.expected && (
-                          <p className="mt-1 text-xs text-slate-400">Expected: {step.expected}</p>
+                          <p className="mt-1 text-xs text-slate-600">Expected: {step.expected}</p>
                         )}
                       </div>
                       <div className="flex flex-shrink-0 gap-1">
@@ -988,10 +988,10 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
                                   return { ...prev, [activeCase.id]: next };
                                 });
                               }}
-                              className={`rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition ${
+                              className={`rounded border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition ${
                                 isActive
                                   ? stepStatusStyle[s]
-                                  : "border-slate-700 bg-slate-900 text-slate-400 hover:bg-slate-800"
+                                  : "border-slate-300 bg-white text-slate-600 hover:bg-slate-100"
                               }`}
                             >
                               {s === "SKIPPED" ? "Skip" : s.charAt(0) + s.slice(1).toLowerCase()}
@@ -1013,7 +1013,7 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
                           })
                         }
                         rows={2}
-                        className="rounded-lg border border-slate-800 bg-slate-950 px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand"
+                        className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                       />
                       <textarea
                         placeholder="Comments"
@@ -1027,7 +1027,7 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
                           })
                         }
                         rows={2}
-                        className="rounded-lg border border-slate-800 bg-slate-950 px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand"
+                        className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                       />
                     </div>
                   </li>
@@ -1036,24 +1036,24 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
             </ol>
           </div>
 
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Notes</h2>
+          <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Notes</h2>
             <textarea
               value={notes[activeCase.id] ?? ""}
               onChange={(event) =>
                 setNotes((prev) => ({ ...prev, [activeCase.id]: event.target.value }))
               }
-              className="mt-3 w-full rounded-xl border border-slate-800 bg-slate-950 p-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+              className="mt-3 w-full rounded-md border border-slate-300 bg-white p-3 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
               rows={4}
             />
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
+          <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between gap-4">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Attachments ({activeAttachments.length})
               </h2>
-              <label className="cursor-pointer rounded-full border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700">
+              <label className="cursor-pointer rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
                 {uploadAttachmentMutation.isPending ? "Uploading..." : "+ Upload File"}
                 <input
                   type="file"
@@ -1075,24 +1075,24 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
                 {activeAttachments.map((att: any) => (
                   <li
                     key={att.id}
-                    className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2 text-xs text-slate-300"
+                    className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700"
                   >
                     <a
                       href={att.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="truncate font-medium text-brand hover:underline"
+                      className="truncate font-medium text-blue-600 hover:underline"
                     >
                       {att.fileName}
                     </a>
-                    <div className="flex items-center gap-3 flex-shrink-0">
+                    <div className="flex flex-shrink-0 items-center gap-3">
                       <span className="text-slate-500">
                         {Math.max(1, Math.round(att.size / 1024))} KB
                       </span>
                       <button
                         type="button"
                         onClick={() => deleteAttachmentMutation.mutate(att.id)}
-                        className="text-red-400 hover:text-red-300"
+                        className="text-red-600 hover:text-red-700"
                       >
                         Remove
                       </button>
@@ -1107,21 +1107,23 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
             )}
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
+          <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Link Bugs</h2>
-              <button
-                onClick={openLocalBugModal}
-                className="mr-3 text-xs font-medium text-emerald-400 hover:text-emerald-300"
-              >
-                + Create Local Bug
-              </button>
-              <button
-                onClick={openJiraModal}
-                className="text-xs font-medium text-blue-400 hover:text-blue-300"
-              >
-                + Create Jira Bug
-              </button>
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Link Bugs</h2>
+              <div>
+                <button
+                  onClick={openLocalBugModal}
+                  className="mr-3 text-xs font-medium text-emerald-600 hover:text-emerald-700"
+                >
+                  + Create Local Bug
+                </button>
+                <button
+                  onClick={openJiraModal}
+                  className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                >
+                  + Create Jira Bug
+                </button>
+              </div>
             </div>
             <div className="mt-3 space-y-2">
               <input
@@ -1129,14 +1131,14 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
                 placeholder="Search bugs..."
                 value={bugSearchQuery}
                 onChange={(e) => setBugSearchQuery(e.target.value)}
-                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
               />
-              <div className="h-48 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950 p-2">
+              <div className="h-48 overflow-y-auto rounded-md border border-slate-200 bg-slate-50 p-2">
                 {(bugs ?? [])
                   .map((bug) => {
                     const isSelected = (selectedBugs[activeCase.id] ?? []).includes(bug.id);
                     return (
-                      <label key={bug.id} className="flex items-center gap-2 rounded-lg p-2 hover:bg-slate-900 cursor-pointer">
+                      <label key={bug.id} className="flex cursor-pointer items-center gap-2 rounded p-2 hover:bg-slate-100">
                         <input
                           type="checkbox"
                           checked={isSelected}
@@ -1150,16 +1152,16 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
                             }
                             setSelectedBugs((prev) => ({ ...prev, [activeCase.id]: newSelected }));
                           }}
-                          className="rounded border-slate-700 bg-slate-900 text-brand focus:ring-brand"
+                          className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
                         />
-                        <span className="flex-1 text-sm text-slate-300">
-                          <span className="font-medium text-white">{bug.key}</span>: {bug.summary}
+                        <span className="flex-1 text-sm text-slate-700">
+                          <span className="font-mono font-medium text-slate-900">{bug.key}</span>: {bug.summary}
                         </span>
-                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${bug.status === "CLOSED" || bug.status === "RESOLVED"
-                            ? "bg-green-500/10 text-green-400 border border-green-500/20"
+                        <span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${bug.status === "CLOSED" || bug.status === "RESOLVED"
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                             : bug.status === "IN_PROGRESS"
-                              ? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
-                              : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                              ? "border-blue-200 bg-blue-50 text-blue-700"
+                              : "border-amber-200 bg-amber-50 text-amber-700"
                           }`}>
                           {bug.status}
                         </span>
@@ -1174,6 +1176,6 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
           </div>
         </div>
       </section>
-    </div >
+    </div>
   );
 }

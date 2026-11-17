@@ -96,29 +96,29 @@ export default function BugDetailPage({ params }: { params: { id: string, bugId:
         updateMutation.mutate(values);
     });
 
-    if (isLoading) return <div className="p-8 text-slate-400">Loading...</div>;
-    if (!bug) return <div className="p-8 text-red-400">Bug not found</div>;
+    if (isLoading) return <div className="p-8 text-sm text-slate-500">Loading...</div>;
+    if (!bug) return <div className="p-8 text-sm text-red-600">Bug not found</div>;
 
     return (
-        <div className="mx-auto max-w-6xl px-8 py-10">
+        <div className="mx-auto max-w-6xl px-8 py-8">
             {/* Header */}
-            <div className="mb-8">
-                <div className="flex items-center gap-2 text-sm text-slate-400 mb-2">
-                    <button onClick={() => router.push(`/projects/${projectKey}/bugs`)} className="hover:text-white transition-colors">
+            <div className="mb-6">
+                <div className="mb-2 flex items-center gap-2 text-sm text-slate-500">
+                    <button onClick={() => router.push(`/projects/${projectKey}/bugs`)} className="transition-colors hover:text-slate-900">
                         Bugs
                     </button>
                     <span>/</span>
-                    <span className="text-slate-200">{bug.key}</span>
+                    <span className="font-mono text-slate-700">{bug.key}</span>
                 </div>
-                <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold text-white tracking-tight">{bug.summary}</h1>
+                        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{bug.summary}</h1>
                     </div>
                     <div className="flex gap-2">
                         {!isEditing && (
                             <button
                                 onClick={() => setIsEditing(true)}
-                                className="rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white shadow-lg hover:bg-blue-500 transition-all"
+                                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
                             >
                                 Edit Bug
                             </button>
@@ -128,14 +128,14 @@ export default function BugDetailPage({ params }: { params: { id: string, bugId:
             </div>
 
             {!isEditing ? (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                     {/* Main Content (Left) */}
-                    <div className="lg:col-span-2 space-y-8">
+                    <div className="space-y-6 lg:col-span-2">
                         {/* Description */}
-                        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
-                            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-500">Description</h3>
-                            <div className="prose prose-invert max-w-none text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">
-                                {bug.description || <span className="text-slate-600 italic">No description provided.</span>}
+                        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+                            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Description</h3>
+                            <div className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
+                                {bug.description || <span className="italic text-slate-400">No description provided.</span>}
                             </div>
                         </div>
                     </div>
@@ -143,34 +143,34 @@ export default function BugDetailPage({ params }: { params: { id: string, bugId:
                     {/* Sidebar (Right) */}
                     <div className="space-y-6">
                         {/* Metadata Card */}
-                        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl">
-                            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-500">Details</h3>
-                            <div className="space-y-4">
-                                <div className="flex items-center justify-between border-b border-slate-800/50 pb-3">
-                                    <span className="text-sm text-slate-400">Status</span>
-                                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium border ${bug.status === 'RESOLVED' || bug.status === 'CLOSED' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
-                                        bug.status === 'IN_PROGRESS' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                                            'bg-slate-500/10 text-slate-400 border-slate-500/20'
+                        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+                            <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Details</h3>
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                                    <span className="text-sm text-slate-600">Status</span>
+                                    <span className={`rounded border px-2 py-0.5 text-xs font-medium ${bug.status === 'RESOLVED' || bug.status === 'CLOSED' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' :
+                                        bug.status === 'IN_PROGRESS' ? 'border-blue-200 bg-blue-50 text-blue-700' :
+                                            'border-slate-200 bg-slate-100 text-slate-700'
                                         }`}>
                                         {bug.status}
                                     </span>
                                 </div>
-                                <div className="flex items-center justify-between border-b border-slate-800/50 pb-3">
-                                    <span className="text-sm text-slate-400">Priority</span>
-                                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium border ${bug.priority === 'CRITICAL' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                                        bug.priority === 'HIGH' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
-                                            bug.priority === 'MEDIUM' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                                                'bg-slate-500/10 text-slate-400 border-slate-500/20'
+                                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                                    <span className="text-sm text-slate-600">Priority</span>
+                                    <span className={`rounded border px-2 py-0.5 text-xs font-medium ${bug.priority === 'CRITICAL' ? 'border-red-200 bg-red-50 text-red-700' :
+                                        bug.priority === 'HIGH' ? 'border-orange-200 bg-orange-50 text-orange-700' :
+                                            bug.priority === 'MEDIUM' ? 'border-blue-200 bg-blue-50 text-blue-700' :
+                                                'border-slate-200 bg-slate-100 text-slate-700'
                                         }`}>
                                         {bug.priority}
                                     </span>
                                 </div>
                                 {bug.testCase && (
-                                    <div className="flex items-center justify-between border-b border-slate-800/50 pb-3">
-                                        <span className="text-sm text-slate-400">Test Case</span>
+                                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                                        <span className="text-sm text-slate-600">Test Case</span>
                                         <a
                                             href={`/projects/${projectKey}/testcases/${bug.testCase.id}`}
-                                            className="text-sm text-brand hover:text-blue-400 hover:underline truncate max-w-[150px]"
+                                            className="max-w-[150px] truncate font-mono text-sm text-blue-600 hover:underline"
                                             title={bug.testCase.name}
                                         >
                                             {bug.testCase.key}
@@ -178,11 +178,11 @@ export default function BugDetailPage({ params }: { params: { id: string, bugId:
                                     </div>
                                 )}
                                 {bug.testSet && (
-                                    <div className="flex items-center justify-between border-b border-slate-800/50 pb-3">
-                                        <span className="text-sm text-slate-400">Test Set</span>
+                                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                                        <span className="text-sm text-slate-600">Test Set</span>
                                         <a
                                             href={`/projects/${projectKey}/test-sets/${bug.testSet.id}`}
-                                            className="text-sm text-brand hover:text-blue-400 hover:underline truncate max-w-[150px]"
+                                            className="max-w-[150px] truncate font-mono text-sm text-blue-600 hover:underline"
                                             title={bug.testSet.name}
                                         >
                                             {bug.testSet.key}
@@ -190,28 +190,28 @@ export default function BugDetailPage({ params }: { params: { id: string, bugId:
                                     </div>
                                 )}
                                 <div className="flex items-center justify-between pt-1">
-                                    <span className="text-sm text-slate-400">Key</span>
-                                    <span className="text-sm text-white font-medium">{bug.key}</span>
+                                    <span className="text-sm text-slate-600">Key</span>
+                                    <span className="font-mono text-sm font-medium text-slate-900">{bug.key}</span>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
             ) : (
-                <form onSubmit={submit} className="mt-8 space-y-6 max-w-4xl mx-auto bg-slate-900/40 p-8 rounded-3xl border border-slate-800">
-                    <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-xl font-semibold text-white">Edit Bug</h2>
-                        <div className="flex gap-3">
+                <form onSubmit={submit} className="mx-auto mt-6 max-w-4xl space-y-5 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="mb-4 flex items-center justify-between">
+                        <h2 className="text-lg font-semibold text-slate-900">Edit Bug</h2>
+                        <div className="flex gap-2">
                             <button
                                 type="button"
                                 onClick={() => setIsEditing(false)}
-                                className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+                                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                             >
                                 Cancel
                             </button>
                             <button
                                 type="submit"
-                                className="rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white shadow-lg hover:bg-blue-500"
+                                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                                 disabled={updateMutation.isPending}
                             >
                                 {updateMutation.isPending ? "Saving..." : "Save Changes"}
@@ -219,15 +219,15 @@ export default function BugDetailPage({ params }: { params: { id: string, bugId:
                         </div>
                     </div>
 
-                    <div className="grid gap-6 md:grid-cols-2">
+                    <div className="grid gap-5 md:grid-cols-2">
                         <div>
-                            <label className="text-sm font-medium text-slate-300" htmlFor="priority">
+                            <label className="text-sm font-medium text-slate-700" htmlFor="priority">
                                 Priority
                             </label>
                             <select
                                 id="priority"
                                 {...form.register("priority")}
-                                className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                                className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                             >
                                 <option value="LOW">Low</option>
                                 <option value="MEDIUM">Medium</option>
@@ -236,13 +236,13 @@ export default function BugDetailPage({ params }: { params: { id: string, bugId:
                             </select>
                         </div>
                         <div>
-                            <label className="text-sm font-medium text-slate-300" htmlFor="status">
+                            <label className="text-sm font-medium text-slate-700" htmlFor="status">
                                 Status
                             </label>
                             <select
                                 id="status"
                                 {...form.register("status")}
-                                className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                                className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                             >
                                 <option value="OPEN">Open</option>
                                 <option value="IN_PROGRESS">In Progress</option>
@@ -252,13 +252,13 @@ export default function BugDetailPage({ params }: { params: { id: string, bugId:
                         </div>
                     </div>
                     <div>
-                        <label className="text-sm font-medium text-slate-300" htmlFor="testSetId">
+                        <label className="text-sm font-medium text-slate-700" htmlFor="testSetId">
                             Linked Test Set
                         </label>
                         <select
                             id="testSetId"
                             {...form.register("testSetId")}
-                            className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                            className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                         >
                             <option value="">None</option>
                             {testSets?.map((set: any) => (
@@ -269,27 +269,27 @@ export default function BugDetailPage({ params }: { params: { id: string, bugId:
                         </select>
                     </div>
                     <div>
-                        <label className="text-sm font-medium text-slate-300" htmlFor="summary">
+                        <label className="text-sm font-medium text-slate-700" htmlFor="summary">
                             Summary
                         </label>
                         <input
                             id="summary"
                             {...form.register("summary")}
-                            className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                            className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                         />
                         {form.formState.errors.summary ? (
-                            <p className="mt-1 text-xs text-red-400">{form.formState.errors.summary.message}</p>
+                            <p className="mt-1 text-xs text-red-600">{form.formState.errors.summary.message}</p>
                         ) : null}
                     </div>
                     <div>
-                        <label className="text-sm font-medium text-slate-300" htmlFor="description">
+                        <label className="text-sm font-medium text-slate-700" htmlFor="description">
                             Description
                         </label>
                         <textarea
                             id="description"
                             rows={5}
                             {...form.register("description")}
-                            className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                            className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                         />
                     </div>
                 </form>

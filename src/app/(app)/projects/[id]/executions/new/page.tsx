@@ -102,32 +102,32 @@ export default function NewExecutionPage() {
   const selectedPlanId = form.watch("planId");
 
   return (
-    <div className="mx-auto max-w-4xl px-8 py-10">
-      <h1 className="text-3xl font-semibold text-white">New Execution</h1>
-      <p className="mt-2 text-sm text-slate-400">Track a manual or automated run.</p>
-      <form onSubmit={submit} className="mt-8 space-y-6">
-        <div className="grid gap-6 md:grid-cols-2">
+    <div className="mx-auto max-w-4xl px-8 py-8">
+      <h1 className="text-2xl font-semibold text-slate-900">New Execution</h1>
+      <p className="mt-1 text-sm text-slate-600">Track a manual or automated run.</p>
+      <form onSubmit={submit} className="mt-6 space-y-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="grid gap-5 md:grid-cols-2">
           <div>
-            <label className="text-sm font-medium text-slate-300" htmlFor="name">
+            <label className="text-sm font-medium text-slate-700" htmlFor="name">
               Execution Name
             </label>
             <input
               id="name"
               {...form.register("name")}
-              className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+              className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
             />
             {form.formState.errors.name ? (
-              <p className="mt-1 text-xs text-red-400">{form.formState.errors.name.message}</p>
+              <p className="mt-1 text-xs text-red-600">{form.formState.errors.name.message}</p>
             ) : null}
           </div>
           <div>
-            <label className="text-sm font-medium text-slate-300" htmlFor="planId">
+            <label className="text-sm font-medium text-slate-700" htmlFor="planId">
               Test Plan
             </label>
             <select
               id="planId"
               {...form.register("planId")}
-              className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+              className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
             >
               <option value="">Ad-hoc execution</option>
               {sortedPlans.map((plan: any) => (
@@ -142,29 +142,29 @@ export default function NewExecutionPage() {
 
         {
           !selectedPlanId && (
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Select Ad-hoc Cases</h2>
+                <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-600">Select Ad-hoc Cases</h2>
                 <span className="text-xs text-slate-500">{selectedCases.length} selected</span>
               </div>
-              <div className="mt-4 max-h-[320px] space-y-3 overflow-y-auto pr-2">
+              <div className="mt-3 max-h-[320px] space-y-2 overflow-y-auto pr-1">
                 {sortedCases.map((testCase: any) => {
                   const checked = selectedCases.includes(testCase.id);
                   return (
                     <label
                       key={testCase.id}
-                      className={`flex cursor-pointer items-center justify-between rounded-xl border px-3 py-2 text-sm transition ${checked ? "border-brand bg-slate-900 text-white" : "border-slate-800 bg-slate-950 text-slate-300"
+                      className={`flex cursor-pointer items-center justify-between rounded-md border px-3 py-2 text-sm transition ${checked ? "border-blue-600 bg-blue-50 text-slate-900" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                         }`}
                     >
                       <div>
-                        <p className="font-medium">{testCase.key}</p>
-                        <p className="text-xs text-slate-400">{testCase.name}</p>
+                        <p className="font-mono text-xs font-semibold text-slate-900">{testCase.key}</p>
+                        <p className="text-xs text-slate-600">{testCase.name}</p>
                       </div>
                       <input
                         type="checkbox"
                         checked={checked}
                         onChange={() => toggleCase(testCase.id)}
-                        className="h-4 w-4 rounded border-slate-700 bg-slate-950 text-brand focus:ring-brand"
+                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
                       />
                     </label>
                   );
@@ -177,84 +177,84 @@ export default function NewExecutionPage() {
           )
         }
         <div>
-          <label className="text-sm font-medium text-slate-300" htmlFor="description">
+          <label className="text-sm font-medium text-slate-700" htmlFor="description">
             Description
           </label>
           <textarea
             id="description"
             rows={4}
             {...form.register("description")}
-            className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+            className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
           />
         </div>
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-5 md:grid-cols-2">
           <div>
-            <label className="text-sm font-medium text-slate-300" htmlFor="environment">
+            <label className="text-sm font-medium text-slate-700" htmlFor="environment">
               Environment
             </label>
             {projectId && <EnvironmentSelect projectId={projectId} form={form} />}
           </div>
           <div>
-            <label className="text-sm font-medium text-slate-300" htmlFor="revision">
+            <label className="text-sm font-medium text-slate-700" htmlFor="revision">
               Revision
             </label>
             <input
               id="revision"
               {...form.register("revision")}
-              className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+              className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
             />
           </div>
         </div>
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-5 md:grid-cols-2">
           <div>
-            <label className="text-sm font-medium text-slate-300" htmlFor="buildUrl">
+            <label className="text-sm font-medium text-slate-700" htmlFor="buildUrl">
               Build URL
             </label>
             <input
               id="buildUrl"
               {...form.register("buildUrl")}
-              className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+              className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-slate-300" htmlFor="commitSha">
+            <label className="text-sm font-medium text-slate-700" htmlFor="commitSha">
               Commit SHA
             </label>
             <input
               id="commitSha"
               {...form.register("commitSha")}
-              className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+              className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
             />
           </div>
         </div>
         <div>
-          <label className="text-sm font-medium text-slate-300" htmlFor="labels">
+          <label className="text-sm font-medium text-slate-700" htmlFor="labels">
             Labels (comma separated)
           </label>
           <input
             id="labels"
             {...form.register("labels")}
-            className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+            className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
           />
         </div>
-        <div className="flex items-center justify-end gap-3">
+        <div className="flex items-center justify-end gap-3 pt-2">
           <button
             type="button"
             onClick={() => router.back()}
-            className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white shadow-lg hover:bg-blue-500"
+            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             disabled={form.formState.isSubmitting}
           >
             {form.formState.isSubmitting ? "Saving..." : "Create execution"}
           </button>
         </div>
-      </form >
-    </div >
+      </form>
+    </div>
   );
 }
 
@@ -273,7 +273,7 @@ function EnvironmentSelect({ projectId, form }: { projectId: string, form: any }
     <select
       id="environment"
       {...form.register("environment")}
-      className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+      className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
     >
       <option value="">Select Environment...</option>
       {(environments || []).map((env: any) => (

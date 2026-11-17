@@ -54,10 +54,11 @@ export function CommandPalette() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 hidden rounded-full bg-brand px-4 py-2 text-sm font-medium text-white shadow-lg transition hover:scale-105 lg:flex"
+        className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
         aria-label="Open command palette"
       >
-        ⌘K
+        <span>Jump to...</span>
+        <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">⌘K</kbd>
       </button>
 
       <CommandDialog open={open} onOpenChange={setOpen} label="Global navigation">

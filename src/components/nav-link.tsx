@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils"; // or wherever your cn helper lives
+import { cn } from "@/lib/utils";
 
 type NavLinkProps = {
   href: string;
@@ -19,8 +19,10 @@ export function NavLink({ href, label, exact = false, className }: NavLinkProps)
     <Link
       href={href}
       className={cn(
-        "block rounded-xl px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-900 hover:text-white",
-        active ? "bg-slate-900 text-white" : undefined,
+        "block rounded-md px-3 py-1.5 text-sm transition-colors",
+        active
+          ? "bg-blue-50 font-medium text-blue-700"
+          : "text-slate-700 hover:bg-slate-100 hover:text-slate-900",
         className
       )}
       aria-current={active ? "page" : undefined}

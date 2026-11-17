@@ -92,105 +92,105 @@ export default function NewTestPlanPage() {
   const sortedCases = useMemo(() => (cases ?? []).sort((a: any, b: any) => a.key.localeCompare(b.key)), [cases]);
 
   return (
-    <div className="mx-auto max-w-5xl px-8 py-10">
-      <h1 className="text-3xl font-semibold text-white">New Test Plan</h1>
-      <p className="mt-2 text-sm text-slate-400">Bundle cases for coordinated execution.</p>
-      <form onSubmit={submit} className="mt-8 grid gap-8 lg:grid-cols-[2fr,3fr]">
-        <div className="space-y-5">
+    <div className="mx-auto max-w-5xl px-8 py-8">
+      <h1 className="text-2xl font-semibold text-slate-900">New Test Plan</h1>
+      <p className="mt-1 text-sm text-slate-600">Bundle cases for coordinated execution.</p>
+      <form onSubmit={submit} className="mt-6 grid gap-8 lg:grid-cols-[2fr,3fr]">
+        <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <div>
-            <label className="text-sm font-medium text-slate-300" htmlFor="name">
+            <label className="text-sm font-medium text-slate-700" htmlFor="name">
               Plan Name
             </label>
             <input
               id="name"
               {...form.register("name")}
-              className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+              className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
             />
             {form.formState.errors.name ? (
-              <p className="mt-1 text-xs text-red-400">{form.formState.errors.name.message}</p>
+              <p className="mt-1 text-xs text-red-600">{form.formState.errors.name.message}</p>
             ) : null}
           </div>
           <div>
-            <label className="text-sm font-medium text-slate-300" htmlFor="description">
+            <label className="text-sm font-medium text-slate-700" htmlFor="description">
               Description
             </label>
             <textarea
               id="description"
               rows={4}
               {...form.register("description")}
-              className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+              className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-slate-300" htmlFor="targetVersions">
+            <label className="text-sm font-medium text-slate-700" htmlFor="targetVersions">
               Target Versions (comma separated)
             </label>
             <input
               id="targetVersions"
               {...form.register("targetVersions")}
-              className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+              className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-slate-300" htmlFor="environments">
+            <label className="text-sm font-medium text-slate-700" htmlFor="environments">
               Environments
             </label>
             <input
               id="environments"
               {...form.register("environments")}
-              className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+              className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-slate-300" htmlFor="tags">
+            <label className="text-sm font-medium text-slate-700" htmlFor="tags">
               Tags
             </label>
             <input
               id="tags"
               {...form.register("tags")}
-              className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+              className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
             />
           </div>
-          <div className="flex items-center justify-end gap-3">
+          <div className="flex items-center justify-end gap-3 pt-2">
             <button
               type="button"
               onClick={() => router.back()}
-              className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white shadow-lg hover:bg-blue-500"
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
               disabled={form.formState.isSubmitting}
             >
               {form.formState.isSubmitting ? "Saving..." : "Create plan"}
             </button>
           </div>
         </div>
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Select Cases</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Select Cases</h2>
             <span className="text-xs text-slate-500">{selected.length} selected</span>
           </div>
-          <div className="mt-4 max-h-[480px] space-y-3 overflow-y-auto pr-2">
+          <div className="mt-4 max-h-[480px] space-y-2.5 overflow-y-auto pr-1">
             {sortedCases.map((testCase: any) => {
               const checked = selected.includes(testCase.id);
               return (
                 <label
                   key={testCase.id}
-                  className={`flex cursor-pointer items-center justify-between rounded-xl border px-3 py-2 text-sm transition ${checked ? "border-brand bg-slate-900 text-white" : "border-slate-800 bg-slate-950 text-slate-300"
+                  className={`flex cursor-pointer items-center justify-between rounded-md border px-3 py-2.5 text-sm transition ${checked ? "border-blue-600 bg-blue-50 text-slate-900" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                     }`}
                 >
                   <div>
-                    <p className="font-medium">{testCase.key}</p>
-                    <p className="text-xs text-slate-400">{testCase.name}</p>
+                    <p className="font-mono text-xs font-semibold text-slate-900">{testCase.key}</p>
+                    <p className="text-xs text-slate-600">{testCase.name}</p>
                   </div>
                   <input
                     type="checkbox"
                     checked={checked}
                     onChange={() => toggleCase(testCase.id)}
-                    className="h-4 w-4 rounded border-slate-700 bg-slate-950 text-brand focus:ring-brand"
+                    className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
                   />
                 </label>
               );

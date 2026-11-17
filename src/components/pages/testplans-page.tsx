@@ -44,15 +44,15 @@ export function TestPlansPage() {
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
   return (
-    <div className="px-8 py-6">
+    <div className="mx-auto max-w-6xl px-6 py-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-semibold">Test Plans</h1>
-          <p className="text-sm text-slate-400">Bundle test cases for releases and environments.</p>
+          <h1 className="text-2xl font-semibold text-slate-900">Test Plans</h1>
+          <p className="mt-1 text-sm text-slate-600">Bundle test cases for releases and environments.</p>
         </div>
         <Link
           href={`/projects/${projectKey}/testplans/new`}
-          className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white shadow-lg hover:bg-blue-500"
+          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
         >
           New Plan
         </Link>
@@ -60,31 +60,31 @@ export function TestPlansPage() {
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         {(data ?? []).map((plan: any) => (
           <Link key={plan.id} href={`/projects/${projectKey}/testplans/${plan.id}`}>
-            <div className="group rounded-2xl border border-slate-800 bg-slate-900/60 p-6 hover:bg-slate-800/80 transition-colors relative">
+            <div className="group relative rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50/50">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-500">{plan.key}</p>
-                  <h2 className="text-xl font-semibold text-white">{plan.name}</h2>
+                  <p className="font-mono text-xs text-slate-500">{plan.key}</p>
+                  <h2 className="text-lg font-semibold text-slate-900">{plan.name}</h2>
                 </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-xs text-slate-400">{plan.cases.length} cases</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-slate-500">{plan.cases.length} cases</span>
                   <button
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
                       setItemToDelete(plan.id);
                     }}
-                    className="opacity-0 group-hover:opacity-100 p-2 text-slate-500 hover:text-red-400 transition-all"
+                    className="rounded p-1.5 text-slate-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
                     title="Delete Plan"
                   >
-                    <Trash2 className="h-5 w-5" />
+                    <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
               </div>
-              <p className="mt-3 text-sm text-slate-400">{plan.description}</p>
-              <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-400">
+              <p className="mt-2 text-sm text-slate-600">{plan.description}</p>
+              <div className="mt-3 flex flex-wrap gap-1.5 text-xs text-slate-600">
                 {(plan.environments ?? []).map((env: string) => (
-                  <span key={env} className="rounded-full bg-slate-800 px-3 py-1 uppercase tracking-wide">
+                  <span key={env} className="rounded border border-slate-200 bg-slate-100 px-2 py-0.5 font-medium">
                     {env}
                   </span>
                 ))}

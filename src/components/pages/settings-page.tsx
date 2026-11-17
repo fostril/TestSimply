@@ -72,37 +72,37 @@ export function SettingsPage() {
   });
 
   return (
-    <div className="px-8 py-6 space-y-6">
+    <div className="mx-auto max-w-4xl space-y-6 px-6 py-6">
       <div>
-        <h1 className="text-3xl font-semibold">Settings</h1>
-        <p className="text-sm text-slate-400">
+        <h1 className="text-2xl font-semibold text-slate-900">Settings</h1>
+        <p className="mt-1 text-sm text-slate-600">
           Manage personal access tokens{isAdmin ? ", users, and audit history" : ""}.
         </p>
       </div>
 
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
-        <h2 className="text-lg font-semibold">Personal Access Tokens</h2>
-        <p className="mt-1 text-sm text-slate-400">
+      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="text-base font-semibold text-slate-900">Personal Access Tokens</h2>
+        <p className="mt-1 text-sm text-slate-600">
           Use a token as a Bearer credential when calling CI import endpoints.
           Jira and CI workflow settings live on each project&apos;s Settings page.
         </p>
         <div className="mt-4 flex flex-wrap items-end gap-3">
           <div>
-            <label className="block text-xs uppercase tracking-wide text-slate-400">Label</label>
+            <label className="block text-sm font-medium text-slate-700">Label</label>
             <input
               type="text"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder="CI Token"
-              className="mt-1 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+              className="mt-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
             />
           </div>
           <div>
-            <label className="block text-xs uppercase tracking-wide text-slate-400">Expires</label>
+            <label className="block text-sm font-medium text-slate-700">Expires</label>
             <select
               value={expiryDays}
               onChange={(e) => setExpiryDays(e.target.value)}
-              className="mt-1 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+              className="mt-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
             >
               <option value="30">30 days</option>
               <option value="90">90 days</option>
@@ -112,27 +112,27 @@ export function SettingsPage() {
           <button
             type="button"
             onClick={() => tokenMutation.mutate()}
-            className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white shadow-lg hover:bg-blue-500"
+            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
             Generate token
           </button>
         </div>
         {token ? (
-          <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4 font-mono text-sm break-all">
+          <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 font-mono text-sm text-emerald-900 break-all">
             {token}
           </div>
         ) : null}
         {tokens && tokens.length > 0 ? (
-          <ul className="mt-4 space-y-2 text-sm text-slate-300">
+          <ul className="mt-4 divide-y divide-slate-200 rounded-md border border-slate-200 text-sm">
             {tokens.map((item) => (
-              <li key={item.id} className="flex items-center justify-between gap-4 rounded-lg border border-slate-800 px-3 py-2">
-                <div>
-                  <span className="font-medium text-white">{item.label}</span>
-                  <span className="ml-2 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] uppercase text-slate-300">
+              <li key={item.id} className="flex items-center justify-between gap-4 px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-slate-900">{item.label}</span>
+                  <span className="rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-700">
                     {item.scopes.join(", ")}
                   </span>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
                   <span className="text-xs text-slate-500">
                     Created {new Date(item.createdAt).toLocaleDateString()}
                     {item.expiresAt ? ` · Expires ${new Date(item.expiresAt).toLocaleDateString()}` : ""}
@@ -140,7 +140,7 @@ export function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => deleteTokenMutation.mutate(item.id)}
-                    className="text-xs text-red-400 hover:text-red-300"
+                    className="text-xs font-medium text-red-600 hover:underline"
                   >
                     Revoke
                   </button>
@@ -153,30 +153,30 @@ export function SettingsPage() {
 
       {isAdmin ? (
         <>
-          <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
-            <div className="flex items-center justify-between">
+          <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold">Audit Logs</h2>
-                <p className="mt-1 text-sm text-slate-400">View history of changes across projects.</p>
+                <h2 className="text-base font-semibold text-slate-900">Audit Logs</h2>
+                <p className="mt-1 text-sm text-slate-600">View history of changes across projects.</p>
               </div>
               <Link
                 href="/settings/audit-logs"
-                className="rounded-full border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700 hover:text-white"
+                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
                 View Logs
               </Link>
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
-            <div className="flex items-center justify-between">
+          <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold">User Management</h2>
-                <p className="mt-1 text-sm text-slate-400">Manage user roles and project membership.</p>
+                <h2 className="text-base font-semibold text-slate-900">User Management</h2>
+                <p className="mt-1 text-sm text-slate-600">Manage user roles and project membership.</p>
               </div>
               <Link
                 href="/settings/users"
-                className="rounded-full border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700 hover:text-white"
+                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
                 Manage Users
               </Link>

@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { CheckSquare } from "lucide-react";
 import { ProjectSwitcher } from "@/components/project-switcher";
 import { CommandPalette } from "@/components/ui/command-palette";
 import { AuthGuard } from "@/components/auth/auth-guard";
@@ -8,29 +9,30 @@ import { UserProfile } from "@/components/layout/user-profile";
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <AuthGuard>
-      <div className="flex min-h-screen bg-background text-foreground selection:bg-primary/20 selection:text-primary">
-        <aside className="hidden w-64 flex-col border-r border-border bg-card/50 backdrop-blur-xl p-6 lg:flex">
-          <div className="mb-8">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center">
-                <div className="h-4 w-4 rounded-sm bg-primary" />
-              </div>
-              <div>
-                <div className="text-lg font-bold tracking-tight text-foreground">TestSimply</div>
-                <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Test management
-                </p>
-              </div>
-            </div>
+      <div className="flex min-h-screen bg-slate-50 text-slate-900">
+        <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-200 bg-white p-4 lg:flex">
+          <div className="mb-5 flex items-center gap-2 px-1">
+            <CheckSquare className="h-5 w-5 text-blue-600" />
+            <span className="text-base font-semibold tracking-tight text-slate-900">
+              TestSimply
+            </span>
           </div>
           <ProjectSwitcher />
           <SidebarNavigation />
           <UserProfile />
         </aside>
-        <main className="flex-1 overflow-y-auto bg-background/95">
-          <CommandPalette />
-          {children}
-        </main>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="flex h-14 items-center justify-between border-b border-slate-200 bg-white px-6">
+            <div className="flex items-center gap-2 lg:hidden">
+              <CheckSquare className="h-5 w-5 text-blue-600" />
+              <span className="text-sm font-semibold text-slate-900">TestSimply</span>
+            </div>
+            <div className="ml-auto flex items-center gap-3">
+              <CommandPalette />
+            </div>
+          </header>
+          <main className="flex-1 overflow-y-auto">{children}</main>
+        </div>
       </div>
     </AuthGuard>
   );

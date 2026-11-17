@@ -40,7 +40,7 @@ export function CsvImporter({ projectId, onSuccess }: CsvImporterProps) {
             if (onSuccess) onSuccess();
             toast({
                 title: "Import complete",
-                description: `Imported ${data.count} of ${data.total} cases.`
+                description: `Imported ${data.count} of ${data.total} cases.`,
             });
         },
         onError: (err) => {
@@ -48,7 +48,7 @@ export function CsvImporter({ projectId, onSuccess }: CsvImporterProps) {
                 title: "Import failed",
                 description: (err as Error).message,
             });
-        }
+        },
     });
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -84,7 +84,7 @@ export function CsvImporter({ projectId, onSuccess }: CsvImporterProps) {
         return (
             <button
                 onClick={() => setIsOpen(true)}
-                className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-800/50 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white"
+                className="flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
                 <Upload className="h-4 w-4" />
                 Import CSV
@@ -93,32 +93,33 @@ export function CsvImporter({ projectId, onSuccess }: CsvImporterProps) {
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-6 shadow-2xl">
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-semibold text-white">Import Test Cases</h2>
-                    <button onClick={() => setIsOpen(false)} className="text-slate-500 hover:text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+            <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-lg">
+                <div className="mb-4 flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-slate-900">Import Test Cases</h2>
+                    <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-slate-700">
                         <X className="h-5 w-5" />
                     </button>
                 </div>
 
                 {!importResult ? (
                     <div className="space-y-4">
-                        <p className="text-sm text-slate-400">
-                            Upload a CSV file. Export from TestSimply uses columns
-                            <code className="rounded bg-slate-900 px-1 text-slate-300">name</code>,
-                            <code className="rounded bg-slate-900 px-1 text-slate-300">description</code>,
-                            <code className="rounded bg-slate-900 px-1 text-slate-300">precondition</code>,
-                            <code className="rounded bg-slate-900 px-1 text-slate-300">steps.action</code>,
-                            <code className="rounded bg-slate-900 px-1 text-slate-300">steps.expected</code>,
-                            <code className="rounded bg-slate-900 px-1 text-slate-300">expected_result</code>,
-                            and <code className="rounded bg-slate-900 px-1 text-slate-300">tags</code>.
-                            <code className="rounded bg-slate-900 px-1 text-slate-300">title</code> is also accepted.
+                        <p className="text-sm text-slate-600">
+                            Upload a CSV file. Export from TestSimply uses columns{" "}
+                            <code className="rounded bg-slate-100 px-1 text-slate-800">name</code>,{" "}
+                            <code className="rounded bg-slate-100 px-1 text-slate-800">description</code>,{" "}
+                            <code className="rounded bg-slate-100 px-1 text-slate-800">precondition</code>,{" "}
+                            <code className="rounded bg-slate-100 px-1 text-slate-800">steps.action</code>,{" "}
+                            <code className="rounded bg-slate-100 px-1 text-slate-800">steps.expected</code>,{" "}
+                            <code className="rounded bg-slate-100 px-1 text-slate-800">expected_result</code>,
+                            and <code className="rounded bg-slate-100 px-1 text-slate-800">tags</code>.{" "}
+                            <code className="rounded bg-slate-100 px-1 text-slate-800">title</code> is also accepted.
                         </p>
 
                         <div
-                            className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 transition-colors ${fileName ? "border-brand bg-brand/5" : "border-slate-800 hover:border-slate-700 hover:bg-slate-900/50"
-                                }`}
+                            className={`relative flex flex-col items-center justify-center rounded-md border-2 border-dashed p-8 transition-colors ${
+                                fileName ? "border-blue-500 bg-blue-50/50" : "border-slate-300 hover:border-slate-400 hover:bg-slate-50"
+                            }`}
                         >
                             <input
                                 ref={fileInputRef}
@@ -129,38 +130,38 @@ export function CsvImporter({ projectId, onSuccess }: CsvImporterProps) {
                             />
                             {fileName ? (
                                 <div className="flex flex-col items-center gap-2 text-center">
-                                    <FileText className="h-8 w-8 text-brand" />
-                                    <span className="text-sm font-medium text-white">{fileName}</span>
+                                    <FileText className="h-8 w-8 text-blue-600" />
+                                    <span className="text-sm font-medium text-slate-900">{fileName}</span>
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             reset();
                                         }}
-                                        className="text-xs text-slate-500 hover:text-red-400"
+                                        className="text-xs text-slate-500 hover:text-red-600"
                                     >
                                         Remove
                                     </button>
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center gap-2 text-center">
-                                    <Upload className="h-8 w-8 text-slate-500" />
-                                    <span className="text-sm font-medium text-slate-300">Click to upload CSV</span>
+                                    <Upload className="h-8 w-8 text-slate-400" />
+                                    <span className="text-sm font-medium text-slate-700">Click to upload CSV</span>
                                     <span className="text-xs text-slate-500">or drag and drop</span>
                                 </div>
                             )}
                         </div>
 
-                        <div className="flex justify-end gap-3 mt-6">
+                        <div className="mt-6 flex justify-end gap-2">
                             <button
                                 onClick={() => setIsOpen(false)}
-                                className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+                                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleImport}
                                 disabled={!fileContent || importMutation.isPending}
-                                className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 {importMutation.isPending ? "Importing..." : "Import Cases"}
                             </button>
@@ -170,28 +171,28 @@ export function CsvImporter({ projectId, onSuccess }: CsvImporterProps) {
                     <div className="space-y-4">
                         <div className="flex flex-col items-center gap-3 py-4">
                             {importResult.errors.length === 0 ? (
-                                <div className="rounded-full bg-green-500/10 p-3">
-                                    <CheckCircle className="h-8 w-8 text-green-500" />
+                                <div className="rounded-full bg-emerald-50 p-3">
+                                    <CheckCircle className="h-8 w-8 text-emerald-600" />
                                 </div>
                             ) : (
-                                <div className="rounded-full bg-orange-500/10 p-3">
-                                    <AlertCircle className="h-8 w-8 text-orange-500" />
+                                <div className="rounded-full bg-amber-50 p-3">
+                                    <AlertCircle className="h-8 w-8 text-amber-600" />
                                 </div>
                             )}
                             <div className="text-center">
-                                <h3 className="text-lg font-medium text-white">
+                                <h3 className="text-lg font-medium text-slate-900">
                                     {importResult.count} cases imported
                                 </h3>
-                                <p className="text-sm text-slate-400">
+                                <p className="text-sm text-slate-600">
                                     out of {importResult.total} rows processed
                                 </p>
                             </div>
                         </div>
 
                         {importResult.errors.length > 0 && (
-                            <div className="rounded-xl border border-red-900/50 bg-red-950/30 p-4">
-                                <h4 className="mb-2 text-sm font-medium text-red-400">Errors ({importResult.errors.length})</h4>
-                                <div className="max-h-40 overflow-y-auto text-xs text-red-300 space-y-1">
+                            <div className="rounded-md border border-red-200 bg-red-50 p-4">
+                                <h4 className="mb-2 text-sm font-medium text-red-700">Errors ({importResult.errors.length})</h4>
+                                <div className="max-h-40 space-y-1 overflow-y-auto text-xs text-red-600">
                                     {importResult.errors.map((err, i) => (
                                         <div key={i}>{err}</div>
                                     ))}
@@ -199,13 +200,13 @@ export function CsvImporter({ projectId, onSuccess }: CsvImporterProps) {
                             </div>
                         )}
 
-                        <div className="flex justify-end gap-3 mt-6">
+                        <div className="mt-6 flex justify-end gap-3">
                             <button
                                 onClick={() => {
                                     reset();
                                     setIsOpen(false);
                                 }}
-                                className="w-full rounded-full bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+                                className="w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
                             >
                                 Close
                             </button>

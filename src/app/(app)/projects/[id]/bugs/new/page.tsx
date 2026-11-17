@@ -60,19 +60,19 @@ export default function NewBugPage() {
     });
 
     return (
-        <div className="mx-auto max-w-2xl px-8 py-10">
-            <h1 className="text-3xl font-semibold text-white">Report Bug</h1>
-            <p className="mt-2 text-sm text-slate-400">Track a new defect.</p>
-            <form onSubmit={submit} className="mt-8 space-y-6">
-                <div className="grid gap-6 md:grid-cols-2">
+        <div className="mx-auto max-w-2xl px-6 py-8">
+            <h1 className="text-2xl font-semibold text-slate-900">Report Bug</h1>
+            <p className="mt-1 text-sm text-slate-600">Track a new defect.</p>
+            <form onSubmit={submit} className="mt-6 space-y-5 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="grid gap-4 md:grid-cols-2">
                     <div>
-                        <label className="text-sm font-medium text-slate-300" htmlFor="priority">
+                        <label className="block text-sm font-medium text-slate-700" htmlFor="priority">
                             Priority
                         </label>
                         <select
                             id="priority"
                             {...form.register("priority")}
-                            className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                            className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                         >
                             <option value="LOW">Low</option>
                             <option value="MEDIUM">Medium</option>
@@ -82,40 +82,40 @@ export default function NewBugPage() {
                     </div>
                 </div>
                 <div>
-                    <label className="text-sm font-medium text-slate-300" htmlFor="summary">
+                    <label className="block text-sm font-medium text-slate-700" htmlFor="summary">
                         Summary
                     </label>
                     <input
                         id="summary"
                         {...form.register("summary")}
-                        className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                        className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                     />
                     {form.formState.errors.summary ? (
-                        <p className="mt-1 text-xs text-red-400">{form.formState.errors.summary.message}</p>
+                        <p className="mt-1 text-xs text-red-600">{form.formState.errors.summary.message}</p>
                     ) : null}
                 </div>
                 <div>
-                    <label className="text-sm font-medium text-slate-300" htmlFor="description">
+                    <label className="block text-sm font-medium text-slate-700" htmlFor="description">
                         Description
                     </label>
                     <textarea
                         id="description"
                         rows={5}
                         {...form.register("description")}
-                        className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                        className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                     />
                 </div>
-                <div className="flex items-center justify-end gap-3">
+                <div className="flex items-center justify-end gap-2 pt-2">
                     <button
                         type="button"
                         onClick={() => router.back()}
-                        className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+                        className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                     >
                         Cancel
                     </button>
                     <button
                         type="submit"
-                        className="rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white shadow-lg hover:bg-blue-500"
+                        className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                         disabled={form.formState.isSubmitting}
                     >
                         {form.formState.isSubmitting ? "Saving..." : "Report Bug"}

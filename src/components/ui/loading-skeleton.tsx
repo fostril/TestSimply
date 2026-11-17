@@ -6,7 +6,7 @@ export function LoadingSkeleton({ className, count = 3 }: { className?: string; 
             {Array.from({ length: count }).map((_, i) => (
                 <div
                     key={i}
-                    className="h-12 w-full animate-pulse rounded-xl bg-slate-800/50"
+                    className="h-12 w-full animate-pulse rounded-md bg-slate-200"
                     style={{ animationDelay: `${i * 100}ms` }}
                 />
             ))}

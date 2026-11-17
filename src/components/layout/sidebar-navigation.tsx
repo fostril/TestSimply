@@ -60,9 +60,14 @@ export function SidebarNavigation() {
     ];
 
     return (
-        <nav className="mt-8 space-y-2">
+        <nav className="mt-4 flex-1 space-y-1 overflow-y-auto">
             {navItems.map((item) => (
-                <NavLink key={item.href} href={item.href} label={item.label} />
+                <NavLink
+                    key={item.href}
+                    href={item.href}
+                    label={item.label}
+                    exact={item.label === "Dashboard" || item.label === "Admin"}
+                />
             ))}
         </nav>
     );

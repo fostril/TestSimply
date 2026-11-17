@@ -166,43 +166,43 @@ export default function ProjectSettingsPage({ params }: { params: { id: string }
         },
     });
 
-    if (isLoading) return <div className="p-8 text-slate-400">Loading...</div>;
-    if (!project) return <div className="p-8 text-red-400">Project not found</div>;
+    if (isLoading) return <div className="p-8 text-slate-500">Loading...</div>;
+    if (!project) return <div className="p-8 text-red-600">Project not found</div>;
 
     return (
-        <div className="mx-auto max-w-2xl px-8 py-10">
-            <h1 className="mb-8 text-3xl font-bold text-white">Project Settings</h1>
+        <div className="mx-auto max-w-2xl px-6 py-8">
+            <h1 className="mb-6 text-2xl font-semibold text-slate-900">Project Settings</h1>
 
-            <div className="space-y-8">
+            <div className="space-y-6">
                 {/* General Settings */}
-                <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
-                    <h2 className="mb-4 text-lg font-semibold text-white">General</h2>
+                <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+                    <h2 className="mb-4 text-base font-semibold text-slate-900">General</h2>
                     <form onSubmit={generalForm.handleSubmit((v) => updateGeneralMutation.mutate(v))} className="space-y-4">
                         <div>
-                            <label className="text-sm font-medium text-slate-300" htmlFor="name">Project Name</label>
+                            <label className="block text-sm font-medium text-slate-700" htmlFor="name">Project Name</label>
                             <input
                                 id="name"
                                 {...generalForm.register("name")}
-                                className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                                className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                             />
                             {generalForm.formState.errors.name && (
-                                <p className="mt-1 text-xs text-red-400">{generalForm.formState.errors.name.message}</p>
+                                <p className="mt-1 text-xs text-red-600">{generalForm.formState.errors.name.message}</p>
                             )}
                         </div>
                         <div>
-                            <label className="text-sm font-medium text-slate-300" htmlFor="description">Description</label>
+                            <label className="block text-sm font-medium text-slate-700" htmlFor="description">Description</label>
                             <textarea
                                 id="description"
                                 rows={3}
                                 {...generalForm.register("description")}
-                                className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                                className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                             />
                         </div>
                         <div className="flex justify-end">
                             <button
                                 type="submit"
                                 disabled={updateGeneralMutation.isPending}
-                                className="rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white shadow-lg hover:bg-blue-500 disabled:opacity-50"
+                                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                             >
                                 {updateGeneralMutation.isPending ? "Saving..." : "Save Changes"}
                             </button>
@@ -211,53 +211,53 @@ export default function ProjectSettingsPage({ params }: { params: { id: string }
                 </div>
 
                 {/* Jira Integration */}
-                <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
-                    <h2 className="mb-4 text-lg font-semibold text-white">Jira Integration</h2>
+                <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+                    <h2 className="mb-4 text-base font-semibold text-slate-900">Jira Integration</h2>
                     <form onSubmit={jiraForm.handleSubmit((v) => updateSettingsMutation.mutate(v))} className="space-y-4">
                         <div className="grid gap-4 md:grid-cols-2">
                             <div>
-                                <label className="text-sm font-medium text-slate-300" htmlFor="jiraUrl">Jira URL</label>
+                                <label className="block text-sm font-medium text-slate-700" htmlFor="jiraUrl">Jira URL</label>
                                 <input
                                     id="jiraUrl"
                                     {...jiraForm.register("jiraUrl")}
                                     placeholder="https://your-domain.atlassian.net"
-                                    className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                                    className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                                 />
                                 {jiraForm.formState.errors.jiraUrl && (
-                                    <p className="mt-1 text-xs text-red-400">{jiraForm.formState.errors.jiraUrl.message}</p>
+                                    <p className="mt-1 text-xs text-red-600">{jiraForm.formState.errors.jiraUrl.message}</p>
                                 )}
                             </div>
                             <div>
-                                <label className="text-sm font-medium text-slate-300" htmlFor="jiraEmail">Jira Email</label>
+                                <label className="block text-sm font-medium text-slate-700" htmlFor="jiraEmail">Jira Email</label>
                                 <input
                                     id="jiraEmail"
                                     {...jiraForm.register("jiraEmail")}
                                     placeholder="email@example.com"
-                                    className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                                    className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                                 />
                                 {jiraForm.formState.errors.jiraEmail && (
-                                    <p className="mt-1 text-xs text-red-400">{jiraForm.formState.errors.jiraEmail.message}</p>
+                                    <p className="mt-1 text-xs text-red-600">{jiraForm.formState.errors.jiraEmail.message}</p>
                                 )}
                             </div>
                         </div>
                         <div className="grid gap-4 md:grid-cols-2">
                             <div>
-                                <label className="text-sm font-medium text-slate-300" htmlFor="jiraApiToken">API Token</label>
+                                <label className="block text-sm font-medium text-slate-700" htmlFor="jiraApiToken">API Token</label>
                                 <input
                                     id="jiraApiToken"
                                     type="password"
                                     {...jiraForm.register("jiraApiToken")}
                                     placeholder="••••••••••••••••"
-                                    className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                                    className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                                 />
                             </div>
                             <div>
-                                <label className="text-sm font-medium text-slate-300" htmlFor="jiraProjectKey">Jira Project Key</label>
+                                <label className="block text-sm font-medium text-slate-700" htmlFor="jiraProjectKey">Jira Project Key</label>
                                 <input
                                     id="jiraProjectKey"
                                     {...jiraForm.register("jiraProjectKey")}
                                     placeholder="e.g. PROJ"
-                                    className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                                    className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                                 />
                             </div>
                         </div>
@@ -265,7 +265,7 @@ export default function ProjectSettingsPage({ params }: { params: { id: string }
                             <button
                                 type="submit"
                                 disabled={updateSettingsMutation.isPending}
-                                className="rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white shadow-lg hover:bg-blue-500 disabled:opacity-50"
+                                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                             >
                                 {updateSettingsMutation.isPending ? "Saving..." : "Save Changes"}
                             </button>
@@ -274,16 +274,16 @@ export default function ProjectSettingsPage({ params }: { params: { id: string }
                 </div>
 
                 {/* CI/CD Integration */}
-                <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
-                    <h2 className="mb-4 text-lg font-semibold text-white">CI/CD Integration</h2>
+                <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+                    <h2 className="mb-4 text-base font-semibold text-slate-900">CI/CD Integration</h2>
                     <form onSubmit={ciForm.handleSubmit((v) => updateSettingsMutation.mutate(v))} className="space-y-4">
                         <div className="grid gap-4 md:grid-cols-2">
                             <div>
-                                <label className="text-sm font-medium text-slate-300" htmlFor="ciProvider">Provider</label>
+                                <label className="block text-sm font-medium text-slate-700" htmlFor="ciProvider">Provider</label>
                                 <select
                                     id="ciProvider"
                                     {...ciForm.register("ciProvider")}
-                                    className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                                    className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                                 >
                                     <option value="">Select Provider</option>
                                     <option value="GITHUB">GitHub Actions</option>
@@ -292,60 +292,60 @@ export default function ProjectSettingsPage({ params }: { params: { id: string }
                                 </select>
                             </div>
                             <div>
-                                <label className="text-sm font-medium text-slate-300" htmlFor="ciUrl">CI URL</label>
+                                <label className="block text-sm font-medium text-slate-700" htmlFor="ciUrl">CI URL</label>
                                 <input
                                     id="ciUrl"
                                     {...ciForm.register("ciUrl")}
                                     placeholder="https://api.github.com"
-                                    className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                                    className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                                 />
                                 {ciForm.formState.errors.ciUrl && (
-                                    <p className="mt-1 text-xs text-red-400">{ciForm.formState.errors.ciUrl.message}</p>
+                                    <p className="mt-1 text-xs text-red-600">{ciForm.formState.errors.ciUrl.message}</p>
                                 )}
                             </div>
                         </div>
                         <div className="grid gap-4 md:grid-cols-2">
                             <div>
-                                <label className="text-sm font-medium text-slate-300" htmlFor="ciToken">CI Token</label>
+                                <label className="block text-sm font-medium text-slate-700" htmlFor="ciToken">CI Token</label>
                                 <input
                                     id="ciToken"
                                     type="password"
                                     {...ciForm.register("ciToken")}
                                     placeholder="••••••••••••••••"
-                                    className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                                    className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                                 />
                             </div>
                             <div>
-                                <label className="text-sm font-medium text-slate-300" htmlFor="ciWorkflowId">Workflow Filename</label>
+                                <label className="block text-sm font-medium text-slate-700" htmlFor="ciWorkflowId">Workflow Filename</label>
                                 <input
                                     id="ciWorkflowId"
                                     {...ciForm.register("ciWorkflowId")}
                                     placeholder="e.g. main.yml"
-                                    className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                                    className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                                 />
                             </div>
                         </div>
                         <div className="flex items-center justify-between">
                             <div>
                                 {testConnectionResult && (
-                                    <span className={`text-sm ${testConnectionResult.success ? 'text-green-400' : 'text-red-400'}`}>
+                                    <span className={`text-sm ${testConnectionResult.success ? "text-emerald-600" : "text-red-600"}`}>
                                         {testConnectionResult.message}
                                     </span>
                                 )}
                             </div>
-                            <div className="flex gap-3">
+                            <div className="flex gap-2">
                                 <button
                                     type="button"
                                     onClick={() => testConnectionMutation.mutate()}
                                     disabled={testConnectionMutation.isPending}
-                                    className="rounded-full border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+                                    className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                                 >
                                     {testConnectionMutation.isPending ? "Testing..." : "Test Connection"}
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={updateSettingsMutation.isPending}
-                                    className="rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white shadow-lg hover:bg-blue-500 disabled:opacity-50"
+                                    className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                                 >
                                     {updateSettingsMutation.isPending ? "Saving..." : "Save Changes"}
                                 </button>
@@ -355,40 +355,40 @@ export default function ProjectSettingsPage({ params }: { params: { id: string }
                 </div>
 
                 {/* Danger Zone */}
-                <div className="rounded-xl border border-red-900/30 bg-red-950/10 p-6">
-                    <h2 className="mb-2 text-lg font-semibold text-red-400">Danger Zone</h2>
-                    <p className="mb-6 text-sm text-slate-400">
+                <div className="rounded-lg border border-red-200 bg-red-50/50 p-6">
+                    <h2 className="mb-2 text-base font-semibold text-red-700">Danger Zone</h2>
+                    <p className="mb-4 text-sm text-slate-600">
                         Deleting a project is irreversible. All test cases, executions, and results associated with this project will be permanently removed.
                     </p>
 
                     {!isDeleting ? (
                         <button
                             onClick={() => setIsDeleting(true)}
-                            className="flex items-center gap-2 rounded-full border border-red-900/50 bg-red-950/30 px-5 py-2 text-sm font-semibold text-red-400 hover:bg-red-900/50"
+                            className="flex items-center gap-2 rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
                         >
                             <Trash2 className="h-4 w-4" />
                             Delete Project
                         </button>
                     ) : (
-                        <div className="rounded-lg border border-red-900/50 bg-red-950/30 p-4">
+                        <div className="rounded-md border border-red-200 bg-white p-4">
                             <div className="flex items-start gap-3">
-                                <AlertTriangle className="h-5 w-5 text-red-400" />
+                                <AlertTriangle className="h-5 w-5 text-red-600" />
                                 <div>
-                                    <h3 className="font-semibold text-red-400">Are you absolutely sure?</h3>
-                                    <p className="mt-1 text-sm text-slate-300">
+                                    <h3 className="font-semibold text-red-700">Are you absolutely sure?</h3>
+                                    <p className="mt-1 text-sm text-slate-600">
                                         This action cannot be undone. This will permanently delete the project <strong>{project.name}</strong> and all its data.
                                     </p>
-                                    <div className="mt-4 flex gap-3">
+                                    <div className="mt-4 flex gap-2">
                                         <button
                                             onClick={() => deleteMutation.mutate()}
                                             disabled={deleteMutation.isPending}
-                                            className="rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                                            className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
                                         >
                                             {deleteMutation.isPending ? "Deleting..." : "Yes, Delete Project"}
                                         </button>
                                         <button
                                             onClick={() => setIsDeleting(false)}
-                                            className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+                                            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                                         >
                                             Cancel
                                         </button>

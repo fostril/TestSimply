@@ -181,18 +181,18 @@ export function TestCasesPage() {
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
   return (
-    <div className="px-8 py-6 space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6 px-8 py-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Test Cases</h1>
-          <p className="text-sm text-muted-foreground">Manage and organize your test scenarios.</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Test Cases</h1>
+          <p className="mt-1 text-sm text-slate-600">Manage and organize your test scenarios.</p>
         </div>
         <div className="flex gap-3">
           {projectId && <CsvImporter projectId={projectId} />}
           <Link
             href={`/projects/${projectKey}/testcases/new`}
-            className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all"
+            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
             New Test Case
           </Link>
@@ -209,24 +209,24 @@ export function TestCasesPage() {
             />
           )}
         </aside>
-        <div className="space-y-6">
+        <div className="space-y-4">
 
       {/* Search and Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[200px] max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <div className="relative min-w-[200px] max-w-md flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             placeholder="Search by key or name..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-lg border border-border bg-card text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="w-full rounded-md border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
           />
         </div>
         <select
           value={priorityFilter}
           onChange={(e) => setPriorityFilter(e.target.value)}
-          className="px-3 py-2 rounded-lg border border-border bg-card text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
         >
           {PRIORITIES.map(p => (
             <option key={p} value={p}>{p === "ALL" ? "All Priorities" : p}</option>
@@ -235,7 +235,7 @@ export function TestCasesPage() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-3 py-2 rounded-lg border border-border bg-card text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
         >
           {STATUSES.map(s => (
             <option key={s} value={s}>{s === "ALL" ? "All Statuses" : s}</option>
@@ -244,7 +244,7 @@ export function TestCasesPage() {
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
-          className="px-3 py-2 rounded-lg border border-border bg-card text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
         >
           <option value="ALL">All Types</option>
           <option value="MANUAL">Manual</option>
@@ -254,7 +254,7 @@ export function TestCasesPage() {
         {hasActiveFilters && (
           <button
             onClick={clearFilters}
-            className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
+            className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
           >
             <X className="h-4 w-4" />
             Clear
@@ -264,49 +264,49 @@ export function TestCasesPage() {
 
       {/* Bulk Actions */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center gap-4 rounded-lg border border-primary/20 bg-primary/10 p-3 text-sm text-primary">
+        <div className="flex flex-wrap items-center gap-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-slate-900">
           <span className="font-medium">{selectedIds.size} selected</span>
-          <div className="h-4 w-px bg-primary/20" />
+          <div className="h-4 w-px bg-blue-200" />
           <button
             onClick={() => bulkMutation.mutate({ action: "delete" })}
             disabled={bulkMutation.isPending}
-            className="flex items-center gap-2 hover:text-primary/80 disabled:opacity-50"
+            className="flex items-center gap-1.5 font-medium text-red-700 hover:text-red-800 disabled:opacity-50"
           >
             <Trash2 className="h-4 w-4" />
             Delete
           </button>
-          <div className="h-4 w-px bg-primary/20" />
-          <div className="flex items-center gap-2">
-            <span className="text-xs uppercase tracking-wide opacity-70">Set Priority:</span>
+          <div className="h-4 w-px bg-blue-200" />
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-600">Set Priority:</span>
             {["LOW", "MEDIUM", "HIGH", "CRITICAL"].map((p) => (
               <button
                 key={p}
                 onClick={() => bulkMutation.mutate({ action: "update", data: { priority: p } })}
                 disabled={bulkMutation.isPending}
-                className="rounded px-2 py-0.5 text-xs font-medium hover:bg-primary/20"
+                className="rounded px-2 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
               >
                 {p}
               </button>
             ))}
           </div>
-          <div className="h-4 w-px bg-primary/20" />
+          <div className="h-4 w-px bg-blue-200" />
           <div className="relative">
             <button
               onClick={() => setIsAddToPlanOpen(!isAddToPlanOpen)}
-              className="font-medium hover:text-primary/80"
+              className="font-medium text-blue-700 hover:text-blue-800"
             >
               Add to Plan
             </button>
             {isAddToPlanOpen && (
-              <div className="absolute left-0 top-full mt-2 w-64 rounded-xl border border-slate-800 bg-slate-950 p-2 shadow-xl z-10">
+              <div className="absolute left-0 top-full z-10 mt-2 w-64 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
                 <p className="mb-2 px-2 text-xs font-medium text-slate-500">Select Test Plan</p>
-                <div className="max-h-48 overflow-y-auto space-y-1">
+                <div className="max-h-48 space-y-1 overflow-y-auto">
                   {testPlans?.map((plan: any) => (
                     <button
                       key={plan.id}
                       onClick={() => addToPlanMutation.mutate(plan.id)}
                       disabled={addToPlanMutation.isPending}
-                      className="w-full rounded px-2 py-1.5 text-left text-sm text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-50"
+                      className="w-full rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50"
                     >
                       {plan.name}
                     </button>
@@ -320,7 +320,7 @@ export function TestCasesPage() {
           </div>
           <button
             onClick={() => setSelectedIds(new Set())}
-            className="ml-auto text-muted-foreground hover:text-foreground"
+            className="ml-auto text-slate-600 hover:text-slate-900"
           >
             Cancel
           </button>
@@ -328,89 +328,89 @@ export function TestCasesPage() {
       )}
 
       {/* Table */}
-      <div className="rounded-xl border border-border bg-card/40 overflow-hidden">
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         {isLoading ? (
           <div className="p-6">
             <LoadingSkeleton count={5} />
           </div>
         ) : error ? (
           <div className="p-8 text-center">
-            <FileText className="h-12 w-12 mx-auto text-destructive/50 mb-4" />
-            <p className="text-destructive">{(error as Error).message}</p>
+            <FileText className="mx-auto mb-3 h-10 w-10 text-red-400" />
+            <p className="text-sm text-red-600">{(error as Error).message}</p>
           </div>
         ) : (
           <table className="w-full text-left text-sm">
-            <thead className="bg-muted/50 text-xs uppercase font-medium text-muted-foreground">
+            <thead className="border-b border-slate-200 bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="w-10 px-6 py-4">
+                <th className="w-10 px-6 py-3">
                   <input
                     type="checkbox"
                     checked={filteredRows.length > 0 && selectedIds.size === filteredRows.length}
                     onChange={toggleSelectAll}
-                    className="rounded border-slate-700 bg-slate-800 text-primary focus:ring-primary"
+                    className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
                   />
                 </th>
-                <th className="px-6 py-4">Key</th>
-                <th className="px-6 py-4">Name</th>
-                <th className="px-6 py-4">Priority</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 text-right">Actions</th>
+                <th className="px-6 py-3">Key</th>
+                <th className="px-6 py-3">Name</th>
+                <th className="px-6 py-3">Priority</th>
+                <th className="px-6 py-3">Status</th>
+                <th className="px-6 py-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-y divide-slate-200">
               {filteredRows.map((testCase) => (
                 <tr
                   key={testCase.id}
                   onClick={() => router.push(`/projects/${projectKey}/testcases/${testCase.id}`)}
-                  className={`group hover:bg-muted/30 transition-colors cursor-pointer ${selectedIds.has(testCase.id) ? "bg-primary/5" : ""}`}
+                  className={`group cursor-pointer transition-colors hover:bg-slate-50 ${selectedIds.has(testCase.id) ? "bg-blue-50/50" : ""}`}
                 >
-                  <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                  <td className="px-6 py-3.5" onClick={(e) => e.stopPropagation()}>
                     <input
                       type="checkbox"
                       checked={selectedIds.has(testCase.id)}
                       onChange={() => toggleSelect(testCase.id)}
-                      className="rounded border-slate-700 bg-slate-800 text-primary focus:ring-primary"
+                      className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
                     />
                   </td>
-                  <td className="px-6 py-4 font-medium text-muted-foreground">{testCase.key}</td>
-                  <td className="px-6 py-4 font-medium text-foreground group-hover:text-primary transition-colors">
+                  <td className="px-6 py-3.5 font-mono text-xs font-semibold text-slate-600">{testCase.key}</td>
+                  <td className="px-6 py-3.5 font-medium text-slate-900 transition-colors group-hover:text-blue-600">
                     <div className="flex items-center gap-2">
                       <span>{testCase.name}</span>
                       {testCase.type && testCase.type !== "MANUAL" && (
-                        <span className="rounded bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-bold text-cyan-400 ring-1 ring-inset ring-cyan-500/20">
+                        <span className="rounded border border-cyan-200 bg-cyan-50 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-700">
                           {testCase.type === "CUCUMBER" ? "BDD" : "GEN"}
                         </span>
                       )}
                       {testCase.isAutomated && (
-                        <span className="rounded bg-purple-500/10 px-1.5 py-0.5 text-[10px] font-bold text-purple-400 ring-1 ring-inset ring-purple-500/20">
+                        <span className="rounded border border-purple-200 bg-purple-50 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700">
                           AUTO
                         </span>
                       )}
                       {testCase.isFlaky && (
-                        <span className="rounded bg-orange-500/10 px-1.5 py-0.5 text-[10px] font-bold text-orange-400 ring-1 ring-inset ring-orange-500/20">
+                        <span className="rounded border border-orange-200 bg-orange-50 px-1.5 py-0.5 text-[10px] font-semibold text-orange-700">
                           FLAKY
                         </span>
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${testCase.priority === 'CRITICAL' ? 'bg-red-400/10 text-red-400 ring-red-400/20' :
-                      testCase.priority === 'HIGH' ? 'bg-orange-400/10 text-orange-400 ring-orange-400/20' :
-                        testCase.priority === 'MEDIUM' ? 'bg-blue-400/10 text-blue-400 ring-blue-400/20' :
-                          'bg-slate-400/10 text-slate-400 ring-slate-400/20'
+                  <td className="px-6 py-3.5">
+                    <span className={`inline-flex items-center rounded border px-2 py-0.5 text-xs font-medium ${testCase.priority === 'CRITICAL' ? 'border-red-200 bg-red-50 text-red-700' :
+                      testCase.priority === 'HIGH' ? 'border-orange-200 bg-orange-50 text-orange-700' :
+                        testCase.priority === 'MEDIUM' ? 'border-blue-200 bg-blue-50 text-blue-700' :
+                          'border-slate-200 bg-slate-100 text-slate-700'
                       }`}>
                       {testCase.priority}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-muted-foreground">{testCase.status}</td>
-                  <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                  <td className="px-6 py-3.5 text-slate-600">{testCase.status}</td>
+                  <td className="px-6 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
                         setItemToDelete(testCase.id);
                       }}
-                      className="text-slate-500 hover:text-red-400 p-1"
+                      className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
                       title="Delete Test Case"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -421,14 +421,14 @@ export function TestCasesPage() {
               {filteredRows.length === 0 && !isLoading && (
                 <tr>
                   <td colSpan={6} className="px-4 py-12 text-center">
-                    <FileText className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
-                    <p className="text-muted-foreground">
+                    <FileText className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                    <p className="text-sm text-slate-500">
                       {hasActiveFilters ? "No test cases match your filters." : "No test cases found. Create one to get started."}
                     </p>
                     {hasActiveFilters && (
                       <button
                         onClick={clearFilters}
-                        className="mt-2 text-sm text-primary hover:underline"
+                        className="mt-2 text-sm font-medium text-blue-600 hover:underline"
                       >
                         Clear filters
                       </button>

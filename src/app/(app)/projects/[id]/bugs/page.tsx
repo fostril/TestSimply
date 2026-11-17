@@ -124,16 +124,16 @@ export default function BugsPage() {
     };
 
     return (
-        <div className="px-8 py-6 space-y-6">
+        <div className="mx-auto max-w-6xl space-y-6 px-8 py-6">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground">Bugs</h1>
-                    <p className="text-sm text-muted-foreground">Track defects and issues.</p>
+                    <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Bugs</h1>
+                    <p className="mt-1 text-sm text-slate-600">Track defects and issues.</p>
                 </div>
                 <Link
                     href={`/projects/${projectKey}/bugs/new`}
-                    className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all"
+                    className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
                 >
                     Report Bug
                 </Link>
@@ -141,20 +141,20 @@ export default function BugsPage() {
 
             {/* Filters */}
             <div className="flex flex-wrap items-center gap-3">
-                <div className="relative flex-1 min-w-[200px] max-w-md">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <div className="relative min-w-[200px] max-w-md flex-1">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <input
                         type="text"
                         placeholder="Search by key or summary..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 rounded-lg border border-border bg-card text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        className="w-full rounded-md border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                     />
                 </div>
                 <select
                     value={priorityFilter}
                     onChange={(e) => setPriorityFilter(e.target.value)}
-                    className="px-3 py-2 rounded-lg border border-border bg-card text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                 >
                     {PRIORITIES.map(p => (
                         <option key={p} value={p}>{p === "ALL" ? "All Priorities" : p}</option>
@@ -163,7 +163,7 @@ export default function BugsPage() {
                 <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="px-3 py-2 rounded-lg border border-border bg-card text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                 >
                     {STATUSES.map(s => (
                         <option key={s} value={s}>{s === "ALL" ? "All Statuses" : s.replace("_", " ")}</option>
@@ -172,7 +172,7 @@ export default function BugsPage() {
                 {hasActiveFilters && (
                     <button
                         onClick={clearFilters}
-                        className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
+                        className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                     >
                         <X className="h-4 w-4" />
                         Clear
@@ -182,20 +182,20 @@ export default function BugsPage() {
 
             {/* Bulk Actions */}
             {selectedIds.size > 0 && (
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/10 border border-primary/20">
-                    <span className="text-sm text-foreground font-medium">
+                <div className="flex items-center gap-3 rounded-md border border-blue-200 bg-blue-50 p-3">
+                    <span className="text-sm font-medium text-slate-900">
                         {selectedIds.size} selected
                     </span>
                     <button
                         onClick={() => setShowBulkDelete(true)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors"
+                        className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100"
                     >
                         <Trash2 className="h-4 w-4" />
                         Delete Selected
                     </button>
                     <button
                         onClick={() => setSelectedIds(new Set())}
-                        className="px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground transition-colors"
+                        className="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:text-slate-900"
                     >
                         Cancel
                     </button>
@@ -203,57 +203,57 @@ export default function BugsPage() {
             )}
 
             {/* Table */}
-            <div className="overflow-hidden rounded-2xl border border-border bg-card/50">
+            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
                 {isLoading ? (
                     <div className="p-6">
                         <LoadingSkeleton count={5} />
                     </div>
                 ) : error ? (
                     <div className="p-8 text-center">
-                        <Bug className="h-12 w-12 mx-auto text-destructive/50 mb-4" />
-                        <p className="text-destructive">{(error as Error).message}</p>
+                        <Bug className="mx-auto mb-3 h-10 w-10 text-red-400" />
+                        <p className="text-sm text-red-600">{(error as Error).message}</p>
                     </div>
                 ) : (
-                    <table className="min-w-full divide-y divide-border text-sm">
-                        <thead className="bg-card/80">
+                    <table className="min-w-full divide-y divide-slate-200 text-sm">
+                        <thead className="bg-slate-50">
                             <tr>
-                                <th className="px-4 py-3 text-left w-10">
+                                <th className="w-10 px-4 py-3 text-left">
                                     <input
                                         type="checkbox"
                                         checked={filteredBugs.length > 0 && selectedIds.size === filteredBugs.length}
                                         onChange={toggleSelectAll}
-                                        className="rounded border-border bg-card text-primary focus:ring-primary"
+                                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
                                     />
                                 </th>
-                                <th className="px-4 py-3 text-left font-medium uppercase tracking-wide text-muted-foreground">Key</th>
-                                <th className="px-4 py-3 text-left font-medium uppercase tracking-wide text-muted-foreground">Summary</th>
-                                <th className="px-4 py-3 text-left font-medium uppercase tracking-wide text-muted-foreground">Priority</th>
-                                <th className="px-4 py-3 text-left font-medium uppercase tracking-wide text-muted-foreground">Status</th>
-                                <th className="px-4 py-3 text-left w-10"></th>
+                                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Key</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Summary</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Priority</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Status</th>
+                                <th className="w-10 px-4 py-3 text-left"></th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-border">
+                        <tbody className="divide-y divide-slate-200">
                             {filteredBugs.map((bug) => (
                                 <tr
                                     key={bug.id}
-                                    className="hover:bg-card/60 cursor-pointer transition-colors group"
+                                    className="group cursor-pointer transition-colors hover:bg-slate-50"
                                 >
                                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                                         <input
                                             type="checkbox"
                                             checked={selectedIds.has(bug.id)}
                                             onChange={() => toggleSelect(bug.id)}
-                                            className="rounded border-border bg-card text-primary focus:ring-primary"
+                                            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
                                         />
                                     </td>
                                     <td
-                                        className="px-4 py-3 text-foreground font-medium"
+                                        className="px-4 py-3 font-mono text-xs font-semibold text-slate-900"
                                         onClick={() => router.push(`/projects/${projectKey}/bugs/${bug.key}`)}
                                     >
                                         {bug.key}
                                     </td>
                                     <td
-                                        className="px-4 py-3 text-foreground"
+                                        className="px-4 py-3 text-slate-900"
                                         onClick={() => router.push(`/projects/${projectKey}/bugs/${bug.key}`)}
                                     >
                                         {bug.summary}
@@ -262,10 +262,10 @@ export default function BugsPage() {
                                         className="px-4 py-3"
                                         onClick={() => router.push(`/projects/${projectKey}/bugs/${bug.key}`)}
                                     >
-                                        <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${bug.priority === 'CRITICAL' ? 'bg-red-400/10 text-red-400 ring-red-400/20' :
-                                            bug.priority === 'HIGH' ? 'bg-orange-400/10 text-orange-400 ring-orange-400/20' :
-                                                bug.priority === 'MEDIUM' ? 'bg-blue-400/10 text-blue-400 ring-blue-400/20' :
-                                                    'bg-muted text-muted-foreground ring-muted'
+                                        <span className={`inline-flex items-center rounded border px-2 py-0.5 text-xs font-medium ${bug.priority === 'CRITICAL' ? 'border-red-200 bg-red-50 text-red-700' :
+                                            bug.priority === 'HIGH' ? 'border-orange-200 bg-orange-50 text-orange-700' :
+                                                bug.priority === 'MEDIUM' ? 'border-blue-200 bg-blue-50 text-blue-700' :
+                                                    'border-slate-200 bg-slate-100 text-slate-700'
                                             }`}>
                                             {bug.priority}
                                         </span>
@@ -274,9 +274,9 @@ export default function BugsPage() {
                                         className="px-4 py-3"
                                         onClick={() => router.push(`/projects/${projectKey}/bugs/${bug.key}`)}
                                     >
-                                        <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${bug.status === 'RESOLVED' || bug.status === 'CLOSED' ? 'bg-green-400/10 text-green-400 ring-green-400/20' :
-                                            bug.status === 'IN_PROGRESS' ? 'bg-blue-400/10 text-blue-400 ring-blue-400/20' :
-                                                'bg-muted text-muted-foreground ring-muted'
+                                        <span className={`inline-flex items-center rounded border px-2 py-0.5 text-xs font-medium ${bug.status === 'RESOLVED' || bug.status === 'CLOSED' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' :
+                                            bug.status === 'IN_PROGRESS' ? 'border-blue-200 bg-blue-50 text-blue-700' :
+                                                'border-slate-200 bg-slate-100 text-slate-700'
                                             }`}>
                                             {bug.status.replace("_", " ")}
                                         </span>
@@ -284,7 +284,7 @@ export default function BugsPage() {
                                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                                         <button
                                             onClick={() => setItemToDelete(bug.id)}
-                                            className="opacity-0 group-hover:opacity-100 p-2 text-muted-foreground hover:text-red-400 transition-all"
+                                            className="rounded p-1.5 text-slate-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
                                             title="Delete Bug"
                                         >
                                             <Trash2 className="h-4 w-4" />
@@ -295,14 +295,14 @@ export default function BugsPage() {
                             {filteredBugs.length === 0 && !isLoading && (
                                 <tr>
                                     <td colSpan={6} className="px-4 py-12 text-center">
-                                        <Bug className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
-                                        <p className="text-muted-foreground">
+                                        <Bug className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                                        <p className="text-sm text-slate-500">
                                             {hasActiveFilters ? "No bugs match your filters." : "No bugs found. Report one to get started."}
                                         </p>
                                         {hasActiveFilters && (
                                             <button
                                                 onClick={clearFilters}
-                                                className="mt-2 text-sm text-primary hover:underline"
+                                                className="mt-2 text-sm font-medium text-blue-600 hover:underline"
                                             >
                                                 Clear filters
                                             </button>

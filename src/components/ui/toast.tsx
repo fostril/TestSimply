@@ -32,10 +32,10 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
       {children}
       <div className="pointer-events-none fixed right-4 top-4 z-50 flex flex-col gap-2">
         {visible && toast ? (
-          <div className="w-72 rounded-xl border border-slate-800 bg-slate-950/90 p-4 text-white shadow-2xl">
+          <div className="w-80 rounded-lg border border-slate-200 bg-white p-4 text-slate-900 shadow-lg">
             <p className="text-sm font-semibold">{toast.title}</p>
             {toast.description ? (
-              <p className="mt-1 text-xs text-slate-300">{toast.description}</p>
+              <p className="mt-1 text-xs text-slate-600">{toast.description}</p>
             ) : null}
           </div>
         ) : null}

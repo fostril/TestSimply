@@ -3,8 +3,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
-import { cn } from "@/lib/utils";
 import { useProjectStore } from "@/lib/stores/project-store";
 
 export function ProjectSwitcher() {
@@ -19,7 +20,7 @@ export function ProjectSwitcher() {
       const res = await fetch("/api/projects");
       if (!res.ok) throw new Error("Failed to load projects");
       return res.json();
-    }
+    },
   });
   const projectId = useProjectStore((state) => state.projectId);
   const setProject = useProjectStore((state) => state.setProject);
@@ -42,7 +43,6 @@ export function ProjectSwitcher() {
       toast({ title: "Project deleted" });
       setProjectToDelete(null);
       queryClient.invalidateQueries({ queryKey: ["projects"] });
-      // If we deleted the active project, switch to another one or clear selection
       if (projectToDelete === projectId) {
         const remaining = data?.filter((p: any) => p.id !== projectToDelete) || [];
         if (remaining.length > 0) {
@@ -56,29 +56,44 @@ export function ProjectSwitcher() {
     },
     onError: (err) => {
       toast({ title: "Failed to delete project", description: (err as Error).message });
-    }
+    },
   });
+
+  const handleProjectChange = (selectedId: string) => {
+    const project = (data ?? []).find((p: any) => p.id === selectedId);
+    if (!project) return;
+    setProject({ id: project.id, key: project.key });
+
+    const path = window.location.pathname;
+    const parts = path.split("/");
+    if (parts[1] === "projects" && parts[2]) {
+      parts[2] = project.key;
+      router.push(parts.join("/"));
+    } else {
+      router.push(`/projects/${project.key}`);
+    }
+  };
 
   return (
     <>
       {projectToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-6 shadow-2xl">
-            <h2 className="text-xl font-semibold text-white">Delete Project?</h2>
-            <p className="mt-2 text-sm text-slate-400">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50">
+          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-lg">
+            <h2 className="text-lg font-semibold text-slate-900">Delete Project?</h2>
+            <p className="mt-2 text-sm text-slate-600">
               Are you sure you want to delete this project? This action cannot be undone and will delete all test cases, executions, and results associated with it.
             </p>
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="mt-6 flex justify-end gap-2">
               <button
                 onClick={() => setProjectToDelete(null)}
-                className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
                 Cancel
               </button>
               <button
                 onClick={() => deleteMutation.mutate(projectToDelete)}
                 disabled={deleteMutation.isPending}
-                className="rounded-full bg-red-500 px-5 py-2 text-sm font-semibold text-white shadow-lg hover:bg-red-600 disabled:opacity-50"
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
               >
                 {deleteMutation.isPending ? "Deleting..." : "Delete"}
               </button>
@@ -87,61 +102,47 @@ export function ProjectSwitcher() {
         </div>
       )}
 
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Projects</p>
-        <div className="mt-3 max-h-48 space-y-2 overflow-y-auto pr-1 scrollbar-thin scrollbar-track-slate-800 scrollbar-thumb-slate-600">
-          {(data ?? []).map((project: any) => (
-            <div key={project.id} className="group relative flex items-center">
+      <div className="space-y-2 border-b border-slate-200 pb-4">
+        <div className="flex items-center justify-between px-1">
+          <label htmlFor="project-switcher-select" className="text-xs font-medium text-slate-500">
+            Project
+          </label>
+          <div className="flex items-center gap-1">
+            {projectId ? (
               <button
                 type="button"
-                onClick={() => {
-                  setProject({ id: project.id, key: project.key });
-
-                  // Get current path segments
-                  const path = window.location.pathname;
-                  const parts = path.split("/");
-                  // Expected format: /projects/[key]/[section]
-                  // parts: ["", "projects", "OLD_KEY", "section", ...]
-
-                  if (parts[1] === "projects" && parts[2]) {
-                    // Replace the key (index 2) with new project key
-                    parts[2] = project.key;
-                    const newPath = parts.join("/");
-                    router.push(newPath);
-                  } else {
-                    // Fallback to dashboard
-                    router.push(`/projects/${project.key}`);
-                  }
-                }}
-                className={cn(
-                  "w-full rounded-xl px-3 py-2 text-left text-sm text-slate-300 transition hover:bg-slate-800",
-                  projectId === project.id ? "bg-slate-800 text-white" : ""
-                )}
+                onClick={() => setProjectToDelete(projectId)}
+                className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                title="Delete current project"
               >
-                <div className="font-medium">{project.name}</div>
-                <div className="text-xs text-slate-500">{project.key}</div>
+                <Trash2 className="h-3.5 w-3.5" />
               </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setProjectToDelete(project.id);
-                }}
-                className="absolute right-2 hidden rounded-lg p-1 text-slate-500 hover:bg-red-500/10 hover:text-red-400 group-hover:block"
-                title="Delete Project"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          ))}
+            ) : null}
+            <Link
+              href="/projects/new"
+              className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium text-blue-600 hover:bg-blue-50"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              New
+            </Link>
+          </div>
         </div>
-        <a
-          href="/projects/new"
-          className="mt-4 inline-flex w-full items-center justify-center rounded-xl border border-dashed border-slate-700 px-3 py-2 text-xs font-medium text-slate-400 transition hover:border-brand hover:text-white"
+        <select
+          id="project-switcher-select"
+          value={projectId ?? ""}
+          onChange={(e) => handleProjectChange(e.target.value)}
+          className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm font-medium text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
         >
-          + New project
-        </a>
+          {(data ?? []).length === 0 ? (
+            <option value="">No projects</option>
+          ) : (
+            (data ?? []).map((project: any) => (
+              <option key={project.id} value={project.id}>
+                {project.name} ({project.key})
+              </option>
+            ))
+          )}
+        </select>
       </div>
     </>
   );

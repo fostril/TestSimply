@@ -20,22 +20,24 @@ export function ExecutionSummary() {
       const res = await fetch(`/api/reports/recent-executions${projectId ? `?projectId=${projectId}` : ""}`);
       if (!res.ok) throw new Error("Failed to load executions");
       return res.json();
-    }
+    },
   });
 
   return (
-    <div className="mt-4 space-y-4">
+    <div className="mt-4 space-y-3">
       {(data ?? []).map((execution) => (
-        <div key={execution.id} className="rounded-xl border border-slate-800 bg-slate-950/50 p-4">
+        <div key={execution.id} className="rounded-md border border-slate-200 bg-slate-50 p-3.5">
           <div className="flex items-center justify-between gap-4 text-sm font-medium">
-            <span className="truncate text-slate-200">
+            <span className="truncate text-slate-900">
               {execution.key} · {execution.name}
             </span>
-            <span className="flex-shrink-0 text-xs uppercase tracking-wide text-slate-400">{execution.status}</span>
+            <span className="flex-shrink-0 rounded border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-600">
+              {execution.status}
+            </span>
           </div>
-          <div className="mt-3 h-2 rounded-full bg-slate-800">
+          <div className="mt-2.5 h-2 rounded-full bg-slate-200">
             <div
-              className="h-full rounded-full bg-emerald-500"
+              className="h-full rounded-full bg-emerald-600"
               style={{ width: `${execution.passRate}%` }}
             />
           </div>
