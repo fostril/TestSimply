@@ -31,8 +31,24 @@ const mapStatus = (status?: string) => {
   if (normalized === "skipped" || normalized === "pending") {
     return TestStatus.SKIPPED;
   }
-  if (normalized === "failed" || normalized === "undefined") {
+  if (normalized === "blocked") {
+    return TestStatus.BLOCKED;
+  }
+  if (normalized === "failed" || normalized === "undefined" || normalized === "ambiguous") {
     return TestStatus.FAIL;
+  }
+  return TestStatus.PASS;
+};
+
+const aggregateStepStatus = (steps: Array<{ status: TestStatus }>): TestStatus => {
+  if (steps.some((step) => step.status === TestStatus.FAIL)) {
+    return TestStatus.FAIL;
+  }
+  if (steps.some((step) => step.status === TestStatus.BLOCKED)) {
+    return TestStatus.BLOCKED;
+  }
+  if (steps.some((step) => step.status === TestStatus.SKIPPED)) {
+    return TestStatus.SKIPPED;
   }
   return TestStatus.PASS;
 };
@@ -131,9 +147,7 @@ export const importCucumber = async (
         await upsertTestResult(tx, {
           executionId: options.executionId,
           caseId: testCase.id,
-          status: stepsLog.some((step) => step.status === TestStatus.FAIL)
-            ? TestStatus.FAIL
-            : TestStatus.PASS,
+          status: aggregateStepStatus(stepsLog),
           durationMs: duration ? Math.round(duration / 1_000_000) : null,
           errorMessage:
             stepsLog.find((step) => step.status === TestStatus.FAIL)?.error ?? null,
