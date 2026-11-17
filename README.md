@@ -119,6 +119,7 @@ Duplicate `.env.example` to `.env` and fill in values. The full list:
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `DATABASE_URL` | **yes** | Postgres connection string. Example: `postgresql://postgres:postgres@localhost:5432/testsimplify` |
+| `POSTGRES_PASSWORD` | **yes (Docker)** | Password for the bundled Postgres container in `docker-compose.yml`. Change from `postgres` in production. |
 | `NEXTAUTH_URL` | **yes** | Public URL the app is served from (e.g. `https://testsimply.mycorp.net`). |
 | `NEXTAUTH_SECRET` | **yes** | Used to sign session/JWT cookies. Generate with `openssl rand -base64 32`. |
 | `ENCRYPTION_KEY` | **yes in prod** | Encrypts stored Jira / CI API tokens. Generate with `openssl rand -base64 32`. The app fails to start in production without this. |
@@ -131,7 +132,8 @@ Duplicate `.env.example` to `.env` and fill in values. The full list:
 | `GOOGLE_ALLOWED_DOMAIN` | no | Restricts Google sign-in to a single workspace domain (e.g. `mycorp.com`). |
 | `TRUSTED_PROXY` | no | Set to `true` so `X-Forwarded-For` / `X-Real-IP` are honoured behind a reverse proxy. |
 | `ALLOW_PRIVATE_NETWORK_URLS` | no | Set to `true` to allow Jira/CI integrations to point at private IPs (disabled by default to mitigate SSRF). |
-| `UPLOAD_DIR` | no | Directory used to persist attachments on disk. Defaults to `./uploads`. |
+| `UPLOAD_DIR` | no | Directory used to persist attachments on disk. Defaults to `./uploads` (`/app/uploads` in Docker). |
+| `REDIS_URL` | no | Optional Redis URL for shared rate-limiter storage (falls back to in-memory store). |
 | `LOG_LEVEL` | no | `trace` / `debug` / `info` / `warn` / `error` / `fatal`. Defaults to `info`. |
 
 Generate the two required secrets with:
@@ -219,9 +221,9 @@ cp .env.example .env
 #   DATABASE_URL, NEXTAUTH_URL, NEXTAUTH_SECRET, ENCRYPTION_KEY,
 #   EMAIL_SERVER / EMAIL_FROM, POSTGRES_PASSWORD (for the bundled db).
 
-# 3. build and launch
-docker compose build
-docker compose up -d
+# 3. build and launch (use `-f docker-compose.yml` in production to exclude dev Mailhog & exposed DB port)
+docker compose -f docker-compose.yml build
+docker compose -f docker-compose.yml up -d
 
 # 4. apply migrations (first boot only, or after every upgrade)
 docker compose exec app npx prisma migrate deploy
@@ -429,7 +431,8 @@ interactive exploration.
 - **Test plans & sets** — bundle cases for releases, reorder, pick environments.
 - **Test executions** — ad-hoc or plan-driven, with multi-environment results.
 - **Manual runner** — per-step PASS / FAIL / BLOCKED / SKIPPED with Actual
-  result and Comments fields, bug linking, Jira issue creation, CSV export.
+  result and Comments fields, file attachments, bug linking, configurable Jira
+  issue creation, CSV export.
 - **Automated imports** — JUnit XML and Cucumber JSON with optional
   auto-creation of test cases and executions.
 - **Requirements** — first-class `Requirement` entity with a searchable
