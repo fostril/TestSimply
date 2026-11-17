@@ -191,4 +191,42 @@ describe("POST /api/import/junit", () => {
       }),
     );
   });
+
+  it("updates existing result on repeated import instead of duplicating", async () => {
+    const storedResults: Array<{ id: string; executionId: string; caseId: string; status: TestStatus }> = [];
+    mockPrisma.testExecution.findFirst.mockResolvedValue({ id: "exec-1", projectId: "proj-1", key: "CI-1" });
+    mockPrisma.testResult.findFirst.mockImplementation(async ({ where }: any) => {
+      return storedResults.find((r) => r.executionId === where.executionId && r.caseId === where.caseId) ?? null;
+    });
+    mockPrisma.testResult.create.mockImplementation(async ({ data }: any) => {
+      const row = { id: `res-${storedResults.length + 1}`, ...data };
+      storedResults.push(row);
+      return row;
+    });
+    mockPrisma.testResult.update.mockImplementation(async ({ where, data }: any) => {
+      const row = storedResults.find((r) => r.id === where.id)!;
+      Object.assign(row, data);
+      return row;
+    });
+
+    const xmlPass = `<testsuite><testcase name="ALPHA_TC_1" time="0.1"/></testsuite>`;
+    const xmlFail = `<testsuite><testcase name="ALPHA_TC_1" time="0.2"><failure>oops</failure></testcase></testsuite>`;
+
+    const res1 = await POST(
+      makeJUnitRequest("?projectKey=ALPHA&execKey=CI-1", { content: xmlPass, name: "r.xml", type: "application/xml" }),
+      {},
+    );
+    expect(res1.status).toBe(200);
+    expect(storedResults).toHaveLength(1);
+    expect(storedResults[0].status).toBe(TestStatus.PASS);
+
+    const res2 = await POST(
+      makeJUnitRequest("?projectKey=ALPHA&execKey=CI-1", { content: xmlFail, name: "r.xml", type: "application/xml" }),
+      {},
+    );
+    expect(res2.status).toBe(200);
+    expect(storedResults).toHaveLength(1);
+    expect(storedResults[0].status).toBe(TestStatus.FAIL);
+    expect(mockPrisma.testResult.update).toHaveBeenCalledTimes(1);
+  });
 });

@@ -1,7 +1,7 @@
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 
 export async function generateEntityKey(
-    prisma: PrismaClient,
+    prisma: PrismaClient | Prisma.TransactionClient,
     projectId: string,
     projectKey: string,
     type: "TC" | "TSET" | "PLAN" | "PRECON" | "ENV" | "EXEC" | "BUG" | "REQ"

@@ -2,6 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 import { TestStatus } from "@prisma/client";
 import { prisma as defaultClient } from "@/lib/prisma";
 import { generateEntityKey } from "@/lib/keys";
+import { upsertTestResult } from "@/lib/importers/shared";
 
 export type ImportOptions = {
   projectId: string;
@@ -48,86 +49,86 @@ export const importCucumber = async (
   options: ImportOptions,
   client: PrismaClient = defaultClient,
 ) => {
-  let projectPromise: Promise<{ key: string }> | null = null;
-  const getProject = () => {
-    if (!projectPromise) {
-      projectPromise = client.project
-        .findUnique({
-          where: { id: options.projectId },
-          select: { key: true },
-        })
-        .then((p) => {
-          if (!p) throw new Error(`Project ${options.projectId} not found`);
-          return p;
-        });
-    }
-    return projectPromise;
-  };
-
-  for (const rawFeature of json) {
-    const feature = rawFeature as CucumberFeature;
-    for (const scenario of feature.elements ?? []) {
-      const tagKeys = (scenario.tags ?? [])
-        .map((tag) => cleanString(tag?.name))
-        .filter((tag): tag is string => Boolean(tag));
-
-      const tagDerivedKey = tagKeys.find((tag) => tag.startsWith("@"));
-      const providedKey = tagDerivedKey ? tagDerivedKey.replace(/^@/, "") : null;
-      const scenarioName = cleanString(scenario?.name);
-
-      if (!scenarioName && !providedKey) {
-        continue;
+  await client.$transaction(async (tx) => {
+    let projectPromise: Promise<{ key: string }> | null = null;
+    const getProject = () => {
+      if (!projectPromise) {
+        projectPromise = tx.project
+          .findUnique({
+            where: { id: options.projectId },
+            select: { key: true },
+          })
+          .then((p) => {
+            if (!p) throw new Error(`Project ${options.projectId} not found`);
+            return p;
+          });
       }
+      return projectPromise;
+    };
 
-      const orFilters = [];
-      if (providedKey) orFilters.push({ key: providedKey });
-      if (scenarioName) orFilters.push({ name: scenarioName });
+    for (const rawFeature of json) {
+      const feature = rawFeature as CucumberFeature;
+      for (const scenario of feature.elements ?? []) {
+        const tagKeys = (scenario.tags ?? [])
+          .map((tag) => cleanString(tag?.name))
+          .filter((tag): tag is string => Boolean(tag));
 
-      let testCase = await client.testCase.findFirst({
-        where: {
-          projectId: options.projectId,
-          OR: orFilters,
-        },
-      });
+        const tagDerivedKey = tagKeys.find((tag) => tag.startsWith("@"));
+        const providedKey = tagDerivedKey ? tagDerivedKey.replace(/^@/, "") : null;
+        const scenarioName = cleanString(scenario?.name);
 
-      if (!testCase && options.autoCreateCases) {
-        const project = await getProject();
-        const newKey = providedKey
-          ? providedKey
-          : await generateEntityKey(client, options.projectId, project.key, "TC");
+        if (!scenarioName && !providedKey) {
+          continue;
+        }
 
-        testCase = await client.testCase.create({
-          data: {
+        const orFilters = [];
+        if (providedKey) orFilters.push({ key: providedKey });
+        if (scenarioName) orFilters.push({ name: scenarioName });
+
+        let testCase = await tx.testCase.findFirst({
+          where: {
             projectId: options.projectId,
-            key: newKey,
-            name: scenarioName || newKey,
-            steps: (scenario.steps ?? [])
-              .map((step) => ({
-                action: cleanString(step?.name) || "",
-                expected: "",
-              }))
-              .filter((step) => step.action.length > 0),
-            status: "Imported",
-            tags: tagKeys.map((tag) => tag.replace(/^@/, "")),
-            component: cleanString(feature?.name) || null,
+            OR: orFilters,
           },
         });
-      }
-      if (!testCase) continue;
 
-      const stepsLog = (scenario.steps ?? []).map((step) => ({
-        name: cleanString(step?.name) || "",
-        status: mapStatus(step?.result?.status),
-        error: cleanString(step?.result?.error_message),
-      }));
+        if (!testCase && options.autoCreateCases) {
+          const project = await getProject();
+          const newKey = providedKey
+            ? providedKey
+            : await generateEntityKey(tx, options.projectId, project.key, "TC");
 
-      const duration = (scenario.steps ?? []).reduce(
-        (sum, step) => sum + (step?.result?.duration ?? 0),
-        0,
-      );
+          testCase = await tx.testCase.create({
+            data: {
+              projectId: options.projectId,
+              key: newKey,
+              name: scenarioName || newKey,
+              steps: (scenario.steps ?? [])
+                .map((step) => ({
+                  action: cleanString(step?.name) || "",
+                  expected: "",
+                }))
+                .filter((step) => step.action.length > 0),
+              status: "Imported",
+              tags: tagKeys.map((tag) => tag.replace(/^@/, "")),
+              component: cleanString(feature?.name) || null,
+            },
+          });
+        }
+        if (!testCase) continue;
 
-      await client.testResult.create({
-        data: {
+        const stepsLog = (scenario.steps ?? []).map((step) => ({
+          name: cleanString(step?.name) || "",
+          status: mapStatus(step?.result?.status),
+          error: cleanString(step?.result?.error_message),
+        }));
+
+        const duration = (scenario.steps ?? []).reduce(
+          (sum, step) => sum + (step?.result?.duration ?? 0),
+          0,
+        );
+
+        await upsertTestResult(tx, {
           executionId: options.executionId,
           caseId: testCase.id,
           status: stepsLog.some((step) => step.status === TestStatus.FAIL)
@@ -137,8 +138,8 @@ export const importCucumber = async (
           errorMessage:
             stepsLog.find((step) => step.status === TestStatus.FAIL)?.error ?? null,
           stepsLog,
-        },
-      });
+        });
+      }
     }
-  }
+  });
 };

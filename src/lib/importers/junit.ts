@@ -3,6 +3,7 @@ import { TestStatus } from "@prisma/client";
 import { parseStringPromise } from "xml2js";
 import { prisma as defaultClient } from "@/lib/prisma";
 import { generateEntityKey } from "@/lib/keys";
+import { upsertTestResult } from "@/lib/importers/shared";
 
 export type ImportOptions = {
   projectId: string;
@@ -147,57 +148,57 @@ export const importJUnit = async (
   const cases =
     typeof xmlOrCases === "string" ? await parseJUnitXml(xmlOrCases) : xmlOrCases;
 
-  let projectPromise: Promise<{ key: string }> | null = null;
-  const getProject = () => {
-    if (!projectPromise) {
-      projectPromise = client.project
-        .findUnique({
-          where: { id: options.projectId },
-          select: { key: true },
-        })
-        .then((p) => {
-          if (!p) throw new Error(`Project ${options.projectId} not found`);
-          return p;
-        });
-    }
-    return projectPromise;
-  };
+  await client.$transaction(async (tx) => {
+    let projectPromise: Promise<{ key: string }> | null = null;
+    const getProject = () => {
+      if (!projectPromise) {
+        projectPromise = tx.project
+          .findUnique({
+            where: { id: options.projectId },
+            select: { key: true },
+          })
+          .then((p) => {
+            if (!p) throw new Error(`Project ${options.projectId} not found`);
+            return p;
+          });
+      }
+      return projectPromise;
+    };
 
-  for (const result of cases) {
-    const name = (result.name ?? "").trim();
-    if (!name) continue;
+    for (const result of cases) {
+      const name = (result.name ?? "").trim();
+      if (!name) continue;
 
-    let testCase = await client.testCase.findFirst({
-      where: {
-        projectId: options.projectId,
-        OR: [{ key: name }, { name }],
-      },
-    });
-    if (!testCase && options.autoCreateCases) {
-      const project = await getProject();
-      const generatedKey = await generateEntityKey(client, options.projectId, project.key, "TC");
-      testCase = await client.testCase.create({
-        data: {
+      let testCase = await tx.testCase.findFirst({
+        where: {
           projectId: options.projectId,
-          key: generatedKey,
-          name,
-          steps: [],
-          status: "Imported",
-          tags: ["imported"],
-          component: result.classname || null,
+          OR: [{ key: name }, { name }],
         },
       });
-    }
-    if (!testCase) continue;
-    await client.testResult.create({
-      data: {
+      if (!testCase && options.autoCreateCases) {
+        const project = await getProject();
+        const generatedKey = await generateEntityKey(tx, options.projectId, project.key, "TC");
+        testCase = await tx.testCase.create({
+          data: {
+            projectId: options.projectId,
+            key: generatedKey,
+            name,
+            steps: [],
+            status: "Imported",
+            tags: ["imported"],
+            component: result.classname || null,
+          },
+        });
+      }
+      if (!testCase) continue;
+      await upsertTestResult(tx, {
         executionId: options.executionId,
         caseId: testCase.id,
         status: mapStatus(result.status),
         durationMs: result.time ? Math.round(result.time) : null,
         errorMessage: result.failureMessage ?? null,
         stepsLog: undefined,
-      },
-    });
-  }
+      });
+    }
+  });
 };

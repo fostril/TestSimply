@@ -9,19 +9,22 @@ type PrismaMock = {
     create: (args: any) => Promise<any>;
   };
   testResult: {
+    findFirst: (args: any) => Promise<any>;
     create: (args: any) => Promise<any>;
+    update: (args: any) => Promise<any>;
   };
+  $transaction: (fn: (tx: any) => Promise<any>) => Promise<any>;
 };
 
 type CallTracker = {
   testCase: { findFirst: any[]; create: any[] };
-  testResult: { create: any[] };
+  testResult: { create: any[]; update: any[] };
 };
 
 const createPrismaMock = (): { mock: PrismaMock; calls: CallTracker } => {
   const calls: CallTracker = {
     testCase: { findFirst: [], create: [] },
-    testResult: { create: [] }
+    testResult: { create: [], update: [] }
   };
 
   const mock: PrismaMock = {
@@ -36,11 +39,17 @@ const createPrismaMock = (): { mock: PrismaMock; calls: CallTracker } => {
       }
     },
     testResult: {
+      findFirst: async () => null,
       create: async (args) => {
         calls.testResult.create.push(args);
-        return args;
+        return { id: "res-1", ...args.data };
+      },
+      update: async (args) => {
+        calls.testResult.update.push(args);
+        return { id: args.where.id, ...args.data };
       }
-    }
+    },
+    $transaction: async (fn) => fn(mock)
   };
 
   return { mock, calls };
