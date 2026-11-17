@@ -25,6 +25,7 @@ const schema = z.object({
   priority: z.string().default("MEDIUM"),
   status: z.string().optional(),
   component: z.string().optional(),
+  folderId: z.string().nullable().optional(),
   tags: z.string().optional(),
   steps: z.array(stepSchema).min(1, "Add at least one step"),
   isAutomated: z.boolean().default(false),
@@ -50,6 +51,16 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
     }
   });
 
+  const { data: folders } = useQuery<{ id: string; path: string; name: string }[]>({
+    queryKey: ["folders", projectId],
+    enabled: !!projectId,
+    queryFn: async () => {
+      const res = await fetch(`/api/folders?projectId=${projectId}`);
+      if (!res.ok) throw new Error("Failed to load folders");
+      return res.json();
+    },
+  });
+
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -61,6 +72,7 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
       priority: "MEDIUM",
       status: "Draft",
       component: "",
+      folderId: "",
       tags: "",
       steps: [{ action: "", data: "", expected: "" }],
       isAutomated: false,
@@ -82,6 +94,7 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
         priority: testCase.priority,
         status: testCase.status,
         component: testCase.component ?? "",
+        folderId: testCase.folderId ?? "",
         tags: testCase.tags.join(", "),
         steps: (testCase.steps as any[]).length > 0 ? (testCase.steps as any[]) : [{ action: "", data: "", expected: "" }],
         isAutomated: testCase.isAutomated ?? false,
@@ -95,6 +108,7 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
     mutationFn: async (values: FormValues) => {
       const payload = {
         ...values,
+        folderId: values.folderId || null,
         tags: values.tags ? values.tags.split(",").map((tag) => tag.trim()).filter(Boolean) : []
       };
       const res = await fetch(`/api/testcases/${params.caseId}`, {
@@ -112,10 +126,36 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
       toast({ title: "Test case updated" });
       setIsEditing(false);
       queryClient.invalidateQueries({ queryKey: ["testcase", params.caseId] });
+      queryClient.invalidateQueries({ queryKey: ["testcases", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["folders", projectId] });
     },
     onError: (err) => {
       toast({ title: "Update failed", description: err.message });
     }
+  });
+
+  const moveFolderMutation = useMutation({
+    mutationFn: async (folderId: string | null) => {
+      const res = await fetch(`/api/testcases/${params.caseId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folderId }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "Failed to update folder");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Folder updated" });
+      queryClient.invalidateQueries({ queryKey: ["testcase", params.caseId] });
+      queryClient.invalidateQueries({ queryKey: ["testcases", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["folders", projectId] });
+    },
+    onError: (err) => {
+      toast({ title: "Failed to update folder", description: (err as Error).message });
+    },
   });
 
   const addRequirementMutation = useMutation({
@@ -328,6 +368,23 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <span className="text-sm text-slate-600">Component</span>
                   <span className="text-sm font-medium text-slate-900">{testCase.component || "-"}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                  <span className="text-sm text-slate-600">Folder</span>
+                  <select
+                    aria-label="Test case folder"
+                    value={testCase.folderId ?? ""}
+                    disabled={moveFolderMutation.isPending}
+                    onChange={(e) => moveFolderMutation.mutate(e.target.value || null)}
+                    className="max-w-[180px] rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20 disabled:opacity-50"
+                  >
+                    <option value="">(unfiled)</option>
+                    {folders?.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.path}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="flex items-center justify-between pt-1">
                   <span className="text-sm text-slate-600">Automation</span>
@@ -579,7 +636,7 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
               className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
             />
           </div>
-          <div className="grid gap-5 md:grid-cols-2">
+          <div className="grid gap-5 md:grid-cols-3">
             <div>
               <label className="text-sm font-medium text-slate-700" htmlFor="component">
                 Component
@@ -589,6 +646,23 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
                 {...form.register("component")}
                 className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
               />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-700" htmlFor="folderId">
+                Folder
+              </label>
+              <select
+                id="folderId"
+                {...form.register("folderId")}
+                className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+              >
+                <option value="">(unfiled)</option>
+                {folders?.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.path}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="text-sm font-medium text-slate-700" htmlFor="tags">

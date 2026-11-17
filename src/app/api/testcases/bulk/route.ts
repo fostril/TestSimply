@@ -12,6 +12,7 @@ const bulkUpdateSchema = z.object({
         .object({
             status: z.string().optional(),
             priority: z.nativeEnum(Priority).optional(),
+            folderId: z.string().nullable().optional(),
         })
         .optional(),
 });
@@ -73,11 +74,22 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     }
 
     if (action === "update" && data) {
+        if (data.folderId) {
+            const folder = await prisma.testFolder.findUnique({
+                where: { id: data.folderId },
+                select: { projectId: true },
+            });
+            if (!folder || allowedCases.some((c) => c.projectId !== folder.projectId)) {
+                return NextResponse.json({ error: "Invalid folderId" }, { status: 400 });
+            }
+        }
+
         const result = await prisma.testCase.updateMany({
             where: { id: { in: allowedIds } },
             data: {
                 ...(data.status ? { status: data.status } : {}),
                 ...(data.priority ? { priority: data.priority } : {}),
+                ...(data.folderId !== undefined ? { folderId: data.folderId } : {}),
             },
         });
         await logAudit(auth.session.user?.id, "BULK_UPDATE", "TestCase", "bulk", {

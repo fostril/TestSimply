@@ -10,7 +10,12 @@ const mockPrisma: any = vi.hoisted(() => ({
   testCase: {
     create: vi.fn(),
     findUnique: vi.fn(),
+    findMany: vi.fn(),
     update: vi.fn(),
+    updateMany: vi.fn(),
+  },
+  testFolder: {
+    findUnique: vi.fn(),
   },
   projectCounter: {
     upsert: vi.fn(),
@@ -31,6 +36,7 @@ vi.mock("next-auth", () => ({
 import { getServerSession } from "next-auth";
 import { POST as createTestCase } from "@/app/api/testcases/route";
 import { DELETE as deleteTestCase } from "@/app/api/testcases/[id]/route";
+import { POST as bulkTestCases } from "@/app/api/testcases/bulk/route";
 
 describe("Test cases API", () => {
   beforeEach(() => {
@@ -153,5 +159,65 @@ describe("Test cases API", () => {
     });
     const resTester = await deleteTestCase(reqTester, { params: { id: "tc-1" } });
     expect(resTester.status).toBe(403);
+  });
+
+  it("creates a test case without key (UI flow) and assigns folderId", async () => {
+    mockPrisma.testFolder.findUnique.mockResolvedValue({ projectId: "proj-1" });
+
+    const req = new NextRequest("http://localhost:3000/api/testcases", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        projectId: "proj-1",
+        name: "Created from UI",
+        folderId: "folder-1",
+        steps: [{ action: "Open app" }],
+      }),
+    });
+
+    const res = await createTestCase(req, {});
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.folderId).toBe("folder-1");
+  });
+
+  it("bulk moves test cases to a folder (200) and rejects cross-project folderId (400)", async () => {
+    mockPrisma.testCase.findMany.mockResolvedValue([
+      { id: "tc-1", projectId: "proj-1" },
+      { id: "tc-2", projectId: "proj-1" },
+    ]);
+    mockPrisma.testCase.updateMany.mockResolvedValue({ count: 2 });
+    mockPrisma.testFolder.findUnique.mockResolvedValue({ projectId: "proj-1" });
+
+    const okReq = new NextRequest("http://localhost:3000/api/testcases/bulk", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        ids: ["tc-1", "tc-2"],
+        action: "update",
+        data: { folderId: "folder-1" },
+      }),
+    });
+    const okRes = await bulkTestCases(okReq, {});
+    expect(okRes.status).toBe(200);
+    expect(mockPrisma.testCase.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: { in: ["tc-1", "tc-2"] } },
+        data: expect.objectContaining({ folderId: "folder-1" }),
+      }),
+    );
+
+    mockPrisma.testFolder.findUnique.mockResolvedValue({ projectId: "proj-other" });
+    const badReq = new NextRequest("http://localhost:3000/api/testcases/bulk", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        ids: ["tc-1"],
+        action: "update",
+        data: { folderId: "folder-other" },
+      }),
+    });
+    const badRes = await bulkTestCases(badReq, {});
+    expect(badRes.status).toBe(400);
   });
 });

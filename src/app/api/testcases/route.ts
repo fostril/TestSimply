@@ -14,7 +14,7 @@ const stepSchema = z.object({
 
 const createSchema = z.object({
   projectId: z.string().min(1),
-  key: z.string().min(1),
+  key: z.string().min(1).optional(),
   name: z.string().min(1),
   description: z.string().optional(),
   preconditions: z.string().optional(),
@@ -93,6 +93,9 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     prisma.testCase.findMany({
       where: whereClause,
       orderBy: { createdAt: "desc" },
+      include: {
+        folder: { select: { id: true, name: true, path: true } },
+      },
       skip: pagination.skip,
       take: pagination.limit,
     }),

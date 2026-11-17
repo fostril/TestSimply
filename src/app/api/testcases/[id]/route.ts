@@ -70,6 +70,7 @@ export const GET = withApiHandler(
     const full = await prisma.testCase.findUnique({
       where: { id: testCase!.id },
       include: {
+        folder: { select: { id: true, name: true, path: true } },
         requirements: true,
         preconditions: true,
         bugs: true,

@@ -35,7 +35,14 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   const folders = await prisma.testFolder.findMany({
     where: { projectId: parsed.projectId },
     orderBy: [{ path: "asc" }],
-    include: { _count: { select: { testCases: true, children: true } } },
+    include: {
+      _count: {
+        select: {
+          testCases: { where: { deletedAt: null } },
+          children: true,
+        },
+      },
+    },
   });
 
   return NextResponse.json(folders);

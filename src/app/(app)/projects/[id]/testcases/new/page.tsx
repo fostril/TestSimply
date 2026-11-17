@@ -5,7 +5,7 @@ import { z } from "zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/toast";
 import { useProjectStore } from "@/lib/stores/project-store";
 
@@ -60,6 +60,7 @@ export default function NewTestCasePage() {
   const { projectId, projectKey } = useProjectStore();
   const router = useRouter();
   const toast = useToast();
+  const queryClient = useQueryClient();
 
   const { data: preconditions } = useQuery({
     queryKey: ["preconditions", projectId],
@@ -109,6 +110,13 @@ export default function NewTestCasePage() {
     }
   }, [projectId, toast]);
 
+  useEffect(() => {
+    const paramFolderId = new URLSearchParams(window.location.search).get("folderId");
+    if (paramFolderId) {
+      form.setValue("folderId", paramFolderId);
+    }
+  }, [form]);
+
   const submit = form.handleSubmit(async (values) => {
     if (!projectId) {
       toast({ title: "Project required", description: "Select a project in the left sidebar." });
@@ -138,6 +146,8 @@ export default function NewTestCasePage() {
       toast({ title: "Unable to create test case", description: body.error ?? "Unknown error" });
       return;
     }
+    queryClient.invalidateQueries({ queryKey: ["testcases", projectId] });
+    queryClient.invalidateQueries({ queryKey: ["folders", projectId] });
     toast({ title: "Test case created", description: values.name });
     router.push(`/projects/${projectKey}/testcases`);
   });

@@ -39,14 +39,17 @@ export function FolderTree({
   projectId,
   selectedFolderId,
   onSelect,
+  onDropCases,
 }: {
   projectId: string;
   selectedFolderId: string | null;
   onSelect: (id: string | null) => void;
+  onDropCases?: (caseIds: string[], folderId: string | null) => void;
 }) {
   const toast = useToast();
   const qc = useQueryClient();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   const { data: folders } = useQuery<Folder[]>({
     queryKey: ["folders", projectId],
@@ -73,7 +76,12 @@ export function FolderTree({
       }
       return res.json();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["folders", projectId] }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["folders", projectId] });
+      if (vars.parentId) {
+        setExpanded((prev) => new Set(prev).add(vars.parentId!));
+      }
+    },
     onError: (e) => toast({ title: "Create failed", description: (e as Error).message }),
   });
 
@@ -88,6 +96,7 @@ export function FolderTree({
     },
     onSuccess: (_, id) => {
       qc.invalidateQueries({ queryKey: ["folders", projectId] });
+      qc.invalidateQueries({ queryKey: ["testcases", projectId] });
       if (selectedFolderId === id) onSelect(null);
     },
     onError: (e) => toast({ title: "Delete failed", description: (e as Error).message }),
@@ -102,21 +111,53 @@ export function FolderTree({
     });
   };
 
+  const handleDragOver = (e: React.DragEvent, targetId: string) => {
+    if (!onDropCases) return;
+    if (!e.dataTransfer.types.includes("application/x-testcase-ids")) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverId !== targetId) setDragOverId(targetId);
+  };
+
+  const handleDrop = (e: React.DragEvent, folderId: string | null) => {
+    setDragOverId(null);
+    if (!onDropCases) return;
+    const raw = e.dataTransfer.getData("application/x-testcase-ids");
+    if (!raw) return;
+    e.preventDefault();
+    try {
+      const ids = JSON.parse(raw) as string[];
+      if (Array.isArray(ids) && ids.length > 0) {
+        onDropCases(ids, folderId);
+      }
+    } catch {
+      // ignore invalid drag payload
+    }
+  };
+
   const renderNode = (node: TreeNode, depth: number) => {
     const isOpen = expanded.has(node.id);
     const isSelected = selectedFolderId === node.id;
+    const isDropTarget = dragOverId === node.id;
     return (
       <div key={node.id}>
         <div
-          className={`group flex items-center gap-1 rounded px-2 py-1 text-sm hover:bg-muted/40 ${
-            isSelected ? "bg-primary/10 text-primary" : "text-foreground"
+          onDragOver={(e) => handleDragOver(e, node.id)}
+          onDragLeave={() => dragOverId === node.id && setDragOverId(null)}
+          onDrop={(e) => handleDrop(e, node.id)}
+          className={`group flex items-center gap-1 rounded px-2 py-1.5 text-sm transition-colors ${
+            isDropTarget
+              ? "bg-blue-100 text-blue-800 ring-2 ring-blue-500"
+              : isSelected
+                ? "bg-blue-50 font-medium text-blue-700"
+                : "text-slate-700 hover:bg-slate-100"
           }`}
           style={{ paddingLeft: `${depth * 12 + 8}px` }}
         >
           <button
             type="button"
             onClick={() => toggle(node.id)}
-            className="flex-shrink-0 text-muted-foreground"
+            className="flex-shrink-0 text-slate-400 hover:text-slate-700"
             aria-label={isOpen ? "Collapse folder" : "Expand folder"}
           >
             <ChevronRight
@@ -135,7 +176,7 @@ export function FolderTree({
             )}
             <span className="truncate">{node.name}</span>
             {node._count ? (
-              <span className="ml-auto text-xs text-muted-foreground">
+              <span className="ml-auto text-xs text-slate-400">
                 {node._count.testCases}
               </span>
             ) : null}
@@ -146,7 +187,7 @@ export function FolderTree({
               const name = window.prompt("New subfolder name");
               if (name) createFolder.mutate({ name, parentId: node.id });
             }}
-            className="hidden text-muted-foreground hover:text-foreground group-hover:block"
+            className="hidden text-slate-400 hover:text-slate-900 group-hover:block"
             aria-label="Add subfolder"
             title="Add subfolder"
           >
@@ -159,7 +200,7 @@ export function FolderTree({
                 deleteFolder.mutate(node.id);
               }
             }}
-            className="hidden text-muted-foreground hover:text-red-400 group-hover:block"
+            className="hidden text-slate-400 hover:text-red-600 group-hover:block"
             aria-label="Delete folder"
             title="Delete folder"
           >
@@ -172,10 +213,10 @@ export function FolderTree({
   };
 
   return (
-    <div className="rounded-lg border border-border bg-card/40">
-      <div className="flex items-center justify-between border-b border-border px-3 py-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Repository
+    <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2.5">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Folders
         </p>
         <button
           type="button"
@@ -183,35 +224,47 @@ export function FolderTree({
             const name = window.prompt("New top-level folder name");
             if (name) createFolder.mutate({ name });
           }}
-          className="text-muted-foreground hover:text-foreground"
+          className="rounded p-0.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
           title="New folder"
         >
           <Plus className="h-4 w-4" />
         </button>
       </div>
-      <div className="max-h-[60vh] overflow-auto py-1">
+      <div className="max-h-[60vh] space-y-0.5 overflow-auto p-1.5">
         <button
           type="button"
           onClick={() => onSelect(null)}
-          className={`flex w-full items-center gap-2 px-3 py-1 text-left text-sm hover:bg-muted/40 ${
-            selectedFolderId === null ? "bg-primary/10 text-primary" : "text-foreground"
+          className={`flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left text-sm ${
+            selectedFolderId === null ? "bg-blue-50 font-medium text-blue-700" : "text-slate-700 hover:bg-slate-100"
           }`}
         >
-          <FolderIcon className="h-4 w-4 text-muted-foreground" />
+          <FolderIcon className="h-4 w-4 text-slate-400" />
           All test cases
         </button>
         <button
           type="button"
           onClick={() => onSelect("-")}
-          className={`flex w-full items-center gap-2 px-3 py-1 text-left text-sm hover:bg-muted/40 ${
-            selectedFolderId === "-" ? "bg-primary/10 text-primary" : "text-muted-foreground"
+          onDragOver={(e) => handleDragOver(e, "-")}
+          onDragLeave={() => dragOverId === "-" && setDragOverId(null)}
+          onDrop={(e) => handleDrop(e, null)}
+          className={`flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left text-sm transition-colors ${
+            dragOverId === "-"
+              ? "bg-blue-100 text-blue-800 ring-2 ring-blue-500"
+              : selectedFolderId === "-"
+                ? "bg-blue-50 font-medium text-blue-700"
+                : "text-slate-600 hover:bg-slate-100"
           }`}
         >
-          <FolderIcon className="h-4 w-4" />
+          <FolderIcon className="h-4 w-4 text-slate-400" />
           <em>(unfiled)</em>
         </button>
         {tree.map((n) => renderNode(n, 0))}
       </div>
+      {onDropCases && (
+        <div className="border-t border-slate-100 px-3 py-2 text-[11px] text-slate-500">
+          Tip: Drag test cases onto a folder, or select rows and click Move to Folder.
+        </div>
+      )}
     </div>
   );
 }

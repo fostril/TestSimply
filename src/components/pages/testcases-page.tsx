@@ -3,7 +3,7 @@
 import { ReactNode, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/toast";
-import { Trash2, Search, X, FileText } from "lucide-react";
+import { Trash2, Search, X, FileText, Folder as FolderIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -21,6 +21,7 @@ export type TestCaseRow = {
   status: string;
   type?: "MANUAL" | "CUCUMBER" | "GENERIC";
   folderId?: string | null;
+  folder?: { id: string; name: string; path: string } | null;
   component?: string;
   tags: string[];
   isAutomated: boolean;
@@ -43,6 +44,7 @@ export function TestCasesPage() {
   const queryClient = useQueryClient();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isAddToPlanOpen, setIsAddToPlanOpen] = useState(false);
+  const [isMoveToFolderOpen, setIsMoveToFolderOpen] = useState(false);
 
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState("");
@@ -72,6 +74,16 @@ export function TestCasesPage() {
     queryFn: async () => {
       const res = await fetch(`/api/testplans?projectId=${projectId}`);
       if (!res.ok) throw new Error("Failed to load test plans");
+      return res.json();
+    }
+  });
+
+  const { data: folders } = useQuery<{ id: string; name: string; path: string }[]>({
+    queryKey: ["folders", projectId],
+    enabled: Boolean(projectId),
+    queryFn: async () => {
+      const res = await fetch(`/api/folders?projectId=${projectId}`);
+      if (!res.ok) throw new Error("Failed to load folders");
       return res.json();
     }
   });
@@ -120,19 +132,30 @@ export function TestCasesPage() {
   };
 
   const bulkMutation = useMutation({
-    mutationFn: async ({ action, data }: { action: "update" | "delete"; data?: any }) => {
+    mutationFn: async ({
+      ids,
+      action,
+      data,
+    }: {
+      ids?: string[];
+      action: "update" | "delete";
+      data?: any;
+    }) => {
+      const targetIds = ids ?? Array.from(selectedIds);
       const res = await fetch("/api/testcases/bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: Array.from(selectedIds), action, data }),
+        body: JSON.stringify({ ids: targetIds, action, data }),
       });
       if (!res.ok) throw new Error("Bulk action failed");
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["testcases", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["folders", projectId] });
       setSelectedIds(new Set());
-      toast({ title: "Bulk action completed" });
+      setIsMoveToFolderOpen(false);
+      toast({ title: "Updated test cases" });
     },
     onError: () => {
       toast({ title: "Bulk action failed" });
@@ -172,6 +195,7 @@ export function TestCasesPage() {
     onSuccess: () => {
       toast({ title: "Test case deleted" });
       queryClient.invalidateQueries({ queryKey: ["testcases", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["folders", projectId] });
     },
     onError: (err) => {
       toast({ title: "Failed to delete", description: (err as Error).message });
@@ -191,7 +215,11 @@ export function TestCasesPage() {
         <div className="flex gap-3">
           {projectId && <CsvImporter projectId={projectId} />}
           <Link
-            href={`/projects/${projectKey}/testcases/new`}
+            href={
+              selectedFolderId && selectedFolderId !== "-"
+                ? `/projects/${projectKey}/testcases/new?folderId=${encodeURIComponent(selectedFolderId)}`
+                : `/projects/${projectKey}/testcases/new`
+            }
             className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
             New Test Case
@@ -206,6 +234,13 @@ export function TestCasesPage() {
               projectId={projectId}
               selectedFolderId={selectedFolderId}
               onSelect={setSelectedFolderId}
+              onDropCases={(ids, folderId) =>
+                bulkMutation.mutate({
+                  ids,
+                  action: "update",
+                  data: { folderId },
+                })
+              }
             />
           )}
         </aside>
@@ -292,7 +327,53 @@ export function TestCasesPage() {
           <div className="h-4 w-px bg-blue-200" />
           <div className="relative">
             <button
-              onClick={() => setIsAddToPlanOpen(!isAddToPlanOpen)}
+              onClick={() => {
+                setIsMoveToFolderOpen(!isMoveToFolderOpen);
+                setIsAddToPlanOpen(false);
+              }}
+              className="flex items-center gap-1.5 font-medium text-blue-700 hover:text-blue-800"
+            >
+              <FolderIcon className="h-3.5 w-3.5" />
+              Move to Folder
+            </button>
+            {isMoveToFolderOpen && (
+              <div className="absolute left-0 top-full z-10 mt-2 w-64 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
+                <p className="mb-2 px-2 text-xs font-medium text-slate-500">Select Destination Folder</p>
+                <div className="max-h-48 space-y-1 overflow-y-auto">
+                  <button
+                    onClick={() => bulkMutation.mutate({ action: "update", data: { folderId: null } })}
+                    disabled={bulkMutation.isPending}
+                    className="w-full rounded px-2 py-1.5 text-left text-sm italic text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50"
+                  >
+                    (unfiled)
+                  </button>
+                  {folders?.map((folder) => (
+                    <button
+                      key={folder.id}
+                      onClick={() => bulkMutation.mutate({ action: "update", data: { folderId: folder.id } })}
+                      disabled={bulkMutation.isPending}
+                      className="w-full truncate rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50"
+                      title={folder.path}
+                    >
+                      {folder.path}
+                    </button>
+                  ))}
+                  {(!folders || folders.length === 0) && (
+                    <p className="px-2 py-1 text-xs text-slate-400">
+                      Create a folder using + in the sidebar first.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="h-4 w-px bg-blue-200" />
+          <div className="relative">
+            <button
+              onClick={() => {
+                setIsAddToPlanOpen(!isAddToPlanOpen);
+                setIsMoveToFolderOpen(false);
+              }}
               className="font-medium text-blue-700 hover:text-blue-800"
             >
               Add to Plan
@@ -361,6 +442,14 @@ export function TestCasesPage() {
               {filteredRows.map((testCase) => (
                 <tr
                   key={testCase.id}
+                  draggable
+                  onDragStart={(e) => {
+                    const dragIds = selectedIds.has(testCase.id)
+                      ? Array.from(selectedIds)
+                      : [testCase.id];
+                    e.dataTransfer.setData("application/x-testcase-ids", JSON.stringify(dragIds));
+                    e.dataTransfer.effectAllowed = "move";
+                  }}
                   onClick={() => router.push(`/projects/${projectKey}/testcases/${testCase.id}`)}
                   className={`group cursor-pointer transition-colors hover:bg-slate-50 ${selectedIds.has(testCase.id) ? "bg-blue-50/50" : ""}`}
                 >
@@ -374,8 +463,17 @@ export function TestCasesPage() {
                   </td>
                   <td className="px-6 py-3.5 font-mono text-xs font-semibold text-slate-600">{testCase.key}</td>
                   <td className="px-6 py-3.5 font-medium text-slate-900 transition-colors group-hover:text-blue-600">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span>{testCase.name}</span>
+                      {testCase.folder && (
+                        <span
+                          className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[11px] font-normal text-slate-600"
+                          title={testCase.folder.path}
+                        >
+                          <FolderIcon className="h-3 w-3 text-amber-500" />
+                          {testCase.folder.name}
+                        </span>
+                      )}
                       {testCase.type && testCase.type !== "MANUAL" && (
                         <span className="rounded border border-cyan-200 bg-cyan-50 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-700">
                           {testCase.type === "CUCUMBER" ? "BDD" : "GEN"}
