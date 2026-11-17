@@ -1,15 +1,20 @@
 services:
   app:
     build: .
+    env_file:
+      - .env
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/testsimplify
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/testsimplify
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET must be set}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
-      EMAIL_SERVER: smtp://mailhog:1025
-      EMAIL_FROM: "TestSimply <noreply@testsimply.local>"
+      EMAIL_SERVER: ${EMAIL_SERVER:-smtp://mailhog:1025}
+      EMAIL_FROM: ${EMAIL_FROM:-TestSimply <noreply@testsimply.local>}
+      UPLOAD_DIR: ${UPLOAD_DIR:-/app/uploads}
+    volumes:
+      - uploads:/app/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -19,14 +24,14 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+
   db:
     image: postgres:15-alpine
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      # Required in production (set POSTGRES_PASSWORD in .env)
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
       POSTGRES_DB: testsimplify
-    ports:
-      - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -34,10 +39,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-  mailhog:
-    image: mailhog/mailhog:v1.0.1
-    ports:
-      - "8025:8025"
-      - "1025:1025"
+
 volumes:
   postgres-data:
+  uploads:

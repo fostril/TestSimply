@@ -1,0 +1,11 @@
+# Development overrides (loaded automatically by `docker compose`).
+# Exposes Postgres on localhost:5432 and adds Mailhog for capturing emails.
+services:
+  db:
+    ports:
+      - "5432:5432"
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports:
+      - "8025:8025"
+      - "1025:1025"
