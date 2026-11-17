@@ -11,6 +11,7 @@ const updateSettingsSchema = z.object({
     jiraUrl: z.string().url().optional().or(z.literal("")),
     jiraEmail: z.string().email().optional().or(z.literal("")),
     jiraApiToken: z.string().optional().or(z.literal("")),
+    jiraProjectKey: z.string().trim().max(50).optional().or(z.literal("")),
     ciProvider: z.string().optional().or(z.literal("")),
     ciUrl: z.string().url().optional().or(z.literal("")),
     ciToken: z.string().optional().or(z.literal("")),
@@ -67,6 +68,7 @@ export const PATCH = withApiHandler(async (req: NextRequest) => {
     if (parsed.jiraUrl !== undefined) updateData.jiraUrl = parsed.jiraUrl || null;
     if (parsed.jiraEmail !== undefined) updateData.jiraEmail = parsed.jiraEmail || null;
     if (parsed.jiraApiToken !== undefined) updateData.jiraApiToken = encryptToken(parsed.jiraApiToken);
+    if (parsed.jiraProjectKey !== undefined) updateData.jiraProjectKey = parsed.jiraProjectKey || null;
     if (parsed.ciProvider !== undefined) updateData.ciProvider = parsed.ciProvider || null;
     if (parsed.ciUrl !== undefined) updateData.ciUrl = parsed.ciUrl || null;
     if (parsed.ciToken !== undefined) updateData.ciToken = encryptToken(parsed.ciToken);
@@ -79,6 +81,7 @@ export const PATCH = withApiHandler(async (req: NextRequest) => {
             jiraUrl: parsed.jiraUrl || null,
             jiraEmail: parsed.jiraEmail || null,
             jiraApiToken: encryptToken(parsed.jiraApiToken),
+            jiraProjectKey: parsed.jiraProjectKey || null,
             ciProvider: parsed.ciProvider || null,
             ciUrl: parsed.ciUrl || null,
             ciToken: encryptToken(parsed.ciToken),

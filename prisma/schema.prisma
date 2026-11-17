@@ -115,10 +115,11 @@ model ProjectSetting {
   components   String[]   @default([])
   environments String[]   @default([])
   priorities   Priority[] @default([LOW, MEDIUM, HIGH, CRITICAL])
-  jiraUrl      String?
-  jiraEmail    String?
-  jiraApiToken String?
-  ciProvider   String?
+  jiraUrl        String?
+  jiraEmail      String?
+  jiraApiToken   String?
+  jiraProjectKey String?
+  ciProvider     String?
   ciUrl        String?
   ciToken      String?
   ciWorkflowId String?

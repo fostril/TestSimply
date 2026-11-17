@@ -202,9 +202,6 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
           summary: jiraSummary,
           description: jiraDescription,
           issueType: "Bug",
-          // We assume the Jira project key matches the local project key for now, 
-          // or the backend handles the fallback.
-          projectKey: data?.project?.key
         }),
       });
       if (!res.ok) {

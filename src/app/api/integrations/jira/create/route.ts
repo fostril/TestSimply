@@ -34,22 +34,12 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         );
     }
 
-    // We need the Jira Project Key. 
-    // Ideally, this should be stored in settings, but for now we might assume it matches the TestSimply project key 
-    // OR we can try to fetch it from settings if we add a field for "Jira Project Key".
-    // For now, let's assume the user provides it or we default to the TestSimply project key (which might not match).
-    // Let's check if we have a Jira Project Key in settings.
-
     const settings = await prisma.projectSetting.findUnique({
         where: { projectId: parsed.projectId },
+        select: { jiraProjectKey: true },
     });
 
-    // If we don't have a specific Jira Project Key setting, we'll try to use the TestSimply project key
-    // But often they differ. Let's assume for this MVP that the user might need to configure it.
-    // However, the `JiraClient` doesn't expose project key config.
-    // Let's rely on the client sending it, or fallback to the local project key.
-
-    let jiraProjectKey = parsed.projectKey;
+    let jiraProjectKey = parsed.projectKey?.trim() || settings?.jiraProjectKey?.trim() || undefined;
     if (!jiraProjectKey) {
         const project = await prisma.project.findUnique({
             where: { id: parsed.projectId },

@@ -19,6 +19,7 @@ const jiraSchema = z.object({
     jiraUrl: z.string().url("Invalid URL").optional().or(z.literal("")),
     jiraEmail: z.string().email("Invalid email").optional().or(z.literal("")),
     jiraApiToken: z.string().optional(),
+    jiraProjectKey: z.string().optional(),
 });
 
 const ciSchema = z.object({
@@ -56,7 +57,7 @@ export default function ProjectSettingsPage({ params }: { params: { id: string }
 
     const jiraForm = useForm<JiraFormValues>({
         resolver: zodResolver(jiraSchema),
-        defaultValues: { jiraUrl: "", jiraEmail: "", jiraApiToken: "" },
+        defaultValues: { jiraUrl: "", jiraEmail: "", jiraApiToken: "", jiraProjectKey: "" },
     });
 
     const ciForm = useForm<CiFormValues>({
@@ -74,6 +75,7 @@ export default function ProjectSettingsPage({ params }: { params: { id: string }
                 jiraUrl: project.settings?.jiraUrl || "",
                 jiraEmail: project.settings?.jiraEmail || "",
                 jiraApiToken: project.settings?.jiraApiToken || "",
+                jiraProjectKey: project.settings?.jiraProjectKey || "",
             });
             ciForm.reset({
                 ciProvider: project.settings?.ciProvider || "",
@@ -238,15 +240,26 @@ export default function ProjectSettingsPage({ params }: { params: { id: string }
                                 )}
                             </div>
                         </div>
-                        <div>
-                            <label className="text-sm font-medium text-slate-300" htmlFor="jiraApiToken">API Token</label>
-                            <input
-                                id="jiraApiToken"
-                                type="password"
-                                {...jiraForm.register("jiraApiToken")}
-                                placeholder="••••••••••••••••"
-                                className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
-                            />
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <div>
+                                <label className="text-sm font-medium text-slate-300" htmlFor="jiraApiToken">API Token</label>
+                                <input
+                                    id="jiraApiToken"
+                                    type="password"
+                                    {...jiraForm.register("jiraApiToken")}
+                                    placeholder="••••••••••••••••"
+                                    className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium text-slate-300" htmlFor="jiraProjectKey">Jira Project Key</label>
+                                <input
+                                    id="jiraProjectKey"
+                                    {...jiraForm.register("jiraProjectKey")}
+                                    placeholder="e.g. PROJ"
+                                    className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                                />
+                            </div>
                         </div>
                         <div className="flex justify-end">
                             <button
