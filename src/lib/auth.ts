@@ -9,7 +9,6 @@ import type { JWT } from "next-auth/jwt";
 import type { Session, DefaultUser, Account, Profile } from "next-auth";
 
 const emailPasswordEnabled = process.env.EMAIL_PASSWORD_DISABLED !== "true";
-const requireEmailVerification = process.env.REQUIRE_EMAIL_VERIFICATION === "true";
 
 export const authOptions = {
   adapter: PrismaAdapter(prisma),
@@ -31,7 +30,7 @@ export const authOptions = {
             if (!user || !user.password) return null;
             const valid = await bcrypt.compare(credentials.password, user.password);
             if (!valid) return null;
-            if (requireEmailVerification && !user.emailVerified) {
+            if (process.env.REQUIRE_EMAIL_VERIFICATION === "true" && !user.emailVerified) {
               throw new Error("EMAIL_NOT_VERIFIED");
             }
             return {

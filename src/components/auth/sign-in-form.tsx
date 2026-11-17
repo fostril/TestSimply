@@ -29,9 +29,23 @@ export function SignInForm() {
 
   const [loading, setLoading] = useState(false);
   const [providers, setProviders] = useState<AuthProviders | null>(null);
+  const [banner, setBanner] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const toast = useToast();
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("verified") === "1") {
+      setBanner({ type: "success", text: "Email verified! You can now sign in." });
+    } else if (params.get("reset") === "1") {
+      setBanner({ type: "success", text: "Password updated! You can now sign in." });
+    } else if (params.get("error") === "EMAIL_NOT_VERIFIED") {
+      setBanner({ type: "error", text: "Please verify your email address before signing in." });
+    } else if (params.get("error") === "InvalidVerificationToken") {
+      setBanner({ type: "error", text: "Verification link is invalid or expired." });
+    } else if (params.get("error") === "CredentialsSignin") {
+      setBanner({ type: "error", text: "Invalid email or password." });
+    }
+
     void fetch("/api/auth/providers")
       .then((res) => (res.ok ? res.json() : {}))
       .then((data) => setProviders(data ?? {}))
@@ -58,6 +72,17 @@ export function SignInForm() {
 
   return (
     <div className="mt-6 space-y-4">
+      {banner ? (
+        <div
+          className={`rounded-xl border px-3 py-2 text-xs ${
+            banner.type === "success"
+              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+              : "border-red-500/40 bg-red-500/10 text-red-300"
+          }`}
+        >
+          {banner.text}
+        </div>
+      ) : null}
       {credentialsEnabled ? (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <div>
