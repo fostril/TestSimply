@@ -93,6 +93,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     where: { projectId },
     include: {
       links: {
+        where: { testCase: { deletedAt: null } },
         include: {
           testCase: {
             include: {
@@ -135,8 +136,8 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     fetched.forEach((c) => caseIds.add(c.id));
   }
 
-  // Fetch the latest result per (caseId, environmentId) in one query. We
-  // order by createdAt desc and dedup in JS — at this scale it's acceptable.
+  // Fetch the latest result per (caseId, environmentId), projecting only the
+  // lightweight columns needed rather than loading stepsLog/errorMessage blobs.
   const allResults = caseIds.size
     ? await prisma.testResult.findMany({
         where: {
@@ -146,7 +147,10 @@ export const GET = withApiHandler(async (req: NextRequest) => {
             : {}),
         },
         orderBy: { createdAt: "desc" },
-        include: {
+        select: {
+          caseId: true,
+          status: true,
+          createdAt: true,
           execution: {
             select: { key: true, environmentId: true, projectId: true },
           },
