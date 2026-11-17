@@ -9,10 +9,9 @@ async function createUsers() {
     { name: "Liam Lead", email: "liam.lead@testsimply.local", role: Role.LEAD },
     { name: "Tara Tester", email: "tara.tester@testsimply.local", role: Role.TESTER },
     { name: "Vera Viewer", email: "vera.viewer@testsimply.local", role: Role.VIEWER },
-    { id: "public-user", name: "Public User", email: "public@testsimply.local", role: Role.ADMIN }
   ];
 
-  const passwordHash = await bcrypt.hash("ChangeMe123!", 10);
+  const passwordHash = await bcrypt.hash("ChangeMe123!", 12);
 
   return Promise.all(
     users.map((user) =>
@@ -21,10 +20,11 @@ async function createUsers() {
         update: {},
         create: {
           ...user,
-          password: passwordHash
-        }
-      })
-    )
+          password: passwordHash,
+          emailVerified: new Date(),
+        },
+      }),
+    ),
   );
 }
 
@@ -161,9 +161,10 @@ async function createResults(executionId: string, testCaseIds: string[]) {
 }
 
 async function main() {
-  // Safety check: refuse to run in production
-  if (process.env.NODE_ENV === "production") {
-    console.error("ERROR: Seed script cannot run in production. This would delete all data!");
+  // Safety check: refuse to run in production unless --force is explicitly passed
+  const force = process.argv.includes("--force");
+  if (process.env.NODE_ENV === "production" && !force) {
+    console.error("ERROR: Seed script cannot run in production without --force. This would delete all data!");
     process.exit(1);
   }
 
