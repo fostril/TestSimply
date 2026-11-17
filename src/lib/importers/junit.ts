@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import { TestStatus } from "@prisma/client";
+import { parseStringPromise } from "xml2js";
 import { prisma as defaultClient } from "@/lib/prisma";
 import { generateEntityKey } from "@/lib/keys";
 
@@ -9,7 +10,7 @@ export type ImportOptions = {
   autoCreateCases?: boolean;
 };
 
-type ParsedCase = {
+export type ParsedJUnitCase = {
   name: string;
   classname?: string;
   time?: number;
@@ -17,74 +18,114 @@ type ParsedCase = {
   failureMessage?: string;
 };
 
-const attributePattern = /([\w:-]+)="([^"]*)"/g;
-
-const parseAttributes = (source: string) => {
-  const attributes: Record<string, string> = {};
-  let match: RegExpExecArray | null;
-  while ((match = attributePattern.exec(source))) {
-    attributes[match[1]] = match[2];
+export class JUnitParseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "JUnitParseError";
   }
-  return attributes;
+}
+
+type XmlNode = {
+  $?: Record<string, string>;
+  _?: string;
+  testsuite?: XmlNode[];
+  testcase?: XmlNode[];
+  failure?: Array<XmlNode | string>;
+  error?: Array<XmlNode | string>;
+  skipped?: Array<XmlNode | string>;
 };
 
-const parseTestCases = (suiteXml: string): ParsedCase[] => {
-  const cases: ParsedCase[] = [];
-  const casePattern = /<testcase([^>]*)>([\s\S]*?)<\/testcase>/g;
-  const selfClosingPattern = /<testcase([^>]*)\/>/g;
-  let match: RegExpExecArray | null;
+const parseTimeMs = (raw?: string): number | undefined => {
+  if (raw === undefined || raw === "") return undefined;
+  const num = Number(raw);
+  return Number.isFinite(num) ? num * 1000 : undefined;
+};
 
-  while ((match = casePattern.exec(suiteXml))) {
-    const attrs = parseAttributes(match[1]);
-    const body = match[2];
-    const failureMatch = body.match(/<(failure|error)[^>]*>([\s\S]*?)<\/\1>/);
-    const skippedMatch = body.match(/<skipped\b[^>]*\/>/);
+const extractFailureMessage = (node: XmlNode | string): string | undefined => {
+  if (typeof node === "string") {
+    const trimmed = node.trim();
+    return trimmed || undefined;
+  }
+  const body = typeof node._ === "string" ? node._.trim() : "";
+  if (body) return body;
+  const attrMsg = node.$?.message?.trim() || node.$?.type?.trim();
+  return attrMsg || undefined;
+};
+
+const collectFromSuite = (
+  suite: XmlNode,
+  cases: ParsedJUnitCase[],
+  inheritedSuiteName?: string,
+  inheritedTimeMs?: number,
+) => {
+  const attrs = suite.$ ?? {};
+  const suiteName = attrs.name ?? inheritedSuiteName;
+  const suiteTimeMs = parseTimeMs(attrs.time) ?? inheritedTimeMs;
+
+  for (const tc of suite.testcase ?? []) {
+    const tcAttrs = tc.$ ?? {};
+    const name = (tcAttrs.name ?? "").trim();
+    if (!name) continue;
+
+    const failureNode = tc.failure?.[0] ?? tc.error?.[0];
+    const skippedNode = tc.skipped?.[0];
+
+    let status = "pass";
+    let failureMessage: string | undefined;
+    if (failureNode !== undefined) {
+      status = "failure";
+      failureMessage = extractFailureMessage(failureNode);
+    } else if (skippedNode !== undefined) {
+      status = "skipped";
+    }
+
     cases.push({
-      name: attrs.name ?? "",
-      classname: attrs.classname,
-      time: attrs.time ? Number(attrs.time) * 1000 : undefined,
-      status: failureMatch ? "failure" : skippedMatch ? "skipped" : "pass",
-      failureMessage: failureMatch ? failureMatch[2].trim() : undefined,
+      name,
+      classname: tcAttrs.classname ?? suiteName,
+      time: parseTimeMs(tcAttrs.time) ?? suiteTimeMs,
+      status,
+      failureMessage,
     });
   }
 
-  while ((match = selfClosingPattern.exec(suiteXml))) {
-    const attrs = parseAttributes(match[1]);
-    cases.push({
-      name: attrs.name ?? "",
-      classname: attrs.classname,
-      time: attrs.time ? Number(attrs.time) * 1000 : undefined,
-      status: "pass",
-    });
+  for (const nested of suite.testsuite ?? []) {
+    collectFromSuite(nested, cases, suiteName, suiteTimeMs);
+  }
+};
+
+export const parseJUnitXml = async (xml: string): Promise<ParsedJUnitCase[]> => {
+  if (!xml || !xml.trim()) {
+    throw new JUnitParseError("JUnit XML report is empty");
+  }
+
+  let parsed: Record<string, XmlNode>;
+  try {
+    parsed = (await parseStringPromise(xml, {
+      explicitArray: true,
+      explicitCharkey: true,
+    })) as Record<string, XmlNode>;
+  } catch {
+    throw new JUnitParseError("Malformed JUnit XML report");
+  }
+
+  if (!parsed || (!parsed.testsuites && !parsed.testsuite)) {
+    throw new JUnitParseError(
+      "Invalid JUnit XML: root element must be <testsuites> or <testsuite>",
+    );
+  }
+
+  const cases: ParsedJUnitCase[] = [];
+  if (parsed.testsuites) {
+    collectFromSuite(parsed.testsuites, cases);
+  } else if (parsed.testsuite) {
+    collectFromSuite(parsed.testsuite, cases);
+  }
+
+  if (cases.length === 0) {
+    throw new JUnitParseError("JUnit XML report contains no test cases");
   }
 
   return cases;
-};
-
-const flattenCases = (xml: string): ParsedCase[] => {
-  const aggregated: ParsedCase[] = [];
-  const suitePattern = /<testsuite([^>]*)>([\s\S]*?)<\/testsuite>/g;
-  let match: RegExpExecArray | null;
-  let foundSuite = false;
-
-  while ((match = suitePattern.exec(xml))) {
-    foundSuite = true;
-    const attrs = parseAttributes(match[1]);
-    const suiteCases = parseTestCases(match[2]);
-    suiteCases.forEach((testcase) => {
-      aggregated.push({
-        ...testcase,
-        classname: testcase.classname ?? attrs.name,
-        time: testcase.time ?? (attrs.time ? Number(attrs.time) * 1000 : undefined),
-      });
-    });
-  }
-
-  if (!foundSuite) {
-    return parseTestCases(xml);
-  }
-
-  return aggregated;
 };
 
 const mapStatus = (status: string) => {
@@ -99,11 +140,12 @@ const mapStatus = (status: string) => {
 };
 
 export const importJUnit = async (
-  xml: string,
+  xmlOrCases: string | ParsedJUnitCase[],
   options: ImportOptions,
   client: PrismaClient = defaultClient,
 ) => {
-  const cases = flattenCases(xml);
+  const cases =
+    typeof xmlOrCases === "string" ? await parseJUnitXml(xmlOrCases) : xmlOrCases;
 
   let projectPromise: Promise<{ key: string }> | null = null;
   const getProject = () => {

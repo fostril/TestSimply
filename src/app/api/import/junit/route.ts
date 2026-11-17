@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, withApiHandler, requireProjectAccessOrForbid } from "@/lib/api";
-import { importJUnit } from "@/lib/importers/junit";
+import { importJUnit, JUnitParseError, parseJUnitXml } from "@/lib/importers/junit";
+import { validateUpload } from "@/lib/upload";
 
 export const POST = withApiHandler(async (req: NextRequest) => {
   const auth = await requireAuth(req, "execution:run");
@@ -34,6 +35,23 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     project.id,
   );
   if (access instanceof NextResponse) return access;
+
+  // Validate uploaded file and parse XML BEFORE creating or updating any execution
+  const form = await req.formData();
+  const rawFile = form.get("report");
+  const validated = validateUpload(rawFile, "report");
+  if (validated instanceof NextResponse) return validated;
+
+  const xml = await validated.text();
+  let parsedCases;
+  try {
+    parsedCases = await parseJUnitXml(xml);
+  } catch (err) {
+    if (err instanceof JUnitParseError) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
+    throw err;
+  }
 
   let execution = execKey
     ? await prisma.testExecution.findFirst({ where: { projectId: project.id, key: execKey } })
@@ -71,16 +89,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     });
   }
 
-  const form = await req.formData();
-  const rawFile = form.get("report");
-
-  // Validate file size and type
-  const { validateUpload } = await import("@/lib/upload");
-  const validated = validateUpload(rawFile, "report");
-  if (validated instanceof NextResponse) return validated;
-
-  const xml = await validated.text();
-  await importJUnit(xml, {
+  await importJUnit(parsedCases, {
     projectId: project.id,
     executionId: execution.id,
     autoCreateCases: autoCreate
