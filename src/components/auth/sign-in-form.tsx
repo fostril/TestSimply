@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -98,7 +99,12 @@ export function SignInForm() {
           </div>
 
           <div>
-            <label className="text-xs uppercase tracking-wide text-slate-400">Password</label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs uppercase tracking-wide text-slate-400">Password</label>
+              <Link href="/auth/forgot-password" className="text-xs text-brand hover:underline">
+                Forgot password?
+              </Link>
+            </div>
             <input
               type="password"
               className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
