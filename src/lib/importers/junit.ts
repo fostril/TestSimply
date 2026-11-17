@@ -3,7 +3,7 @@ import { TestStatus } from "@prisma/client";
 import { parseStringPromise } from "xml2js";
 import { prisma as defaultClient } from "@/lib/prisma";
 import { generateEntityKey } from "@/lib/keys";
-import { upsertTestResult } from "@/lib/importers/shared";
+import { triggerFlakinessChecks, upsertTestResult } from "@/lib/importers/shared";
 
 export type ImportOptions = {
   projectId: string;
@@ -148,6 +148,8 @@ export const importJUnit = async (
   const cases =
     typeof xmlOrCases === "string" ? await parseJUnitXml(xmlOrCases) : xmlOrCases;
 
+  const touchedCaseIds = new Set<string>();
+
   await client.$transaction(async (tx) => {
     let projectPromise: Promise<{ key: string }> | null = null;
     const getProject = () => {
@@ -199,6 +201,9 @@ export const importJUnit = async (
         errorMessage: result.failureMessage ?? null,
         stepsLog: undefined,
       });
+      touchedCaseIds.add(testCase.id);
     }
   });
+
+  triggerFlakinessChecks(touchedCaseIds, client);
 };

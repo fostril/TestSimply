@@ -1,4 +1,6 @@
 import type { Prisma, PrismaClient, TestStatus } from "@prisma/client";
+import { checkAndMarkFlaky } from "@/lib/flakiness";
+import { apiLogger } from "@/lib/logger";
 
 export type ResultUpsertInput = {
   executionId: string;
@@ -47,4 +49,20 @@ export async function upsertTestResult(
       stepsLog: input.stepsLog,
     },
   });
+}
+
+/**
+ * Trigger fire-and-forget flakiness detection for every test case touched by
+ * a CI import after the database transaction commits.
+ */
+export function triggerFlakinessChecks(
+  caseIds: Iterable<string>,
+  client: PrismaClient,
+) {
+  if (typeof client.testResult?.findMany !== "function") return;
+  for (const caseId of new Set(caseIds)) {
+    checkAndMarkFlaky(caseId, client).catch((err) => {
+      apiLogger.warn({ err, caseId }, "Flakiness check failed");
+    });
+  }
 }

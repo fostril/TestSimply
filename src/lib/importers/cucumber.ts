@@ -2,7 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 import { TestStatus } from "@prisma/client";
 import { prisma as defaultClient } from "@/lib/prisma";
 import { generateEntityKey } from "@/lib/keys";
-import { upsertTestResult } from "@/lib/importers/shared";
+import { triggerFlakinessChecks, upsertTestResult } from "@/lib/importers/shared";
 
 export type ImportOptions = {
   projectId: string;
@@ -65,6 +65,8 @@ export const importCucumber = async (
   options: ImportOptions,
   client: PrismaClient = defaultClient,
 ) => {
+  const touchedCaseIds = new Set<string>();
+
   await client.$transaction(async (tx) => {
     let projectPromise: Promise<{ key: string }> | null = null;
     const getProject = () => {
@@ -153,7 +155,10 @@ export const importCucumber = async (
             stepsLog.find((step) => step.status === TestStatus.FAIL)?.error ?? null,
           stepsLog,
         });
+        touchedCaseIds.add(testCase.id);
       }
     }
   });
+
+  triggerFlakinessChecks(touchedCaseIds, client);
 };

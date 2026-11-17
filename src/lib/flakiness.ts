@@ -1,10 +1,14 @@
-import { prisma } from "@/lib/prisma";
+import type { PrismaClient } from "@prisma/client";
+import { prisma as defaultPrisma } from "@/lib/prisma";
 
 const FLAKY_WINDOW = 10;
 const FLAKY_THRESHOLD = 2; // Number of flips to consider flaky
 
-export async function checkAndMarkFlaky(caseId: string) {
-    const results = await prisma.testResult.findMany({
+export async function checkAndMarkFlaky(
+    caseId: string,
+    client: PrismaClient = defaultPrisma,
+) {
+    const results = await client.testResult.findMany({
         where: { caseId },
         orderBy: { createdAt: "desc" },
         take: FLAKY_WINDOW,
@@ -13,18 +17,21 @@ export async function checkAndMarkFlaky(caseId: string) {
 
     if (results.length < 3) return;
 
-    let flips = 0;
-    let currentStatus = results[0].status;
+    const nonSkipped = results.filter((r) => r.status !== "SKIPPED");
+    if (nonSkipped.length < 3) return;
 
-    for (let i = 1; i < results.length; i++) {
-        if (results[i].status !== currentStatus && results[i].status !== "SKIPPED") {
+    let flips = 0;
+    let currentStatus = nonSkipped[0].status;
+
+    for (let i = 1; i < nonSkipped.length; i++) {
+        if (nonSkipped[i].status !== currentStatus) {
             flips++;
-            currentStatus = results[i].status;
+            currentStatus = nonSkipped[i].status;
         }
     }
 
     if (flips >= FLAKY_THRESHOLD) {
-        await prisma.testCase.update({
+        await client.testCase.update({
             where: { id: caseId },
             data: {
                 isFlaky: true,
