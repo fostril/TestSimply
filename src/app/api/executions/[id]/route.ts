@@ -73,7 +73,8 @@ export const GET = withApiHandler(
     const full = await prisma.testExecution.findUnique({
       where: { id: execution!.id },
       include: {
-        results: { include: { testCase: true } },
+        results: { include: { testCase: true, bugs: true, Attachment: true } },
+        attachments: true,
         plan: { include: { cases: { include: { case: true } } } },
       },
     });

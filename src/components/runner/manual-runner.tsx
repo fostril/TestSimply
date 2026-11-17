@@ -395,6 +395,66 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
     },
   });
 
+  const activeResult = useMemo(
+    () => (activeCase?.id ? results.find((r: any) => r.caseId === activeCase.id) : undefined),
+    [results, activeCase?.id],
+  );
+
+  const activeAttachments = useMemo(() => {
+    if (!activeCase?.id) return [];
+    const fromResult = (activeResult?.Attachment ?? []) as any[];
+    const fromExecution = ((data?.attachments ?? []) as any[]).filter(
+      (a) => a.testCaseId === activeCase.id && !a.testResultId,
+    );
+    return [...fromResult, ...fromExecution];
+  }, [activeCase?.id, activeResult, data?.attachments]);
+
+  const uploadAttachmentMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      if (activeResult?.id) {
+        formData.append("testResultId", activeResult.id);
+      } else if (data?.id && activeCase?.id) {
+        formData.append("executionId", data.id);
+        formData.append("testCaseId", activeCase.id);
+      }
+      const res = await fetch("/api/attachments", {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to upload attachment");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Attachment uploaded" });
+      void refetch();
+    },
+    onError: (err: unknown) => {
+      toast({ title: "Upload failed", description: (err as Error).message });
+    },
+  });
+
+  const deleteAttachmentMutation = useMutation({
+    mutationFn: async (attachmentId: string) => {
+      const res = await fetch(`/api/attachments/${attachmentId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete attachment");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Attachment deleted" });
+      void refetch();
+    },
+    onError: (err: unknown) => {
+      toast({ title: "Delete failed", description: (err as Error).message });
+    },
+  });
+
   // Keyboard shortcuts: P = Pass, F = Fail, B = Blocked
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -992,7 +1052,7 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
             </ol>
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Notes</h2>
             <textarea
               value={notes[activeCase.id] ?? ""}
@@ -1002,6 +1062,65 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
               className="mt-3 w-full rounded-xl border border-slate-800 bg-slate-950 p-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
               rows={4}
             />
+          </div>
+
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+                Attachments ({activeAttachments.length})
+              </h2>
+              <label className="cursor-pointer rounded-full border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700">
+                {uploadAttachmentMutation.isPending ? "Uploading..." : "+ Upload File"}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain,text/csv,application/json,application/xml,text/xml"
+                  disabled={uploadAttachmentMutation.isPending}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      uploadAttachmentMutation.mutate(file);
+                      e.target.value = "";
+                    }
+                  }}
+                  className="hidden"
+                />
+              </label>
+            </div>
+            {activeAttachments.length > 0 ? (
+              <ul className="mt-3 space-y-2">
+                {activeAttachments.map((att: any) => (
+                  <li
+                    key={att.id}
+                    className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2 text-xs text-slate-300"
+                  >
+                    <a
+                      href={att.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="truncate font-medium text-brand hover:underline"
+                    >
+                      {att.fileName}
+                    </a>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <span className="text-slate-500">
+                        {Math.max(1, Math.round(att.size / 1024))} KB
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => deleteAttachmentMutation.mutate(att.id)}
+                        className="text-red-400 hover:text-red-300"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-xs text-slate-500">
+                No attachments uploaded for this test case yet.
+              </p>
+            )}
           </div>
 
           <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">

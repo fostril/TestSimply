@@ -4,24 +4,15 @@ import {
   withApiHandler,
   assertProjectAccessForResource,
 } from "@/lib/api";
+import { logAudit } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import crypto from "crypto";
 import path from "path";
 import { writeFile, mkdir } from "fs/promises";
-import { MAX_UPLOAD_SIZE } from "@/lib/upload";
+import { validateUpload } from "@/lib/upload";
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? path.join(process.cwd(), "uploads");
-
-const ALLOWED_TYPES = [
-  "image/png",
-  "image/jpeg",
-  "image/gif",
-  "image/webp",
-  "application/pdf",
-  "text/plain",
-  "text/csv",
-];
 
 export const POST = withApiHandler(async (req: NextRequest) => {
   const auth = await requireAuth(req, "execution:run");
@@ -32,25 +23,10 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   // ---- Handle multipart file upload ----
   if (contentType.includes("multipart/form-data")) {
     const form = await req.formData();
-    const file = form.get("file") as File | null;
-
-    if (!file) {
-      return NextResponse.json({ error: "File is required" }, { status: 400 });
-    }
-
-    if (file.size > MAX_UPLOAD_SIZE) {
-      return NextResponse.json(
-        { error: `File too large. Maximum size is ${MAX_UPLOAD_SIZE / 1024 / 1024} MB` },
-        { status: 413 },
-      );
-    }
-
-    if (file.type && !ALLOWED_TYPES.includes(file.type)) {
-      return NextResponse.json(
-        { error: `File type "${file.type}" is not allowed` },
-        { status: 415 },
-      );
-    }
+    const rawFile = form.get("file");
+    const validated = validateUpload(rawFile, "attachment");
+    if (validated instanceof NextResponse) return validated;
+    const file = validated;
 
     const testCaseId = form.get("testCaseId") as string | null;
     const executionId = form.get("executionId") as string | null;
@@ -127,6 +103,15 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       where: { id: attachment.id },
       data: { url: publicUrl },
     });
+
+    await logAudit(
+      auth.session.user.id,
+      "CREATE",
+      "Attachment",
+      updated.id,
+      { fileName: updated.fileName, size: updated.size, projectId },
+      projectId,
+    );
 
     return NextResponse.json(updated, { status: 201 });
   }
