@@ -7,7 +7,7 @@ import { can, type Action } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { defaultRateLimiter, type RateLimitResult } from "@/lib/rate-limit";
 import { apiLogger } from "@/lib/logger";
-import { authenticateApiToken } from "@/lib/personal-token";
+import { authenticateApiToken, isTokenScopeAllowed } from "@/lib/personal-token";
 
 // ---------------------------------------------------------------------------
 // Auth helpers
@@ -49,6 +49,17 @@ export async function requireAuth(req: NextRequest, action?: Action): Promise<Re
   if (authHeader?.startsWith("Bearer ")) {
     const tokenAuth = await authenticateApiToken(authHeader);
     if (tokenAuth) {
+      const pathname = req.nextUrl?.pathname ?? new URL(req.url).pathname;
+      if (!isTokenScopeAllowed(tokenAuth.scopes, pathname)) {
+        return {
+          authorized: false,
+          session: null,
+          response: NextResponse.json(
+            { error: "Forbidden: insufficient token scope" },
+            { status: 403 },
+          ),
+        };
+      }
       const typedSession: AuthSession = {
         user: {
           id: tokenAuth.user.id,

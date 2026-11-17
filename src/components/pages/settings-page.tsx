@@ -19,6 +19,8 @@ export function SettingsPage() {
   const { data: session } = useSession();
   const isAdmin = (session?.user as { role?: string } | undefined)?.role === "ADMIN";
   const [token, setToken] = useState<string | null>(null);
+  const [label, setLabel] = useState("CI Token");
+  const [expiryDays, setExpiryDays] = useState("90");
 
   const { data: tokens, refetch } = useQuery({
     queryKey: ["settings", "tokens"],
@@ -31,7 +33,16 @@ export function SettingsPage() {
 
   const tokenMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/settings/tokens", { method: "POST" });
+      const days = Number(expiryDays);
+      const expiresAt =
+        Number.isFinite(days) && days > 0
+          ? new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
+          : undefined;
+      const res = await fetch("/api/settings/tokens", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: label.trim() || "CI Token", expiresAt }),
+      });
       if (!res.ok) throw new Error("Unable to generate token");
       return (await res.json()) as { token: string };
     },
@@ -42,6 +53,21 @@ export function SettingsPage() {
     },
     onError: (error: unknown) => {
       toast({ title: "Unable to generate", description: (error as Error).message });
+    },
+  });
+
+  const deleteTokenMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/settings/tokens/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Unable to revoke token");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Token revoked" });
+      void refetch();
+    },
+    onError: (error: unknown) => {
+      toast({ title: "Unable to revoke", description: (error as Error).message });
     },
   });
 
@@ -60,13 +86,37 @@ export function SettingsPage() {
           Use a token as a Bearer credential when calling CI import endpoints.
           Jira and CI workflow settings live on each project&apos;s Settings page.
         </p>
-        <button
-          type="button"
-          onClick={() => tokenMutation.mutate()}
-          className="mt-4 rounded-full bg-brand px-4 py-2 text-sm font-medium text-white shadow-lg hover:bg-blue-500"
-        >
-          Generate token
-        </button>
+        <div className="mt-4 flex flex-wrap items-end gap-3">
+          <div>
+            <label className="block text-xs uppercase tracking-wide text-slate-400">Label</label>
+            <input
+              type="text"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="CI Token"
+              className="mt-1 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+            />
+          </div>
+          <div>
+            <label className="block text-xs uppercase tracking-wide text-slate-400">Expires</label>
+            <select
+              value={expiryDays}
+              onChange={(e) => setExpiryDays(e.target.value)}
+              className="mt-1 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand"
+            >
+              <option value="30">30 days</option>
+              <option value="90">90 days</option>
+              <option value="365">1 year</option>
+            </select>
+          </div>
+          <button
+            type="button"
+            onClick={() => tokenMutation.mutate()}
+            className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white shadow-lg hover:bg-blue-500"
+          >
+            Generate token
+          </button>
+        </div>
         {token ? (
           <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4 font-mono text-sm break-all">
             {token}
@@ -75,11 +125,26 @@ export function SettingsPage() {
         {tokens && tokens.length > 0 ? (
           <ul className="mt-4 space-y-2 text-sm text-slate-300">
             {tokens.map((item) => (
-              <li key={item.id} className="flex justify-between rounded-lg border border-slate-800 px-3 py-2">
-                <span>{item.label}</span>
-                <span className="text-xs text-slate-500">
-                  {new Date(item.createdAt).toLocaleDateString()}
-                </span>
+              <li key={item.id} className="flex items-center justify-between gap-4 rounded-lg border border-slate-800 px-3 py-2">
+                <div>
+                  <span className="font-medium text-white">{item.label}</span>
+                  <span className="ml-2 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] uppercase text-slate-300">
+                    {item.scopes.join(", ")}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-slate-500">
+                    Created {new Date(item.createdAt).toLocaleDateString()}
+                    {item.expiresAt ? ` · Expires ${new Date(item.expiresAt).toLocaleDateString()}` : ""}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => deleteTokenMutation.mutate(item.id)}
+                    className="text-xs text-red-400 hover:text-red-300"
+                  >
+                    Revoke
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
