@@ -35,6 +35,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
             testCase: {
                 include: {
                     results: {
+                        where: { status: { not: "SKIPPED" } },
                         orderBy: { createdAt: "desc" },
                         take: 1,
                     },

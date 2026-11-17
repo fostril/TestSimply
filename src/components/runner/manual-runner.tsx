@@ -74,6 +74,11 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
     [rawPlanCases]
   );
 
+  const planCaseIds = useMemo(
+    () => new Set(planCases.map((c: any) => c?.id).filter(Boolean)),
+    [planCases],
+  );
+
   const cases = useMemo(() => {
     const merged: any[] = [];
     const seen = new Set<string>();
@@ -116,7 +121,8 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
     return map;
   }, [results]);
 
-  const activeCase = cases[activeIndex];
+  const safeActiveIndex = Math.min(activeIndex, Math.max(0, cases.length - 1));
+  const activeCase = cases[safeActiveIndex];
 
   const [notes, setNotes] = useState<Record<string, string>>({});
   // Per-step results keyed by caseId. Initialized from the existing stepsLog
@@ -325,19 +331,32 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
       if (!res.ok) throw new Error("Failed to remove case");
       return res.json();
     },
-    onSuccess: (data, caseId) => {
-      toast({ title: "Case Removed", description: data.message });
+    onSuccess: (resData, caseId) => {
+      toast({
+        title: planCaseIds.has(caseId) ? "Result Cleared" : "Case Removed",
+        description: resData.message,
+      });
       setCaseToRemove(null);
+      setNotes((prev) => {
+        const next = { ...prev };
+        delete next[caseId];
+        return next;
+      });
+      setStepResults((prev) => {
+        const next = { ...prev };
+        delete next[caseId];
+        return next;
+      });
 
       // Adjust active index if the removed case was active or before the active case
-      const removedIndex = cases.findIndex((c: any) => c.id === caseId);
-      if (removedIndex !== -1) {
-        if (removedIndex === activeIndex && cases.length > 1) {
-          // If removing the active case, switch to the previous one or the next if it's the first
-          setActiveIndex(removedIndex > 0 ? removedIndex - 1 : 0);
-        } else if (removedIndex < activeIndex) {
-          // If removing a case before the active one, decrement the active index
-          setActiveIndex(activeIndex - 1);
+      if (!planCaseIds.has(caseId)) {
+        const removedIndex = cases.findIndex((c: any) => c.id === caseId);
+        if (removedIndex !== -1) {
+          if (removedIndex === activeIndex && cases.length > 1) {
+            setActiveIndex(removedIndex > 0 ? removedIndex - 1 : 0);
+          } else if (removedIndex < activeIndex) {
+            setActiveIndex(activeIndex - 1);
+          }
         }
       }
 
@@ -763,9 +782,19 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
       {caseToRemove && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
           <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-lg">
-            <h2 className="text-lg font-semibold text-slate-900">Remove Test Case?</h2>
+            <h2 className="text-lg font-semibold text-slate-900">
+              {planCaseIds.has(caseToRemove.id) ? "Clear Recorded Result?" : "Remove Test Case?"}
+            </h2>
             <p className="mt-2 text-sm text-slate-600">
-              Are you sure you want to remove <span className="font-semibold text-slate-900">{caseToRemove.name}</span> from this execution?
+              {planCaseIds.has(caseToRemove.id) ? (
+                <>
+                  Clear the recorded result for <span className="font-semibold text-slate-900">{caseToRemove.name}</span> in this execution?
+                </>
+              ) : (
+                <>
+                  Are you sure you want to remove <span className="font-semibold text-slate-900">{caseToRemove.name}</span> from this execution?
+                </>
+              )}
             </p>
             <div className="mt-6 flex justify-end gap-2">
               <button
@@ -779,7 +808,11 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
                 disabled={removeCaseMutation.isPending}
                 className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
               >
-                {removeCaseMutation.isPending ? "Removing..." : "Remove"}
+                {removeCaseMutation.isPending
+                  ? "Processing..."
+                  : planCaseIds.has(caseToRemove.id)
+                    ? "Clear Result"
+                    : "Remove"}
               </button>
             </div>
           </div>
@@ -831,19 +864,21 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
                   </span>
                 ) : null}
               </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setCaseToRemove(testCase);
-                }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-slate-400 opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
-                title="Remove from execution"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </button>
+              {(!planCaseIds.has(testCase.id) || statusByCase.has(testCase.id)) && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCaseToRemove(testCase);
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-slate-400 opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
+                  title={planCaseIds.has(testCase.id) ? "Clear recorded result" : "Remove from execution"}
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              )}
             </li>
           ))}
         </ol>
