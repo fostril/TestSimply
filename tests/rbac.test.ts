@@ -81,18 +81,41 @@ describe("RBAC & access isolation", () => {
     expect(res.status).toBe(403);
   });
 
-  it("forbids LEAD from creating a project (403)", async () => {
+  it("allows LEAD to create a project (201) and forbids TESTER (403)", async () => {
     (getServerSession as ReturnType<typeof vi.fn>).mockResolvedValue({
       user: { id: "u-lead", name: "Liam", email: "liam@test.local", role: Role.LEAD },
     });
+    mockPrisma.project.create.mockResolvedValue({
+      id: "proj-new",
+      key: "NEWP",
+      name: "New Project",
+    });
 
-    const req = new NextRequest("http://localhost:3000/api/projects", {
+    const leadReq = new NextRequest("http://localhost:3000/api/projects", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ key: "NEWP", name: "New Project" }),
     });
-    const res = await createProject(req, {});
-    expect(res.status).toBe(403);
+    const leadRes = await createProject(leadReq, {});
+    expect(leadRes.status).toBe(201);
+    expect(mockPrisma.project.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          leads: { connect: [{ id: "u-lead" }] },
+        }),
+      })
+    );
+
+    (getServerSession as ReturnType<typeof vi.fn>).mockResolvedValue({
+      user: { id: "u-tester", name: "Tara", email: "tara@test.local", role: Role.TESTER },
+    });
+    const testerReq = new NextRequest("http://localhost:3000/api/projects", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ key: "NEWP2", name: "New Project 2" }),
+    });
+    const testerRes = await createProject(testerReq, {});
+    expect(testerRes.status).toBe(403);
   });
 
   it("allows ADMIN to change another user's role (200)", async () => {

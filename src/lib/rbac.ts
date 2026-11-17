@@ -34,6 +34,7 @@ export const roleMatrix: Record<Role, Action[]> = {
     "user:manage",
   ],
   [Role.LEAD]: [
+    "project:create",
     "project:update",
     "project:view",
     "testcase:create",
