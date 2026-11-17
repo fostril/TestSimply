@@ -135,7 +135,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     executionId: parsed.executionId,
     caseId: parsed.caseId,
     status: parsed.status,
-  });
+  }, execution!.projectId);
 
   return NextResponse.json(result, { status: existingResult ? 200 : 201 });
 });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { parseCsv } from "@/lib/csv";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, withApiHandler, requireProjectAccessOrForbid } from "@/lib/api";
+import { logAudit } from "@/lib/audit";
 import { generateEntityKey } from "@/lib/keys";
 import { validateUpload } from "@/lib/upload";
 
@@ -64,5 +65,14 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       })
     )
   );
+  await logAudit(
+    auth.session.user.id,
+    "IMPORT_CSV",
+    "TestCase",
+    projectId,
+    { projectId, count: created.length },
+    projectId,
+  );
+
   return NextResponse.json(created, { status: 201 });
 });

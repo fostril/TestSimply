@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, withApiHandler, requireProjectAccessOrForbid } from "@/lib/api";
+import { logAudit } from "@/lib/audit";
 import { importCucumber } from "@/lib/importers/cucumber";
 import { validateBodySize } from "@/lib/upload";
 
@@ -79,6 +80,15 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     executionId: execution.id,
     autoCreateCases: autoCreate
   });
+
+  await logAudit(
+    auth.session.user.id,
+    "IMPORT_CUCUMBER",
+    "TestExecution",
+    execution.id,
+    { projectId: project.id, executionKey: execution.key, features: body.length },
+    project.id,
+  );
 
   return NextResponse.json({ ok: true });
 });

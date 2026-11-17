@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, withApiHandler, requireProjectAccessOrForbid } from "@/lib/api";
+import { logAudit } from "@/lib/audit";
 import { generateEntityKey } from "@/lib/keys";
 import { validateBodySize } from "@/lib/upload";
 import Papa from "papaparse";
@@ -122,6 +123,15 @@ export const POST = withApiHandler(async (req: NextRequest) => {
             errors.push(`Row ${index + 1}: Failed to create case - ${(e as Error).message}`);
         }
     }
+
+    await logAudit(
+        auth.session.user.id,
+        "IMPORT_CSV",
+        "TestCase",
+        projectId,
+        { projectId, count: createdCases.length, total: rows.length },
+        projectId,
+    );
 
     return NextResponse.json({
         count: createdCases.length,

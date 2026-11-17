@@ -411,11 +411,13 @@ model AuditLog {
   entityId  String
   action    String
   userId    String?
+  projectId String?
   payload   Json
   createdAt DateTime @default(now())
 
   @@index([entity, entityId])
   @@index([userId])
+  @@index([projectId])
   @@index([createdAt])
 }
 

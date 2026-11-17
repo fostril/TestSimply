@@ -115,7 +115,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   await logAudit(auth.session.user?.id, "CREATE", "Requirement", requirement.id, {
     key: requirement.key,
     title: requirement.title,
-  });
+  }, parsed.projectId);
 
   return NextResponse.json(requirement, { status: 201 });
 });

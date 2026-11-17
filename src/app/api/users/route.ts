@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, withApiHandler } from "@/lib/api";
+import { logAudit } from "@/lib/audit";
 import { Role } from "@prisma/client";
 
 // GET /api/users - List all users (admin only)
@@ -67,6 +68,11 @@ export const PATCH = withApiHandler(async (req: NextRequest) => {
             email: true,
             role: true,
         },
+    });
+
+    await logAudit(auth.session.user.id, "UPDATE_ROLE", "User", updatedUser.id, {
+        role: updatedUser.role,
+        email: updatedUser.email,
     });
 
     return NextResponse.json(updatedUser);

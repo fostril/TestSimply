@@ -57,7 +57,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         await logAudit(auth.session.user?.id, "CI_TRIGGER", "TestPlan", planId, {
             workflowId: settings.ciWorkflowId,
             workflowUrl: result.workflowUrl,
-        });
+        }, projectId);
         return NextResponse.json({ success: true, workflowUrl: result.workflowUrl });
     } else {
         return NextResponse.json({ error: result.message }, { status: 502 });

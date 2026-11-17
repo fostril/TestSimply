@@ -55,7 +55,7 @@ export const PATCH = withApiHandler(
       },
     });
 
-    await logAudit(auth.session.user?.id, "UPDATE", "Environment", updated.id, parsed);
+    await logAudit(auth.session.user?.id, "UPDATE", "Environment", updated.id, parsed, updated.projectId);
     return NextResponse.json(updated);
   }
 );
@@ -76,7 +76,7 @@ export const DELETE = withApiHandler(
     if (denied) return denied;
 
     await prisma.environment.delete({ where: { id: params.id } });
-    await logAudit(auth.session.user?.id, "DELETE", "Environment", params.id, {});
+    await logAudit(auth.session.user?.id, "DELETE", "Environment", params.id, {}, existing!.projectId);
 
     return NextResponse.json({ ok: true });
   }

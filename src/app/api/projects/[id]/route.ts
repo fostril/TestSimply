@@ -63,7 +63,7 @@ export const PATCH = withApiHandler(
       data: parsed,
     });
 
-    await logAudit(auth.session.user?.id, "UPDATE", "Project", project.id, parsed);
+    await logAudit(auth.session.user?.id, "UPDATE", "Project", project.id, parsed, project.id);
     return NextResponse.json(project);
   }
 );
@@ -86,7 +86,7 @@ export const DELETE = withApiHandler(
         if (!access) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
         await prisma.project.delete({ where: { id: existing.id } });
-        await logAudit(auth.session.user?.id, "DELETE", "Project", existing.id, {});
+        await logAudit(auth.session.user?.id, "DELETE", "Project", existing.id, {}, existing.id);
       }
     } catch (error: unknown) {
       if ((error as { code?: string })?.code === "P2025") {

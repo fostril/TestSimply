@@ -31,12 +31,13 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     // Restrict to test cases the user can access. For ADMIN we skip the check
     // (fast path); for everyone else we load the owning projects and keep
     // only IDs belonging to projects they're a member/lead of.
-    let allowedIds: string[] = ids;
+    const cases = await prisma.testCase.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, projectId: true },
+    });
+
+    let allowedCases = cases;
     if (auth.session.user.role !== Role.ADMIN) {
-        const cases = await prisma.testCase.findMany({
-            where: { id: { in: ids } },
-            select: { id: true, projectId: true },
-        });
         const uniqueProjects = Array.from(new Set(cases.map((c) => c.projectId)));
         const allowedProjects = new Set<string>();
         for (const pid of uniqueProjects) {
@@ -47,8 +48,13 @@ export const POST = withApiHandler(async (req: NextRequest) => {
             );
             if (access) allowedProjects.add(pid);
         }
-        allowedIds = cases.filter((c) => allowedProjects.has(c.projectId)).map((c) => c.id);
+        allowedCases = cases.filter((c) => allowedProjects.has(c.projectId));
     }
+    const allowedIds = allowedCases.map((c) => c.id);
+    const bulkProjectId =
+        new Set(allowedCases.map((c) => c.projectId)).size === 1
+            ? allowedCases[0]?.projectId ?? null
+            : null;
 
     if (allowedIds.length === 0) {
         return NextResponse.json({ error: "No accessible test cases" }, { status: 403 });
@@ -62,7 +68,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
         await logAudit(auth.session.user?.id, "BULK_DELETE", "TestCase", "bulk", {
             count: result.count,
             ids: allowedIds,
-        });
+        }, bulkProjectId);
         return NextResponse.json(result);
     }
 
@@ -78,7 +84,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
             count: result.count,
             ids: allowedIds,
             data,
-        });
+        }, bulkProjectId);
         return NextResponse.json(result);
     }
 

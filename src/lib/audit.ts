@@ -5,12 +5,21 @@ export async function logAudit(
     action: string,
     entity: string,
     entityId: string,
-    payload: any
+    payload: any,
+    projectId?: string | null,
 ) {
     try {
+        const resolvedProjectId =
+            projectId !== undefined
+                ? projectId
+                : typeof payload?.projectId === "string"
+                  ? payload.projectId
+                  : null;
+
         await prisma.auditLog.create({
             data: {
                 userId: userId || null,
+                projectId: resolvedProjectId,
                 action,
                 entity,
                 entityId,

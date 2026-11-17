@@ -54,7 +54,7 @@ export const PATCH = withApiHandler(
       data: parsed,
     });
 
-    await logAudit(auth.session.user?.id, "UPDATE", "Precondition", updated.id, parsed);
+    await logAudit(auth.session.user?.id, "UPDATE", "Precondition", updated.id, parsed, updated.projectId);
     return NextResponse.json(updated);
   }
 );
@@ -75,7 +75,7 @@ export const DELETE = withApiHandler(
     if (denied) return denied;
 
     await prisma.precondition.delete({ where: { id: params.id } });
-    await logAudit(auth.session.user?.id, "DELETE", "Precondition", params.id, {});
+    await logAudit(auth.session.user?.id, "DELETE", "Precondition", params.id, {}, existing!.projectId);
 
     return NextResponse.json({ ok: true });
   }

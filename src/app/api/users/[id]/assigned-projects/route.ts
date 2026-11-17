@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, withApiHandler } from "@/lib/api";
+import { logAudit } from "@/lib/audit";
 
 // GET /api/users/[id]/assigned-projects - Get projects assigned to a user
 export const GET = withApiHandler(
@@ -70,6 +71,10 @@ export const PATCH = withApiHandler(
                     },
                 },
             },
+        });
+
+        await logAudit(auth.session.user.id, "UPDATE_MEMBERSHIP", "User", params.id, {
+            projectIds,
         });
 
         return NextResponse.json(updatedUser.assignedProjects);

@@ -143,7 +143,7 @@ export const PATCH = withApiHandler(
       data,
     });
 
-    await logAudit(auth.session.user?.id, "UPDATE", "TestCase", updated.id, parsed);
+    await logAudit(auth.session.user?.id, "UPDATE", "TestCase", updated.id, parsed, updated.projectId);
 
     return NextResponse.json(updated);
   }
@@ -167,7 +167,7 @@ export const DELETE = withApiHandler(
       data: { deletedAt: new Date() },
     });
 
-    await logAudit(auth.session.user?.id, "DELETE", "TestCase", testCase!.id, {});
+    await logAudit(auth.session.user?.id, "DELETE", "TestCase", testCase!.id, {}, testCase!.projectId);
 
     return NextResponse.json({ ok: true });
   }

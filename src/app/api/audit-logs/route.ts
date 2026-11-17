@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, withApiHandler, parsePagination, paginatedJson } from "@/lib/api";
 
@@ -9,11 +10,33 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     const { searchParams } = new URL(req.url);
     const entity = searchParams.get("entity");
     const userId = searchParams.get("userId");
+    const projectId = searchParams.get("projectId");
     const pagination = parsePagination(searchParams);
+
+    let projectFilter: { projectId?: string | { in: string[] } } = {};
+    if (auth.session.user.role !== Role.ADMIN) {
+        const leadProjects = await prisma.project.findMany({
+            where: { leads: { some: { id: auth.session.user.id } } },
+            select: { id: true },
+        });
+        const leadProjectIds = leadProjects.map((p) => p.id);
+
+        if (projectId) {
+            if (!leadProjectIds.includes(projectId)) {
+                return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+            }
+            projectFilter = { projectId };
+        } else {
+            projectFilter = { projectId: { in: leadProjectIds } };
+        }
+    } else if (projectId) {
+        projectFilter = { projectId };
+    }
 
     const where = {
         ...(entity ? { entity } : {}),
         ...(userId ? { userId } : {}),
+        ...projectFilter,
     };
 
     const [logs, total] = await Promise.all([

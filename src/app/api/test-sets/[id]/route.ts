@@ -93,7 +93,7 @@ export const PATCH = withApiHandler(
       data: parsed,
     });
 
-    await logAudit(auth.session.user?.id, "UPDATE", "TestSet", updated.id, parsed);
+    await logAudit(auth.session.user?.id, "UPDATE", "TestSet", updated.id, parsed, updated.projectId);
     return NextResponse.json(updated);
   }
 );
@@ -112,7 +112,7 @@ export const DELETE = withApiHandler(
     if (denied) return denied;
 
     await prisma.testSet.delete({ where: { id: testSet!.id } });
-    await logAudit(auth.session.user?.id, "DELETE", "TestSet", testSet!.id, {});
+    await logAudit(auth.session.user?.id, "DELETE", "TestSet", testSet!.id, {}, testSet!.projectId);
 
     return NextResponse.json({ ok: true });
   }
