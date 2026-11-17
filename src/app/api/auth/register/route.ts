@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { withApiHandler } from "@/lib/api";
+import { getClientIp, withApiHandler } from "@/lib/api";
 import { authRateLimiter } from "@/lib/rate-limit";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
@@ -21,13 +21,21 @@ const schema = z.object({
 });
 
 export const POST = withApiHandler(async (req: NextRequest) => {
-  // Stricter rate limit for registration
-  const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
-  const rl = authRateLimiter.check(clientIp);
+  // Stricter rate limit for registration (respecting TRUSTED_PROXY via getClientIp)
+  const clientIp = getClientIp(req);
+  const rl = await authRateLimiter.checkAsync(clientIp);
   if (!rl.success) {
     return NextResponse.json(
-      { error: "Too many registration attempts. Please try again later." },
-      { status: 429 },
+      { error: "Too many registration attempts. Please try again later.", retryAfter: rl.retryAfter },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(rl.retryAfter ?? 60),
+          "X-RateLimit-Limit": "10",
+          "X-RateLimit-Remaining": "0",
+          "X-RateLimit-Reset": String(rl.reset),
+        },
+      },
     );
   }
 

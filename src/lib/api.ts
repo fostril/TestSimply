@@ -253,7 +253,7 @@ export function paginatedJson<T>(data: T[], total: number, params: PaginationPar
  * When trusted, we take the RIGHTMOST IP in `x-forwarded-for` because that is
  * the address our proxy saw; entries to the left are attacker-controlled.
  */
-function getClientIp(req: NextRequest): string {
+export function getClientIp(req: NextRequest): string {
   const trustProxy = process.env.TRUSTED_PROXY === "true";
 
   if (trustProxy) {
@@ -270,9 +270,8 @@ function getClientIp(req: NextRequest): string {
     }
   }
 
-  // Fall back to a stable per-request identifier (better than "unknown" so
-  // multiple direct clients don't share a single bucket).
-  return req.headers.get("x-real-ip") ?? "direct";
+  // When TRUSTED_PROXY is not enabled, ignore spoofable forwarding headers.
+  return (req as { ip?: string }).ip ?? "direct";
 }
 
 // ---------------------------------------------------------------------------
@@ -330,7 +329,7 @@ export function withApiHandler<TContext = Record<string, unknown>>(
     // Rate limiting (can be disabled per-endpoint)
     if (!options.skipRateLimit) {
       const clientIp = getClientIp(req);
-      const rateLimitResult = defaultRateLimiter.check(clientIp);
+      const rateLimitResult = await defaultRateLimiter.checkAsync(clientIp);
 
       if (!rateLimitResult.success) {
         apiLogger.warn({ clientIp }, "Rate limit exceeded");
