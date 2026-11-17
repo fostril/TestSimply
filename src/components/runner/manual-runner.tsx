@@ -3,6 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/toast";
+import {
+  deriveOverallStatus,
+  type RunnerStatus,
+  type StepResultState,
+  type StepStatus,
+} from "@/lib/runner-utils";
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -17,17 +23,6 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-type RunnerStatus = "PASS" | "FAIL" | "BLOCKED";
-
-type StepStatus = "PASS" | "FAIL" | "BLOCKED" | "SKIPPED" | "NOT_RUN";
-
-type StepResultState = {
-  stepIndex: number;
-  status: StepStatus;
-  actual: string;
-  comments: string;
-};
-
 const STEP_STATUS_ORDER: StepStatus[] = ["NOT_RUN", "PASS", "FAIL", "BLOCKED", "SKIPPED"];
 
 const stepStatusStyle: Record<StepStatus, string> = {
@@ -37,17 +32,6 @@ const stepStatusStyle: Record<StepStatus, string> = {
   BLOCKED: "bg-amber-500 text-amber-950 border-amber-500",
   SKIPPED: "bg-slate-600 text-white border-slate-600",
 };
-
-// Collapse a set of per-step statuses into an overall result — same precedence
-// Jira Xray uses: FAIL dominates BLOCKED > SKIPPED > PASS. NOT_RUN means
-// "nothing conclusive yet" so we don't auto-submit for those.
-function deriveOverallStatus(steps: StepResultState[]): RunnerStatus | null {
-  if (steps.length === 0) return null;
-  if (steps.some((s) => s.status === "FAIL")) return "FAIL";
-  if (steps.some((s) => s.status === "BLOCKED")) return "BLOCKED";
-  if (steps.every((s) => s.status === "PASS")) return "PASS";
-  return null;
-}
 
 type Bug = {
   id: string;

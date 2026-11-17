@@ -18,45 +18,55 @@ export type CsvRow = {
   tags?: string;
 };
 
-const splitCsvLine = (line: string) => {
-  const values: string[] = [];
+const parseCsvRecords = (content: string): string[][] => {
+  const rows: string[][] = [];
+  let row: string[] = [];
   let current = "";
   let inQuotes = false;
 
-  for (let i = 0; i < line.length; i += 1) {
-    const char = line[i];
+  for (let i = 0; i < content.length; i += 1) {
+    const char = content[i];
     if (char === '"') {
-      if (inQuotes && line[i + 1] === '"') {
+      if (inQuotes && content[i + 1] === '"') {
         current += '"';
         i += 1;
       } else {
         inQuotes = !inQuotes;
       }
     } else if (char === "," && !inQuotes) {
-      values.push(current.trim());
+      row.push(current.trim());
+      current = "";
+    } else if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && content[i + 1] === "\n") {
+        i += 1;
+      }
+      row.push(current.trim());
+      if (row.some((cell) => cell.length > 0)) {
+        rows.push(row);
+      }
+      row = [];
       current = "";
     } else {
       current += char;
     }
   }
 
-  values.push(current.trim());
-  return values;
+  row.push(current.trim());
+  if (row.some((cell) => cell.length > 0)) {
+    rows.push(row);
+  }
+
+  return rows;
 };
 
 export const parseCsv = (content: string): CsvRow[] => {
-  const lines = content
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-
-  if (lines.length === 0) {
+  const records = parseCsvRecords(content);
+  if (records.length === 0) {
     return [];
   }
 
-  const headers = splitCsvLine(lines[0]);
-  return lines.slice(1).map((line) => {
-    const values = splitCsvLine(line);
+  const headers = records[0];
+  return records.slice(1).map((values) => {
     return headers.reduce((acc, header, index) => {
       const key = header as keyof CsvRow;
       acc[key] = values[index] ?? "";
