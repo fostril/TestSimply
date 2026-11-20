@@ -27,6 +27,37 @@ type Requirement = {
 const STATUSES = ["OPEN", "IN_PROGRESS", "DONE", "REJECTED"] as const;
 const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
 
+function JiraStatusBadge({ projectId, issueKey }: { projectId: string | null; issueKey: string }) {
+  const { data: jiraIssue } = useQuery<{ status: string; statusColor?: string } | null>({
+    queryKey: ["jira", issueKey, projectId],
+    enabled: Boolean(projectId && issueKey),
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/integrations/jira/issue?projectId=${projectId}&key=${encodeURIComponent(issueKey)}`
+      );
+      if (!res.ok) return null;
+      return res.json();
+    },
+    retry: false,
+  });
+
+  if (!jiraIssue?.status) return null;
+
+  return (
+    <span
+      className={`rounded border px-2 py-0.5 font-medium ${
+        jiraIssue.statusColor === "green" || jiraIssue.status === "Done"
+          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+          : jiraIssue.statusColor === "yellow" || jiraIssue.status === "In Progress"
+            ? "border-blue-200 bg-blue-50 text-blue-700"
+            : "border-slate-200 bg-slate-100 text-slate-700"
+      }`}
+    >
+      Jira: {jiraIssue.status}
+    </span>
+  );
+}
+
 export function RequirementsPage() {
   const projectId = useProjectStore((s) => s.projectId);
   const projectKey = useProjectStore((s) => s.projectKey);
@@ -196,6 +227,9 @@ export function RequirementsPage() {
                   >
                     {req.status}
                   </span>
+                  {req.externalIssueKey && (
+                    <JiraStatusBadge projectId={projectId} issueKey={req.externalIssueKey} />
+                  )}
                   <span className="font-medium text-slate-600">{req.priority}</span>
                   <span className="flex items-center gap-1 text-slate-500">
                     <Link2 className="h-3.5 w-3.5" />

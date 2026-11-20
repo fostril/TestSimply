@@ -57,13 +57,18 @@ export const POST = withApiHandler(async (req: NextRequest) => {
           description: row.description,
           preconditionsText: row.precondition,
           steps: row["steps.action"]
-            ? row["steps.action"]?.split("|\n").map((action, idx) => ({
-              action,
-              expected: row["steps.expected"]?.split("|\n")[idx] ?? "",
-            }))
+            ? row["steps.action"]
+                .split(/\|\n?/)
+                .map((s) => s.trim())
+                .filter(Boolean)
+                .map((action, idx) => ({
+                  action,
+                  expected: (row["steps.expected"]?.split(/\|\n?/)[idx] ?? "").trim(),
+                }))
             : [],
           expected: row.expected_result,
-          tags: row.tags ? row.tags.split(",").map((tag) => tag.trim()) : [],
+          tags: row.tags ? row.tags.split(",").map((tag) => tag.trim()).filter(Boolean) : [],
+          ownerId: auth.session.user?.id,
         },
       })
     )

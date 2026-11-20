@@ -95,11 +95,19 @@ export function ResultsImporter({
         });
       }
 
-      const data = await res.json().catch(() => null);
+      const data = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        imported?: number;
+        execKey?: string;
+      } | null;
       if (!res.ok) {
         throw new Error(data?.error || "Failed to import test results");
       }
-      return data as { imported: number; execKey: string; unmapped?: string[] };
+      return {
+        imported: data?.imported,
+        execKey: data?.execKey || execKey.trim() || defaultExecKey || "",
+      };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["executions", projectId] });
@@ -110,15 +118,16 @@ export function ResultsImporter({
       if (data.execKey) {
         queryClient.invalidateQueries({ queryKey: ["execution", data.execKey] });
       }
-      const unmappedCount = data.unmapped?.length ?? 0;
       toast({
-        title: `Imported ${data.imported} test result${data.imported === 1 ? "" : "s"}`,
-        description:
-          unmappedCount > 0
-            ? `Execution ${data.execKey} (${unmappedCount} unmapped case${unmappedCount === 1 ? "" : "s"} skipped)`
-            : `Updated execution ${data.execKey}`,
+        title:
+          typeof data.imported === "number"
+            ? `Imported ${data.imported} test result${data.imported === 1 ? "" : "s"}`
+            : `${format === "junit" ? "JUnit XML" : "Cucumber JSON"} results imported`,
+        description: data.execKey
+          ? `Updated execution ${data.execKey}`
+          : "Execution results recorded",
       });
-      onSuccess?.({ imported: data.imported, execKey: data.execKey });
+      onSuccess?.({ imported: data.imported ?? 0, execKey: data.execKey });
       setIsOpen(false);
       resetForm();
     },
