@@ -48,3 +48,6 @@ prisma/*.db-journal
 /test-results/
 /playwright-report/
 /playwright/.cache/
+
+# Local uploads
+/uploads/
