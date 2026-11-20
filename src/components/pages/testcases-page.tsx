@@ -12,6 +12,8 @@ import { CsvImporter } from "@/components/csv-importer";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { FolderTree } from "@/components/folder-tree";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { DEFAULT_PAGE_LIMIT, fetchPaginated, type PaginatedResult } from "@/lib/pagination";
 
 export type TestCaseRow = {
   id: string;
@@ -53,20 +55,26 @@ export function TestCasesPage() {
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   // null = all, "-" = unfiled, else a specific folder id
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
 
-  const { data, isLoading, error } = useQuery<TestCaseRow[]>({
-    queryKey: ["testcases", projectId, selectedFolderId, typeFilter],
+  const { data: paginated, isLoading, error } = useQuery<PaginatedResult<TestCaseRow>>({
+    queryKey: ["testcases", projectId, selectedFolderId, typeFilter, page],
     enabled: Boolean(projectId),
-    queryFn: async () => {
-      const params = new URLSearchParams();
+    queryFn: () => {
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(DEFAULT_PAGE_LIMIT),
+      });
       if (projectId) params.set("projectId", projectId);
       if (selectedFolderId) params.set("folderId", selectedFolderId);
       if (typeFilter !== "ALL") params.set("type", typeFilter);
-      const res = await fetch(`/api/testcases?${params.toString()}`);
-      if (!res.ok) throw new Error("Failed to load test cases");
-      return res.json();
+      return fetchPaginated<TestCaseRow>(
+        `/api/testcases?${params.toString()}`,
+        "Failed to load test cases"
+      );
     }
   });
+  const data = paginated?.items;
 
   const { data: testPlans } = useQuery({
     queryKey: ["testplans", projectId],
@@ -112,6 +120,8 @@ export function TestCasesPage() {
     setStatusFilter("ALL");
     setTypeFilter("ALL");
     setSelectedFolderId(null);
+    setPage(1);
+    setSelectedIds(new Set());
   };
 
   const toggleSelect = (id: string) => {
@@ -234,7 +244,11 @@ export function TestCasesPage() {
             <FolderTree
               projectId={projectId}
               selectedFolderId={selectedFolderId}
-              onSelect={setSelectedFolderId}
+              onSelect={(folderId) => {
+                setSelectedFolderId(folderId);
+                setPage(1);
+                setSelectedIds(new Set());
+              }}
               onDropCases={(ids, folderId) =>
                 bulkMutation.mutate({
                   ids,
@@ -279,7 +293,11 @@ export function TestCasesPage() {
         </select>
         <select
           value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
+          onChange={(e) => {
+            setTypeFilter(e.target.value);
+            setPage(1);
+            setSelectedIds(new Set());
+          }}
           className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
         >
           <option value="ALL">All Types</option>
@@ -540,11 +558,18 @@ export function TestCasesPage() {
         )}
       </div>
 
-      {/* Results count */}
-      {!isLoading && data && data.length > 0 && (
-        <p className="text-xs text-muted-foreground">
-          Showing {filteredRows.length} of {data.length} test case{data.length !== 1 ? "s" : ""}
-        </p>
+      {/* Pagination */}
+      {!isLoading && paginated && (
+        <PaginationControls
+          page={paginated.page}
+          totalPages={paginated.totalPages}
+          total={paginated.total}
+          limit={paginated.limit}
+          onPageChange={(nextPage) => {
+            setPage(nextPage);
+            setSelectedIds(new Set());
+          }}
+        />
       )}
 
       <ConfirmationDialog

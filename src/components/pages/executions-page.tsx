@@ -8,6 +8,9 @@ import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { Trash2, CheckCircle2, XCircle, AlertTriangle, Clock, Play } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { ResultsImporter } from "@/components/results-importer";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { DEFAULT_PAGE_LIMIT, fetchPaginated, type PaginatedResult } from "@/lib/pagination";
 
 type ExecutionResult = {
   id: string;
@@ -119,19 +122,21 @@ export function ExecutionsPage() {
   const projectId = useProjectStore((state) => state.projectId);
   const projectKey = useProjectStore((state) => state.projectKey);
   const [showOnlyCI, setShowOnlyCI] = useState(false);
+  const [page, setPage] = useState(1);
   const toast = useToast();
   const queryClient = useQueryClient();
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
-  const { data, isLoading } = useQuery<Execution[]>({
-    queryKey: ["executions", projectId],
+  const { data: paginated, isLoading } = useQuery<PaginatedResult<Execution>>({
+    queryKey: ["executions", projectId, page],
     enabled: Boolean(projectId),
-    queryFn: async () => {
-      const res = await fetch(`/api/executions?projectId=${projectId}`);
-      if (!res.ok) throw new Error("Failed to load executions");
-      return res.json();
-    }
+    queryFn: () =>
+      fetchPaginated<Execution>(
+        `/api/executions?projectId=${projectId}&page=${page}&limit=${DEFAULT_PAGE_LIMIT}`,
+        "Failed to load executions"
+      ),
   });
+  const data = paginated?.items;
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -162,12 +167,15 @@ export function ExecutionsPage() {
           <h1 className="text-2xl font-semibold text-slate-900">Executions</h1>
           <p className="mt-1 text-sm text-slate-600">Track manual and automated runs with live health.</p>
         </div>
-        <Link
-          href={`/projects/${projectKey}/executions/new`}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          New Execution
-        </Link>
+        <div className="flex items-center gap-2">
+          <ResultsImporter projectId={projectId} projectKey={projectKey} />
+          <Link
+            href={`/projects/${projectKey}/executions/new`}
+            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            New Execution
+          </Link>
+        </div>
       </div>
 
       <div className="flex items-center gap-2">
@@ -252,6 +260,16 @@ export function ExecutionsPage() {
           </div>
         )}
       </div>
+
+      {!isLoading && paginated && (
+        <PaginationControls
+          page={paginated.page}
+          totalPages={paginated.totalPages}
+          total={paginated.total}
+          limit={paginated.limit}
+          onPageChange={setPage}
+        />
+      )}
 
       <ConfirmationDialog
         open={!!itemToDelete}

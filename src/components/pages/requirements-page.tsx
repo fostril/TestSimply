@@ -7,6 +7,8 @@ import { useToast } from "@/components/ui/toast";
 import { useProjectStore } from "@/lib/stores/project-store";
 import { ExternalLink, Link2, Search, Trash2 } from "lucide-react";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { DEFAULT_PAGE_LIMIT, fetchPaginated, type PaginatedResult } from "@/lib/pagination";
 
 type Requirement = {
   id: string;
@@ -35,21 +37,27 @@ export function RequirementsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [page, setPage] = useState(1);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
-  const { data } = useQuery<Requirement[]>({
-    queryKey: ["requirements", projectId, searchQuery, statusFilter],
+  const { data: paginated } = useQuery<PaginatedResult<Requirement>>({
+    queryKey: ["requirements", projectId, searchQuery, statusFilter, page],
     enabled: Boolean(projectId),
     queryFn: async () => {
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(DEFAULT_PAGE_LIMIT),
+      });
       if (projectId) params.set("projectId", projectId);
       if (searchQuery) params.set("search", searchQuery);
       if (statusFilter !== "ALL") params.set("status", statusFilter);
-      const res = await fetch(`/api/requirements?${params.toString()}`);
-      if (!res.ok) throw new Error("Failed to load requirements");
-      return res.json();
+      return fetchPaginated<Requirement>(
+        `/api/requirements?${params.toString()}`,
+        "Failed to load requirements"
+      );
     },
   });
+  const data = paginated?.items;
 
   const createMutation = useMutation({
     mutationFn: async (input: {
@@ -122,13 +130,19 @@ export function RequirementsPage() {
             type="text"
             placeholder="Search by key, title or external key..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(1);
+            }}
             className="w-full rounded-md border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
           />
         </div>
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+          }}
           className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
         >
           <option value="ALL">All statuses</option>
@@ -219,6 +233,18 @@ export function RequirementsPage() {
           </div>
         )}
       </div>
+
+      {paginated && (
+        <div className="mt-6">
+          <PaginationControls
+            page={paginated.page}
+            totalPages={paginated.totalPages}
+            total={paginated.total}
+            limit={paginated.limit}
+            onPageChange={setPage}
+          />
+        </div>
+      )}
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">

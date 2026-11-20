@@ -9,6 +9,8 @@ import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { useToast } from "@/components/ui/toast";
 import { Search, Trash2, X, Bug } from "lucide-react";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { DEFAULT_PAGE_LIMIT, fetchPaginated, type PaginatedResult } from "@/lib/pagination";
 
 type BugData = {
     id: string;
@@ -34,16 +36,18 @@ export default function BugsPage() {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [itemToDelete, setItemToDelete] = useState<string | null>(null);
     const [showBulkDelete, setShowBulkDelete] = useState(false);
+    const [page, setPage] = useState(1);
 
-    const { data, isLoading, error } = useQuery<BugData[]>({
-        queryKey: ["bugs", projectId],
+    const { data: paginated, isLoading, error } = useQuery<PaginatedResult<BugData>>({
+        queryKey: ["bugs", projectId, page],
         enabled: Boolean(projectId),
-        queryFn: async () => {
-            const res = await fetch(`/api/bugs?projectId=${projectId}`);
-            if (!res.ok) throw new Error("Failed to load bugs");
-            return res.json();
-        }
+        queryFn: () =>
+            fetchPaginated<BugData>(
+                `/api/bugs?projectId=${projectId}&page=${page}&limit=${DEFAULT_PAGE_LIMIT}`,
+                "Failed to load bugs"
+            ),
     });
+    const data = paginated?.items;
 
     const deleteMutation = useMutation({
         mutationFn: async (id: string) => {
@@ -315,11 +319,18 @@ export default function BugsPage() {
                 )}
             </div>
 
-            {/* Results count */}
-            {!isLoading && data && data.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                    Showing {filteredBugs.length} of {data.length} bug{data.length !== 1 ? "s" : ""}
-                </p>
+            {/* Pagination & results summary */}
+            {!isLoading && paginated && (
+                <PaginationControls
+                    page={paginated.page}
+                    totalPages={paginated.totalPages}
+                    total={paginated.total}
+                    limit={paginated.limit}
+                    onPageChange={(nextPage) => {
+                        setPage(nextPage);
+                        setSelectedIds(new Set());
+                    }}
+                />
             )}
 
             {/* Single Delete Confirmation */}

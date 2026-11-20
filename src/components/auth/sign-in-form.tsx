@@ -21,6 +21,7 @@ export function SignInForm() {
   const {
     register,
     handleSubmit,
+    getValues,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -29,6 +30,8 @@ export function SignInForm() {
   });
 
   const [loading, setLoading] = useState(false);
+  const [resendingVerification, setResendingVerification] = useState(false);
+  const [needsVerification, setNeedsVerification] = useState(false);
   const [providers, setProviders] = useState<AuthProviders | null>(null);
   const [banner, setBanner] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const toast = useToast();
@@ -37,14 +40,19 @@ export function SignInForm() {
     const params = new URLSearchParams(window.location.search);
     if (params.get("verified") === "1") {
       setBanner({ type: "success", text: "Email verified! You can now sign in." });
+      setNeedsVerification(false);
     } else if (params.get("reset") === "1") {
       setBanner({ type: "success", text: "Password updated! You can now sign in." });
+      setNeedsVerification(false);
     } else if (params.get("error") === "EMAIL_NOT_VERIFIED") {
       setBanner({ type: "error", text: "Please verify your email address before signing in." });
+      setNeedsVerification(true);
     } else if (params.get("error") === "InvalidVerificationToken") {
       setBanner({ type: "error", text: "Verification link is invalid or expired." });
+      setNeedsVerification(true);
     } else if (params.get("error") === "CredentialsSignin") {
       setBanner({ type: "error", text: "Invalid email or password." });
+      setNeedsVerification(false);
     }
 
     void fetch("/api/auth/providers")
@@ -77,6 +85,38 @@ export function SignInForm() {
     setLoading(false);
   };
 
+  const handleResendVerification = async () => {
+    const email = getValues("email")?.trim();
+    if (!email) {
+      toast({
+        title: "Enter your email address",
+        description: "Type your email in the field below, then click Resend verification email.",
+      });
+      return;
+    }
+    setResendingVerification(true);
+    try {
+      const res = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(body?.error || "Could not send verification email");
+      }
+      setBanner({
+        type: "success",
+        text: body?.message || "If your account requires verification, a link has been sent.",
+      });
+      setNeedsVerification(false);
+    } catch (err: unknown) {
+      toast({ title: "Resend failed", description: (err as Error).message });
+    } finally {
+      setResendingVerification(false);
+    }
+  };
+
   return (
     <div className="mt-6 space-y-4">
       {banner ? (
@@ -87,7 +127,17 @@ export function SignInForm() {
               : "border-red-200 bg-red-50 text-red-700"
           }`}
         >
-          {banner.text}
+          <p>{banner.text}</p>
+          {needsVerification ? (
+            <button
+              type="button"
+              onClick={handleResendVerification}
+              disabled={resendingVerification}
+              className="mt-1.5 text-xs font-semibold underline hover:no-underline disabled:opacity-60"
+            >
+              {resendingVerification ? "Sending..." : "Resend verification email"}
+            </button>
+          ) : null}
         </div>
       ) : null}
       {credentialsEnabled ? (

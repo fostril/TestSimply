@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/toast";
 import { useProjectStore } from "@/lib/stores/project-store";
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 
 export function PreconditionsPage() {
@@ -116,6 +116,7 @@ export function PreconditionsPage() {
                             {editingPrecondition ? "Edit Precondition" : "Create Precondition"}
                         </h2>
                         <form
+                            key={editingPrecondition?.id ?? "new"}
                             onSubmit={(e) => {
                                 e.preventDefault();
                                 const formData = new FormData(e.currentTarget);
@@ -181,11 +182,24 @@ export function PreconditionsPage() {
                                 <p className="font-mono text-xs font-semibold uppercase tracking-wide text-slate-500">{pre.key}</p>
                                 <h2 className="mt-1 text-base font-semibold text-slate-900">{pre.name}</h2>
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
                                 <span className="rounded border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                                    {pre._count.cases} linked cases
+                                    {pre._count?.cases ?? 0} linked cases
                                 </span>
                                 <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        openEditModal(pre);
+                                    }}
+                                    className="rounded-md p-1.5 text-slate-400 hover:bg-blue-50 hover:text-blue-600"
+                                    title="Edit Precondition"
+                                    aria-label={`Edit ${pre.key}`}
+                                >
+                                    <Pencil className="h-4 w-4" />
+                                </button>
+                                <button
+                                    type="button"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         setItemToDelete(pre.id);

@@ -3,6 +3,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { useState } from "react";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { DEFAULT_PAGE_LIMIT, fetchPaginated, type PaginatedResult } from "@/lib/pagination";
 
 type AuditLog = {
     id: string;
@@ -20,18 +22,24 @@ type AuditLog = {
 
 export function AuditLogsPage() {
     const [entityFilter, setEntityFilter] = useState<string>("");
+    const [page, setPage] = useState(1);
 
-    const { data: logs, isLoading } = useQuery<AuditLog[]>({
-        queryKey: ["audit-logs", entityFilter],
-        queryFn: async () => {
-            const params = new URLSearchParams();
+    const { data: paginated, isLoading } = useQuery<PaginatedResult<AuditLog>>({
+        queryKey: ["audit-logs", entityFilter, page],
+        queryFn: () => {
+            const params = new URLSearchParams({
+                page: String(page),
+                limit: String(DEFAULT_PAGE_LIMIT),
+            });
             if (entityFilter) params.set("entity", entityFilter);
 
-            const res = await fetch(`/api/audit-logs?${params.toString()}`);
-            if (!res.ok) throw new Error("Failed to fetch audit logs");
-            return res.json();
+            return fetchPaginated<AuditLog>(
+                `/api/audit-logs?${params.toString()}`,
+                "Failed to fetch audit logs"
+            );
         },
     });
+    const logs = paginated?.items;
 
     return (
         <div className="mx-auto max-w-6xl px-6 py-6">
@@ -43,7 +51,10 @@ export function AuditLogsPage() {
                 <div className="flex gap-2">
                     <select
                         value={entityFilter}
-                        onChange={(e) => setEntityFilter(e.target.value)}
+                        onChange={(e) => {
+                            setEntityFilter(e.target.value);
+                            setPage(1);
+                        }}
                         className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 focus:border-blue-600 focus:outline-none"
                     >
                         <option value="">All Entities</option>
@@ -140,6 +151,18 @@ export function AuditLogsPage() {
                     </tbody>
                 </table>
             </div>
+
+            {!isLoading && paginated && (
+                <div className="mt-4">
+                    <PaginationControls
+                        page={paginated.page}
+                        totalPages={paginated.totalPages}
+                        total={paginated.total}
+                        limit={paginated.limit}
+                        onPageChange={setPage}
+                    />
+                </div>
+            )}
         </div>
     );
 }

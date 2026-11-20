@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/toast";
+import { useProjectStore } from "@/lib/stores/project-store";
+import { ResultsImporter } from "@/components/results-importer";
 import {
   deriveOverallStatus,
   type RunnerStatus,
@@ -53,6 +55,8 @@ interface ManualRunnerProps {
 
 export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
   const queryClient = useQueryClient();
+  const storeProjectId = useProjectStore((s) => s.projectId);
+  const storeProjectKey = useProjectStore((s) => s.projectKey);
   const { data, refetch, error, isLoading } = useQuery({
     queryKey: ["execution", executionId],
     queryFn: async () => {
@@ -622,8 +626,18 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
   if (!activeCase) {
     return (
       <div className="px-8 py-6">
-        <h1 className="text-2xl font-semibold text-slate-900">Manual Runner</h1>
-        <p className="mt-2 text-sm text-slate-500">No test cases available for this execution.</p>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold text-slate-900">Manual Runner</h1>
+            <p className="mt-2 text-sm text-slate-500">No test cases available for this execution.</p>
+          </div>
+          <ResultsImporter
+            projectId={data?.projectId ?? storeProjectId ?? null}
+            projectKey={projectKey ?? storeProjectKey ?? null}
+            defaultExecKey={data?.key ?? executionId}
+            onSuccess={() => void refetch()}
+          />
+        </div>
       </div>
     );
   }
@@ -935,9 +949,16 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
           </div>
         </div>
 
-        {/* Export */}
-        <div className="mt-6 border-t border-slate-200 pt-6">
-          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Export</h2>
+        {/* Import / Export */}
+        <div className="mt-6 space-y-2 border-t border-slate-200 pt-6">
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Import & Export</h2>
+          <ResultsImporter
+            projectId={data?.projectId ?? storeProjectId ?? null}
+            projectKey={projectKey ?? storeProjectKey ?? null}
+            defaultExecKey={data?.key ?? executionId}
+            onSuccess={() => void refetch()}
+            buttonClassName="flex w-full items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
+          />
           <a
             href={`/api/executions/${executionId}/export${projectKey ? `?projectKey=${projectKey}` : ""}`}
             download
