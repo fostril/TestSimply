@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/encryption";
-import { assertSafeExternalUrl, assertSafeExternalUrlSyntax } from "@/lib/ssrf";
+import { assertSafeExternalUrl, assertSafeExternalUrlSyntax, safeExternalFetch } from "@/lib/ssrf";
+
+export const JIRA_ISSUE_KEY_RE = /^[A-Za-z][A-Za-z0-9_]*-\d+$/;
 
 export class JiraClient {
     private baseUrl: string;
@@ -20,14 +22,12 @@ export class JiraClient {
     }
 
     async testConnection(projectKey?: string | null): Promise<{ success: boolean; message?: string }> {
-        await assertSafeExternalUrl(this.baseUrl);
         try {
-            const meRes = await fetch(`${this.baseUrl}/rest/api/3/myself`, {
+            const meRes = await safeExternalFetch(`${this.baseUrl}/rest/api/3/myself`, {
                 headers: {
                     Authorization: this.authHeader,
                     Accept: "application/json",
                 },
-                signal: AbortSignal.timeout(10_000),
             });
             if (!meRes.ok) {
                 if (meRes.status === 401 || meRes.status === 403) {
@@ -38,14 +38,13 @@ export class JiraClient {
             const me = await meRes.json();
 
             if (projectKey?.trim()) {
-                const projRes = await fetch(
+                const projRes = await safeExternalFetch(
                     `${this.baseUrl}/rest/api/3/project/${encodeURIComponent(projectKey.trim())}`,
                     {
                         headers: {
                             Authorization: this.authHeader,
                             Accept: "application/json",
                         },
-                        signal: AbortSignal.timeout(10_000),
                     },
                 );
                 if (!projRes.ok) {
@@ -71,15 +70,17 @@ export class JiraClient {
     }
 
     async getIssue(issueKey: string) {
-        await assertSafeExternalUrl(this.baseUrl);
-        const url = `${this.baseUrl}/rest/api/3/issue/${encodeURIComponent(issueKey)}?fields=status,summary`;
+        const trimmedKey = issueKey.trim();
+        if (!JIRA_ISSUE_KEY_RE.test(trimmedKey)) {
+            throw new Error("Invalid Jira issue key format");
+        }
+        const url = `${this.baseUrl}/rest/api/3/issue/${encodeURIComponent(trimmedKey)}?fields=status,summary`;
 
-        const response = await fetch(url, {
+        const response = await safeExternalFetch(url, {
             headers: {
                 Authorization: this.authHeader,
                 Accept: "application/json",
             },
-            signal: AbortSignal.timeout(10_000),
         });
 
         if (!response.ok) {
@@ -97,7 +98,6 @@ export class JiraClient {
     }
 
     async createIssue(projectKey: string, summary: string, description: string, issueType: string = "Bug") {
-        await assertSafeExternalUrl(this.baseUrl);
         const url = `${this.baseUrl}/rest/api/3/issue`;
 
         // Basic ADF format for description if it's a string
@@ -130,7 +130,7 @@ export class JiraClient {
             }
         };
 
-        const response = await fetch(url, {
+        const response = await safeExternalFetch(url, {
             method: "POST",
             headers: {
                 Authorization: this.authHeader,
@@ -138,7 +138,6 @@ export class JiraClient {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify(body),
-            signal: AbortSignal.timeout(10_000),
         });
 
         if (!response.ok) {

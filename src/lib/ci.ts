@@ -1,9 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/encryption";
-import { assertSafeExternalUrl, assertSafeExternalUrlSyntax } from "@/lib/ssrf";
+import { assertSafeExternalUrl, assertSafeExternalUrlSyntax, safeExternalFetch } from "@/lib/ssrf";
 
 const SAFE_SEGMENT_RE = /^[A-Za-z0-9._-]+$/;
-const OUTBOUND_TIMEOUT_MS = 10_000;
 
 export interface CiClient {
     triggerWorkflow(workflowId: string, inputs?: Record<string, string>, branch?: string): Promise<{ success: boolean; message?: string; workflowUrl?: string }>;
@@ -69,11 +68,9 @@ export class GitHubCiClient implements CiClient {
     }
 
     private async fetchRepoInfo(): Promise<{ ok: boolean; status: number; data?: any; errorText?: string }> {
-        await assertSafeExternalUrl(this.repoApiUrl);
-        const response = await fetch(this.repoApiUrl, {
+        const response = await safeExternalFetch(this.repoApiUrl, {
             method: "GET",
             headers: this.headers,
-            signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_MS),
         });
         if (response.ok) {
             return { ok: true, status: response.status, data: await response.json() };
@@ -107,7 +104,6 @@ export class GitHubCiClient implements CiClient {
         await assertSafeExternalUrl(this.baseUrl);
         const safeWorkflowId = validateSafeSegment(workflowId.trim(), "workflow filename or ID");
         const apiUrl = `${this.repoApiUrl}/actions/workflows/${encodeURIComponent(safeWorkflowId)}/dispatches`;
-        await assertSafeExternalUrl(apiUrl);
 
         try {
             let targetBranch = branch?.trim();
@@ -117,7 +113,7 @@ export class GitHubCiClient implements CiClient {
             }
 
             const dispatch = async (payloadInputs?: Record<string, string>) =>
-                fetch(apiUrl, {
+                safeExternalFetch(apiUrl, {
                     method: "POST",
                     headers: {
                         ...this.headers,
@@ -127,7 +123,6 @@ export class GitHubCiClient implements CiClient {
                         ref: targetBranch,
                         ...(payloadInputs && Object.keys(payloadInputs).length > 0 ? { inputs: payloadInputs } : {}),
                     }),
-                    signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_MS),
                 });
 
             let response = await dispatch(inputs);
@@ -178,6 +173,10 @@ export class GitLabCiClient implements CiClient {
         if (!cleanPath) {
             throw new Error("Invalid GitLab project URL. Expected format: https://gitlab.com/group/project");
         }
+        const pathSegments = cleanPath.split("/");
+        for (const seg of pathSegments) {
+            validateSafeSegment(seg, "GitLab project path");
+        }
         this.projectPath = cleanPath;
     }
 
@@ -186,15 +185,13 @@ export class GitLabCiClient implements CiClient {
     }
 
     async testConnection(): Promise<{ success: boolean; message?: string }> {
-        await assertSafeExternalUrl(this.projectApiUrl);
         try {
-            const response = await fetch(this.projectApiUrl, {
+            const response = await safeExternalFetch(this.projectApiUrl, {
                 method: "GET",
                 headers: {
                     "PRIVATE-TOKEN": this.token,
                     "Accept": "application/json",
                 },
-                signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_MS),
             });
 
             if (response.ok) {
@@ -218,14 +215,12 @@ export class GitLabCiClient implements CiClient {
     }
 
     async triggerWorkflow(workflowId: string, inputs?: Record<string, string>, branch?: string): Promise<{ success: boolean; message?: string; workflowUrl?: string }> {
-        await assertSafeExternalUrl(this.projectApiUrl);
         try {
             let targetBranch = branch?.trim();
             if (!targetBranch) {
-                const infoRes = await fetch(this.projectApiUrl, {
+                const infoRes = await safeExternalFetch(this.projectApiUrl, {
                     method: "GET",
                     headers: { "PRIVATE-TOKEN": this.token, "Accept": "application/json" },
-                    signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_MS),
                 });
                 if (infoRes.ok) {
                     const info = await infoRes.json();
@@ -240,7 +235,7 @@ export class GitLabCiClient implements CiClient {
             }).map(([key, value]) => ({ key, value }));
 
             const pipelineUrl = `${this.projectApiUrl}/pipeline`;
-            const response = await fetch(pipelineUrl, {
+            const response = await safeExternalFetch(pipelineUrl, {
                 method: "POST",
                 headers: {
                     "PRIVATE-TOKEN": this.token,
@@ -251,7 +246,6 @@ export class GitLabCiClient implements CiClient {
                     ref: targetBranch,
                     ...(variables.length > 0 ? { variables } : {}),
                 }),
-                signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_MS),
             });
 
             if (response.ok) {
@@ -287,6 +281,12 @@ export class JenkinsCiClient implements CiClient {
 
     private resolveJobUrl(jobOverride?: string): string {
         const parsed = new URL(this.baseUrl);
+        const existingSegments = parsed.pathname.split("/").filter(Boolean);
+        for (const seg of existingSegments) {
+            if (seg === "." || seg === "..") {
+                throw new Error("Invalid Jenkins URL path");
+            }
+        }
         if (parsed.pathname.includes("/job/")) {
             return this.baseUrl;
         }
@@ -298,21 +298,19 @@ export class JenkinsCiClient implements CiClient {
             .split("/")
             .map((s) => s.trim())
             .filter(Boolean)
-            .map((s) => encodeURIComponent(s));
+            .map((s) => encodeURIComponent(validateSafeSegment(s, "Jenkins job name")));
         return `${this.baseUrl}/job/${segments.join("/job/")}`;
     }
 
     async testConnection(): Promise<{ success: boolean; message?: string }> {
         const targetUrl = `${this.resolveJobUrl()}/api/json`;
-        await assertSafeExternalUrl(targetUrl);
         try {
-            const response = await fetch(targetUrl, {
+            const response = await safeExternalFetch(targetUrl, {
                 method: "GET",
                 headers: {
                     "Authorization": this.authHeader,
                     "Accept": "application/json",
                 },
-                signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_MS),
             });
 
             if (response.ok) {
@@ -335,7 +333,6 @@ export class JenkinsCiClient implements CiClient {
 
     async triggerWorkflow(workflowId: string, inputs?: Record<string, string>): Promise<{ success: boolean; message?: string; workflowUrl?: string }> {
         const jobUrl = this.resolveJobUrl(workflowId);
-        await assertSafeExternalUrl(jobUrl);
 
         try {
             const hasInputs = Boolean(inputs && Object.keys(inputs).length > 0);
@@ -343,20 +340,18 @@ export class JenkinsCiClient implements CiClient {
                 ? `${jobUrl}/buildWithParameters?${new URLSearchParams(inputs).toString()}`
                 : `${jobUrl}/build`;
 
-            let response = await fetch(paramsUrl, {
+            let response = await safeExternalFetch(paramsUrl, {
                 method: "POST",
                 headers: {
                     "Authorization": this.authHeader,
                 },
-                signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_MS),
             });
 
             // Fallback to /build if job is not configured as parameterized
             if (!response.ok && hasInputs && response.status >= 400 && response.status < 500) {
-                response = await fetch(`${jobUrl}/build`, {
+                response = await safeExternalFetch(`${jobUrl}/build`, {
                     method: "POST",
                     headers: { "Authorization": this.authHeader },
-                    signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_MS),
                 });
             }
 

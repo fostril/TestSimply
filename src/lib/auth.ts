@@ -4,6 +4,7 @@ import GitHubProvider from "next-auth/providers/github";
 import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
+import { authRateLimiter } from "@/lib/rate-limit";
 import type { Role } from "@prisma/client";
 import type { JWT } from "next-auth/jwt";
 import type { Session, DefaultUser, Account, Profile } from "next-auth";
@@ -25,6 +26,10 @@ export const authOptions = {
           async authorize(credentials) {
             if (!credentials?.email || !credentials.password) return null;
             const normalizedEmail = credentials.email.trim().toLowerCase();
+            const rl = await authRateLimiter.checkAsync(`cred:${normalizedEmail}`);
+            if (!rl.success) {
+              throw new Error("Too many login attempts. Please try again later.");
+            }
             const user = await prisma.user.findUnique({
               where: { email: normalizedEmail },
             });
@@ -64,11 +69,14 @@ export const authOptions = {
   callbacks: {
     async signIn({ account, profile }: { account: Account | null; profile?: Profile }) {
       if (account?.provider === "google") {
+        const googleProfile = profile as (Profile & { email_verified?: boolean }) | undefined;
+        if (googleProfile?.email_verified !== true) {
+          return false;
+        }
         const allowedDomain = process.env.GOOGLE_ALLOWED_DOMAIN;
         if (allowedDomain) {
-          return profile?.email?.endsWith(`@${allowedDomain}`) ?? false;
+          return googleProfile?.email?.toLowerCase().endsWith(`@${allowedDomain.toLowerCase()}`) ?? false;
         }
-        // If no domain restriction is configured, allow all Google sign-ins
         return true;
       }
       return true;
@@ -78,11 +86,11 @@ export const authOptions = {
         token.id = (user as any).id as string;
         (token as any).role = user.role as Role | undefined;
         (token as any).roleRefreshedAt = Date.now();
+        delete (token as any).revoked;
       }
 
-      // Refresh role from DB periodically so permission changes take effect
-      // without requiring the user to sign out. We refresh every 5 minutes
-      // or on explicit "update" triggers.
+      // Refresh role from DB periodically so permission changes and deletions
+      // take effect without waiting for the cookie lifetime to expire.
       const refreshIntervalMs = 5 * 60 * 1000;
       const last = (token as any).roleRefreshedAt as number | undefined;
       const needsRefresh =
@@ -97,6 +105,11 @@ export const authOptions = {
           if (dbUser) {
             (token as any).role = dbUser.role;
             (token as any).roleRefreshedAt = Date.now();
+          } else {
+            // User was deleted: invalidate the JWT session
+            delete (token as any).id;
+            delete (token as any).role;
+            (token as any).revoked = true;
           }
         } catch {
           // Swallow DB errors during refresh; fall back to the existing token.
@@ -106,6 +119,10 @@ export const authOptions = {
       return token;
     },
     async session({ session, token }: { session: Session; token: JWT }): Promise<Session> {
+      if ((token as any).revoked || !token.id) {
+        (session as any).user = undefined;
+        return session;
+      }
       if (session.user) {
         (session.user as any).id = token.id as string;
         (session.user as any).role = (token as any).role as Role | undefined;

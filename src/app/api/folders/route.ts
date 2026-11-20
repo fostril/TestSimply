@@ -7,6 +7,7 @@ import {
 } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { buildPath } from "@/lib/folders";
+import { logAudit } from "@/lib/audit";
 
 const listSchema = z.object({
   projectId: z.string().min(1),
@@ -91,6 +92,11 @@ export const POST = withApiHandler(async (req: NextRequest) => {
       path,
     },
   });
+
+  await logAudit(auth.session.user?.id, "CREATE", "TestFolder", folder.id, {
+    name: folder.name,
+    path: folder.path,
+  }, parsed.projectId);
 
   return NextResponse.json(folder, { status: 201 });
 });

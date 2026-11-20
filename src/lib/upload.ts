@@ -46,9 +46,9 @@ export function validateUpload(
   }
 
   const allowed = ALLOWED_MIME_TYPES[category] ?? ALLOWED_MIME_TYPES.report;
-  if (f.type && !allowed.includes(f.type)) {
+  if (!f.type || !allowed.includes(f.type)) {
     return NextResponse.json(
-      { error: `File type "${f.type}" is not allowed. Allowed: ${allowed.join(", ")}` },
+      { error: `File type "${f.type || "unknown"}" is not allowed. Allowed: ${allowed.join(", ")}` },
       { status: 415 },
     );
   }

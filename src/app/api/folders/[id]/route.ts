@@ -6,6 +6,7 @@ import {
   withApiHandler,
 } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 import {
   buildPath,
   rewriteSubtreePathsWithPrefix,
@@ -134,6 +135,11 @@ export const PATCH = withApiHandler(
       );
     }
 
+    await logAudit(auth.session.user?.id, "UPDATE", "TestFolder", updated.id, {
+      name: updated.name,
+      path: updated.path,
+    }, folder!.projectId);
+
     return NextResponse.json(updated);
   },
 );
@@ -155,6 +161,9 @@ export const DELETE = withApiHandler(
     // to NULL via onDelete: SetNull. So deleting a folder never deletes
     // test cases — they simply become unfiled.
     await prisma.testFolder.delete({ where: { id: folder!.id } });
+    await logAudit(auth.session.user?.id, "DELETE", "TestFolder", folder!.id, {
+      path: folder!.path,
+    }, folder!.projectId);
     return NextResponse.json({ success: true });
   },
 );

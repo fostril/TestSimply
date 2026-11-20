@@ -15,7 +15,7 @@ export default withAuth(
           const authHeader = req.headers.get("authorization");
           if (authHeader?.startsWith("Bearer ")) return true;
         }
-        return !!token;
+        return Boolean((token as any)?.id) && !(token as any)?.revoked;
       },
     },
     pages: {

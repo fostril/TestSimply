@@ -25,10 +25,13 @@ describe("Encryption / decryption", () => {
     expect(decrypt(encrypted)).toBe(secret);
   });
 
-  it("falls back to returning legacy plaintext values unchanged", () => {
+  it("falls back to returning legacy plaintext values unchanged (even 40+ char base64-like tokens)", () => {
     const legacyPlain = "ghp_legacyPlaintextToken123456";
+    const base64LookingToken = "QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVowMTIzNDU2Nzg5"; // len 48, valid base64
     expect(isEncrypted(legacyPlain)).toBe(false);
+    expect(isEncrypted(base64LookingToken)).toBe(false);
     expect(decrypt(legacyPlain)).toBe(legacyPlain);
+    expect(decrypt(base64LookingToken)).toBe(base64LookingToken);
   });
 
   it("throws when an encrypted-looking value fails to decrypt with wrong key", () => {

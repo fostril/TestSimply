@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, withApiHandler, requireProjectAccessOrForbid } from "@/lib/api";
-import { JiraClient } from "@/lib/jira";
+import { JIRA_ISSUE_KEY_RE, JiraClient } from "@/lib/jira";
 
 export const GET = withApiHandler(async (req: NextRequest) => {
     const auth = await requireAuth(req, "project:view");
@@ -8,10 +8,14 @@ export const GET = withApiHandler(async (req: NextRequest) => {
 
     const { searchParams } = new URL(req.url);
     const projectId = searchParams.get("projectId");
-    const key = searchParams.get("key");
+    const key = searchParams.get("key")?.trim();
 
     if (!projectId || !key) {
         return NextResponse.json({ error: "Missing projectId or key" }, { status: 400 });
+    }
+
+    if (!JIRA_ISSUE_KEY_RE.test(key)) {
+        return NextResponse.json({ error: "Invalid Jira issue key format" }, { status: 400 });
     }
 
     const access = await requireProjectAccessOrForbid(
@@ -21,7 +25,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     );
     if (access instanceof NextResponse) return access;
 
-    const jira = await JiraClient.forProject(projectId);
+    const jira = await JiraClient.forProject(access.id);
     if (!jira) {
         return NextResponse.json(
             { error: "Jira integration not configured for this project" },

@@ -13,8 +13,19 @@ const schema = z.object({
 });
 
 export const POST = withApiHandler(async (req: NextRequest) => {
+  const body = await req.json();
+  const parsed = schema.safeParse(body);
   const clientIp = getClientIp(req);
-  const rl = await passwordResetRateLimiter.checkAsync(clientIp);
+
+  const emailForBucket = parsed.success ? parsed.data.email.trim().toLowerCase() : null;
+  const bucketKey =
+    clientIp !== "direct"
+      ? `ip:${clientIp}`
+      : emailForBucket
+        ? `email:${emailForBucket}`
+        : "direct";
+
+  const rl = await passwordResetRateLimiter.checkAsync(bucketKey);
   if (!rl.success) {
     return NextResponse.json(
       { error: "Too many password reset requests. Please try again later.", retryAfter: rl.retryAfter },
@@ -27,8 +38,23 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     );
   }
 
-  const body = await req.json();
-  const parsed = schema.safeParse(body);
+  // Also enforce per-email limit when TRUSTED_PROXY is enabled so distributed IPs
+  // cannot spam reset emails for a single target user.
+  if (clientIp !== "direct" && emailForBucket) {
+    const emailRl = await passwordResetRateLimiter.checkAsync(`email:${emailForBucket}`);
+    if (!emailRl.success) {
+      return NextResponse.json(
+        { error: "Too many password reset requests. Please try again later.", retryAfter: emailRl.retryAfter },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(emailRl.retryAfter ?? 3600),
+          },
+        },
+      );
+    }
+  }
+
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Invalid email address", issues: parsed.error.issues },
@@ -36,7 +62,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     );
   }
 
-  const email = parsed.data.email.trim().toLowerCase();
+  const email = emailForBucket!;
   const user = await prisma.user.findUnique({
     where: { email },
     select: { id: true, email: true },

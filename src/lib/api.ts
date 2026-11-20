@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { Prisma, Role } from "@prisma/client";
 import { NextResponse, type NextRequest } from "next/server";
 import { ZodError } from "zod";
@@ -87,7 +88,7 @@ export async function requireAuth(req: NextRequest, action?: Action): Promise<Re
   }
 
   const session = await getServerSession(authOptions);
-  if (!session || !session.user) {
+  if (!session || !session.user || !(session.user as { id?: string }).id) {
     return {
       authorized: false,
       session: null,
@@ -342,6 +343,25 @@ export function getClientIp(req: NextRequest): string {
   return (req as { ip?: string }).ip ?? "direct";
 }
 
+function getRateLimitKey(req: NextRequest): string {
+  const clientIp = getClientIp(req);
+  if (clientIp !== "direct") return clientIp;
+
+  const authHeader = req.headers.get("authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    const hash = crypto.createHash("sha256").update(authHeader).digest("hex").slice(0, 16);
+    return `pat:${hash}`;
+  }
+  const sessionCookie =
+    req.cookies?.get("__Secure-next-auth.session-token")?.value ??
+    req.cookies?.get("next-auth.session-token")?.value;
+  if (sessionCookie) {
+    const hash = crypto.createHash("sha256").update(sessionCookie).digest("hex").slice(0, 16);
+    return `sess:${hash}`;
+  }
+  return "direct";
+}
+
 // ---------------------------------------------------------------------------
 // API handler wrapper
 // ---------------------------------------------------------------------------
@@ -396,11 +416,11 @@ export function withApiHandler<TContext = Record<string, unknown>>(
   return async (req, context) => {
     // Rate limiting (can be disabled per-endpoint)
     if (!options.skipRateLimit) {
-      const clientIp = getClientIp(req);
-      const rateLimitResult = await defaultRateLimiter.checkAsync(clientIp);
+      const rateLimitKey = getRateLimitKey(req);
+      const rateLimitResult = await defaultRateLimiter.checkAsync(rateLimitKey);
 
       if (!rateLimitResult.success) {
-        apiLogger.warn({ clientIp }, "Rate limit exceeded");
+        apiLogger.warn({ rateLimitKey }, "Rate limit exceeded");
         return rateLimitExceeded(rateLimitResult);
       }
     }

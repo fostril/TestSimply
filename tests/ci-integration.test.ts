@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import dns from "dns";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { ExecutionStatus, Role } from "@prisma/client";
 
@@ -33,14 +34,6 @@ vi.mock("next-auth", () => ({
   getServerSession: vi.fn(),
 }));
 
-vi.mock("@/lib/ssrf", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/ssrf")>();
-  return {
-    ...actual,
-    assertSafeExternalUrl: vi.fn(async () => undefined),
-  };
-});
-
 import { getServerSession } from "next-auth";
 import { GitHubCiClient, GitLabCiClient, JenkinsCiClient } from "@/lib/ci";
 import { POST as triggerCi } from "@/app/api/integrations/ci/trigger/route";
@@ -48,6 +41,9 @@ import { POST as triggerCi } from "@/app/api/integrations/ci/trigger/route";
 describe("CI integration clients & trigger route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(dns.promises, "lookup").mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+    ] as any);
     (getServerSession as ReturnType<typeof vi.fn>).mockResolvedValue({
       user: { id: "admin-1", name: "Ada", email: "ada@test.local", role: Role.ADMIN },
     });
@@ -58,6 +54,10 @@ describe("CI integration clients & trigger route", () => {
       id: "exec-3",
       ...data,
     }));
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("parses GitHub repo URLs including .git and rejects bare api.github.com", () => {

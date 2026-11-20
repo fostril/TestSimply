@@ -100,12 +100,18 @@ export const GET = withApiHandler(
 
     const data = await readFile(resolved);
 
+    const contentType = attachment.contentType || "application/octet-stream";
+    const inlineSafeTypes = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
+    const disposition = inlineSafeTypes.has(contentType) ? "inline" : "attachment";
+
     return new NextResponse(new Uint8Array(data), {
       status: 200,
       headers: {
-        "Content-Type": attachment.contentType || "application/octet-stream",
+        "Content-Type": contentType,
         "Content-Length": String(attachment.size),
-        "Content-Disposition": `inline; filename="${encodeURIComponent(attachment.fileName)}"`,
+        "Content-Disposition": `${disposition}; filename="${encodeURIComponent(attachment.fileName)}"`,
+        "Content-Security-Policy": "default-src 'none'; sandbox",
+        "X-Content-Type-Options": "nosniff",
         "Cache-Control": "private, max-age=300",
       },
     });
@@ -114,7 +120,7 @@ export const GET = withApiHandler(
 
 export const DELETE = withApiHandler(
   async (req: NextRequest, { params }: { params: { id: string } }) => {
-    const auth = await requireAuth(req, "testcase:update");
+    const auth = await requireAuth(req, "execution:run");
     if (!auth.authorized) return auth.response;
 
     const attachment = await prisma.attachment.findUnique({

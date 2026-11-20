@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, withApiHandler, requireProjectAccessOrForbid, parsePagination, paginatedJson } from "@/lib/api";
+import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 
 import { generateEntityKey } from "@/lib/keys";
@@ -77,6 +78,11 @@ export const POST = withApiHandler(async (req: NextRequest) => {
             url: parsed.url || null,
         },
     });
+
+    await logAudit(auth.session.user?.id, "CREATE", "Environment", environment.id, {
+        key: environment.key,
+        name: environment.name,
+    }, parsed.projectId);
 
     return NextResponse.json(environment, { status: 201 });
 });
