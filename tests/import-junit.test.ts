@@ -25,6 +25,9 @@ const mockPrisma: any = vi.hoisted(() => ({
   projectCounter: {
     upsert: vi.fn(),
   },
+  environment: {
+    findFirst: vi.fn(),
+  },
   personalAccessToken: {
     findFirst: vi.fn(),
   },
@@ -228,5 +231,36 @@ describe("POST /api/import/junit", () => {
     expect(storedResults).toHaveLength(1);
     expect(storedResults[0].status).toBe(TestStatus.FAIL);
     expect(mockPrisma.testResult.update).toHaveBeenCalledTimes(1);
+  });
+
+  it("resolves Environment FK and marks imported execution COMPLETED by default", async () => {
+    mockPrisma.environment.findFirst.mockResolvedValue({ id: "env-staging", name: "Staging" });
+    mockPrisma.testExecution.create.mockResolvedValue({ id: "exec-1", projectId: "proj-1", key: "ALPHA_EXEC_1" });
+
+    const xml = `<?xml version="1.0"?><testsuite><testcase name="ALPHA_TC_1" time="0.1"/></testsuite>`;
+    const req = makeJUnitRequest(
+      "?projectKey=ALPHA&createExecutionIfMissing=true&environment=Staging",
+      { content: xml, name: "junit.xml", type: "application/xml" },
+    );
+
+    const res = await POST(req, {});
+    expect(res.status).toBe(200);
+    expect(mockPrisma.testExecution.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          environmentId: "env-staging",
+          environment: "Staging",
+        }),
+      }),
+    );
+    expect(mockPrisma.testExecution.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "exec-1" },
+        data: expect.objectContaining({
+          status: "COMPLETED",
+          finishedAt: expect.any(Date),
+        }),
+      }),
+    );
   });
 });

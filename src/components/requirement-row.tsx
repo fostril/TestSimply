@@ -15,6 +15,7 @@ interface RequirementRowProps {
             key: string;
             title: string;
             status: string;
+            externalIssueKey?: string | null;
             externalUrl?: string | null;
         } | null;
     };
@@ -23,18 +24,41 @@ interface RequirementRowProps {
     onDelete: () => void;
 }
 
+function extractJiraIssueKey(url: string | null, fallbackIssueKey?: string | null): string | null {
+    if (fallbackIssueKey?.trim()) {
+        return fallbackIssueKey.trim();
+    }
+    if (!url) return null;
+    try {
+        const pathname = new URL(url).pathname;
+        const browseMatch = pathname.match(/\/browse\/([A-Za-z][A-Za-z0-9_]*-\d+)/i);
+        if (browseMatch?.[1]) return browseMatch[1];
+        const parts = pathname.split("/").filter(Boolean);
+        return parts.pop() || null;
+    } catch {
+        const clean = url.split(/[?#]/)[0];
+        const parts = clean.split("/").filter(Boolean);
+        return parts.pop() || null;
+    }
+}
+
 export function RequirementRow({ requirement, projectId, projectKey, onDelete }: RequirementRowProps) {
     const externalUrl = requirement.externalUrl ?? requirement.requirement?.externalUrl ?? null;
     const isJira = Boolean(
-        externalUrl && (requirement.type === "Jira" || externalUrl.includes("atlassian.net")),
+        requirement.requirement?.externalIssueKey ||
+            (externalUrl && (requirement.type === "Jira" || externalUrl.includes("atlassian.net"))),
     );
-    const issueKey = isJira && externalUrl ? externalUrl.split("/").pop() : null;
+    const issueKey = isJira
+        ? extractJiraIssueKey(externalUrl, requirement.requirement?.externalIssueKey)
+        : null;
 
     const { data: jiraIssue } = useQuery({
         queryKey: ["jira", issueKey, projectId],
         enabled: !!projectId && !!issueKey && isJira,
         queryFn: async () => {
-            const res = await fetch(`/api/integrations/jira/issue?projectId=${projectId}&key=${issueKey}`);
+            const res = await fetch(
+                `/api/integrations/jira/issue?projectId=${projectId}&key=${encodeURIComponent(issueKey!)}`,
+            );
             if (!res.ok) return null;
             return res.json();
         },

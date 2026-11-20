@@ -64,6 +64,19 @@ export function RequirementDetailPage() {
     },
   });
 
+  const { data: jiraIssue } = useQuery({
+    queryKey: ["jira", req?.externalIssueKey, projectId],
+    enabled: Boolean(projectId && req?.externalIssueKey),
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/integrations/jira/issue?projectId=${projectId}&key=${encodeURIComponent(req!.externalIssueKey!)}`,
+      );
+      if (!res.ok) return null;
+      return res.json();
+    },
+    retry: false,
+  });
+
   const { data: caseOptions } = useQuery({
     queryKey: ["testcases-search", projectId, caseSearch],
     enabled: Boolean(projectId) && caseSearch.length >= 1,
@@ -169,9 +182,22 @@ export function RequirementDetailPage() {
           {req.description && (
             <p className="mt-2 max-w-3xl text-sm text-slate-600">{req.description}</p>
           )}
-          <div className="mt-4 flex items-center gap-2.5 text-xs">
+          <div className="mt-4 flex flex-wrap items-center gap-2.5 text-xs">
             <span className="rounded border border-slate-200 bg-slate-100 px-2 py-0.5 font-medium text-slate-700">{req.status}</span>
             <span className="rounded border border-slate-200 bg-slate-100 px-2 py-0.5 font-medium text-slate-700">{req.priority}</span>
+            {jiraIssue && (
+              <span
+                className={`rounded border px-2 py-0.5 font-medium ${
+                  jiraIssue.statusColor === "green" || jiraIssue.status === "Done"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : jiraIssue.statusColor === "yellow" || jiraIssue.status === "In Progress"
+                      ? "border-blue-200 bg-blue-50 text-blue-700"
+                      : "border-slate-200 bg-slate-100 text-slate-700"
+                }`}
+              >
+                Jira: {jiraIssue.status}
+              </span>
+            )}
             {req.externalUrl && (
               <a
                 href={req.externalUrl}

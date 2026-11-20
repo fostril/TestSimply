@@ -198,9 +198,11 @@ export function TestPlanDetailsPage({ id }: { id: string }) {
         },
         onSuccess: (data) => {
             setWorkflowUrl(data.workflowUrl || null);
+            queryClient.invalidateQueries({ queryKey: ["executions", projectId] });
+            const execDesc = data.executionKey ? `Execution ${data.executionKey} started.` : undefined;
             toast({
                 title: "CI Workflow Triggered",
-                description: data.workflowUrl ? "View the workflow run on GitHub." : "Check your GitHub Actions tab."
+                description: execDesc || (data.workflowUrl ? "View the workflow run in your CI provider." : "Check your CI provider dashboard.")
             });
         },
         onError: (err) => {

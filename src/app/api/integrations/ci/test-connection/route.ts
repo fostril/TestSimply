@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, withApiHandler, requireProjectAccessOrForbid } from "@/lib/api";
-import { GitHubCiClient } from "@/lib/ci";
+import { createCiClientForProject } from "@/lib/ci";
 import { prisma } from "@/lib/prisma";
 
 export const POST = withApiHandler(async (req: NextRequest) => {
@@ -23,7 +23,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
 
     // Get project settings
     const settings = await prisma.projectSetting.findUnique({
-        where: { projectId },
+        where: { projectId: access.id },
     });
 
     if (!settings || !settings.ciProvider || !settings.ciUrl || !settings.ciToken) {
@@ -34,11 +34,19 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     }
 
     // Get CI Client and test connection
-    const ciClient = await GitHubCiClient.forProject(projectId);
+    let ciClient;
+    try {
+        ciClient = await createCiClientForProject(access.id);
+    } catch (err) {
+        return NextResponse.json({
+            success: false,
+            message: (err as Error).message,
+        });
+    }
     if (!ciClient) {
         return NextResponse.json({
             success: false,
-            message: "Failed to initialize CI client."
+            message: "Unsupported or incomplete CI provider configuration."
         });
     }
 

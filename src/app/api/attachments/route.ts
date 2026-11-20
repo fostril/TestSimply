@@ -135,20 +135,65 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     return NextResponse.json(updated, { status: 201 });
   }
 
-  // ---- Handle JSON presigned-URL request (for future S3 integration) ----
+  // ---- Handle JSON upload metadata request (authorized by project/target) ----
   const uploadSchema = z.object({
     fileName: z.string().min(1),
     contentType: z.string().min(1),
+    projectId: z.string().optional(),
+    testCaseId: z.string().optional(),
+    executionId: z.string().optional(),
+    testResultId: z.string().optional(),
   });
 
   const body = await req.json();
   const parsed = uploadSchema.parse(body);
 
-  const key = `${crypto.randomUUID()}-${parsed.fileName}`;
+  let targetProjectId: string | null = parsed.projectId ?? null;
+  if (!targetProjectId && parsed.testCaseId) {
+    const tc = await prisma.testCase.findUnique({
+      where: { id: parsed.testCaseId },
+      select: { projectId: true, deletedAt: true },
+    });
+    if (!tc || tc.deletedAt) {
+      return NextResponse.json({ error: "Linked testCaseId not found" }, { status: 404 });
+    }
+    targetProjectId = tc.projectId;
+  } else if (!targetProjectId && parsed.executionId) {
+    const exec = await prisma.testExecution.findUnique({
+      where: { id: parsed.executionId },
+      select: { projectId: true },
+    });
+    if (!exec) {
+      return NextResponse.json({ error: "Linked executionId not found" }, { status: 404 });
+    }
+    targetProjectId = exec.projectId;
+  } else if (!targetProjectId && parsed.testResultId) {
+    const result = await prisma.testResult.findUnique({
+      where: { id: parsed.testResultId },
+      select: { execution: { select: { projectId: true } } },
+    });
+    if (!result?.execution?.projectId) {
+      return NextResponse.json({ error: "Linked testResultId not found" }, { status: 404 });
+    }
+    targetProjectId = result.execution.projectId;
+  }
 
-  // When S3/R2 is configured, generate a real presigned URL here.
-  // For now, return the local upload endpoint info. The public URL is not
-  // known until a multipart upload completes and we have an attachment id.
+  if (!targetProjectId) {
+    return NextResponse.json(
+      { error: "projectId, testCaseId, executionId, or testResultId is required" },
+      { status: 400 },
+    );
+  }
+
+  const jsonDenied = await assertProjectAccessForResource(
+    auth.session.user.id,
+    auth.session.user.role,
+    { projectId: targetProjectId },
+  );
+  if (jsonDenied) return jsonDenied;
+
+  const key = `${crypto.randomUUID()}-${path.basename(parsed.fileName)}`;
+
   return NextResponse.json({
     uploadUrl: `/api/attachments`,
     key,

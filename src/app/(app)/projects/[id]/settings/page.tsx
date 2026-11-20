@@ -40,6 +40,7 @@ export default function ProjectSettingsPage({ params }: { params: { id: string }
     const setProject = useProjectStore((state) => state.setProject);
     const [isDeleting, setIsDeleting] = useState(false);
     const [testConnectionResult, setTestConnectionResult] = useState<{ success: boolean; message?: string } | null>(null);
+    const [jiraTestResult, setJiraTestResult] = useState<{ success: boolean; message?: string } | null>(null);
 
     const { data: project, isLoading } = useQuery({
         queryKey: ["project", params.id],
@@ -64,6 +65,7 @@ export default function ProjectSettingsPage({ params }: { params: { id: string }
         resolver: zodResolver(ciSchema),
         defaultValues: { ciProvider: "", ciUrl: "", ciToken: "", ciWorkflowId: "" },
     });
+    const selectedCiProvider = ciForm.watch("ciProvider");
 
     useEffect(() => {
         if (project) {
@@ -166,6 +168,30 @@ export default function ProjectSettingsPage({ params }: { params: { id: string }
         },
     });
 
+    const testJiraConnectionMutation = useMutation({
+        mutationFn: async () => {
+            const res = await fetch("/api/integrations/jira/test-connection", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ projectId: project?.id ?? params.id }),
+            });
+            if (!res.ok) throw new Error("Failed to test Jira connection");
+            return res.json();
+        },
+        onSuccess: (data) => {
+            setJiraTestResult(data);
+            if (data.success) {
+                toast({ title: "Jira connected", description: data.message });
+            } else {
+                toast({ title: "Jira connection failed", description: data.message });
+            }
+        },
+        onError: (err) => {
+            setJiraTestResult({ success: false, message: (err as Error).message });
+            toast({ title: "Jira connection test failed", description: (err as Error).message });
+        },
+    });
+
     if (isLoading) return <div className="p-8 text-slate-500">Loading...</div>;
     if (!project) return <div className="p-8 text-red-600">Project not found</div>;
 
@@ -261,14 +287,31 @@ export default function ProjectSettingsPage({ params }: { params: { id: string }
                                 />
                             </div>
                         </div>
-                        <div className="flex justify-end">
-                            <button
-                                type="submit"
-                                disabled={updateSettingsMutation.isPending}
-                                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                            >
-                                {updateSettingsMutation.isPending ? "Saving..." : "Save Changes"}
-                            </button>
+                        <div className="flex items-center justify-between gap-4">
+                            <div>
+                                {jiraTestResult && (
+                                    <span className={`text-sm ${jiraTestResult.success ? "text-emerald-600" : "text-red-600"}`}>
+                                        {jiraTestResult.message}
+                                    </span>
+                                )}
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => testJiraConnectionMutation.mutate()}
+                                    disabled={testJiraConnectionMutation.isPending}
+                                    className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                                >
+                                    {testJiraConnectionMutation.isPending ? "Testing..." : "Test Connection"}
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={updateSettingsMutation.isPending}
+                                    className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                                >
+                                    {updateSettingsMutation.isPending ? "Saving..." : "Save Changes"}
+                                </button>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -292,11 +335,23 @@ export default function ProjectSettingsPage({ params }: { params: { id: string }
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700" htmlFor="ciUrl">CI URL</label>
+                                <label className="block text-sm font-medium text-slate-700" htmlFor="ciUrl">
+                                    {selectedCiProvider === "GITLAB"
+                                        ? "GitLab Project URL"
+                                        : selectedCiProvider === "JENKINS"
+                                            ? "Jenkins Job / Base URL"
+                                            : "GitHub Repository URL"}
+                                </label>
                                 <input
                                     id="ciUrl"
                                     {...ciForm.register("ciUrl")}
-                                    placeholder="https://api.github.com"
+                                    placeholder={
+                                        selectedCiProvider === "GITLAB"
+                                            ? "https://gitlab.com/group/project"
+                                            : selectedCiProvider === "JENKINS"
+                                                ? "https://jenkins.example.com/job/my-tests"
+                                                : "https://github.com/owner/repo"
+                                    }
                                     className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                                 />
                                 {ciForm.formState.errors.ciUrl && (
@@ -306,21 +361,35 @@ export default function ProjectSettingsPage({ params }: { params: { id: string }
                         </div>
                         <div className="grid gap-4 md:grid-cols-2">
                             <div>
-                                <label className="block text-sm font-medium text-slate-700" htmlFor="ciToken">CI Token</label>
+                                <label className="block text-sm font-medium text-slate-700" htmlFor="ciToken">
+                                    {selectedCiProvider === "JENKINS" ? "CI Token (username:apiToken)" : "CI Token"}
+                                </label>
                                 <input
                                     id="ciToken"
                                     type="password"
                                     {...ciForm.register("ciToken")}
-                                    placeholder="••••••••••••••••"
+                                    placeholder={selectedCiProvider === "JENKINS" ? "user:apiToken" : "••••••••••••••••"}
                                     className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700" htmlFor="ciWorkflowId">Workflow Filename</label>
+                                <label className="block text-sm font-medium text-slate-700" htmlFor="ciWorkflowId">
+                                    {selectedCiProvider === "JENKINS"
+                                        ? "Job Name (optional if in URL)"
+                                        : selectedCiProvider === "GITLAB"
+                                            ? "Workflow Tag / Label (optional)"
+                                            : "Workflow Filename"}
+                                </label>
                                 <input
                                     id="ciWorkflowId"
                                     {...ciForm.register("ciWorkflowId")}
-                                    placeholder="e.g. main.yml"
+                                    placeholder={
+                                        selectedCiProvider === "JENKINS"
+                                            ? "e.g. e2e-suite"
+                                            : selectedCiProvider === "GITLAB"
+                                                ? "e.g. nightly"
+                                                : "e.g. main.yml"
+                                    }
                                     className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                                 />
                             </div>

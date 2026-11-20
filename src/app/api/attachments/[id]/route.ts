@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
-import { readFile, stat } from "fs/promises";
+import { readFile, stat, unlink } from "fs/promises";
 import {
   requireAuth,
   withApiHandler,
   assertProjectAccessForResource,
 } from "@/lib/api";
+import { logAudit } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? path.join(process.cwd(), "uploads");
@@ -139,6 +140,25 @@ export const DELETE = withApiHandler(
     }
 
     await prisma.attachment.delete({ where: { id: params.id } });
+
+    const storedKey = path.basename(attachment.storageKey || attachment.url);
+    if (storedKey) {
+      const filePath = path.join(UPLOAD_DIR, storedKey);
+      const resolved = path.resolve(filePath);
+      const resolvedRoot = path.resolve(UPLOAD_DIR);
+      if (resolved.startsWith(resolvedRoot + path.sep) || resolved === resolvedRoot) {
+        await unlink(resolved).catch(() => undefined);
+      }
+    }
+
+    await logAudit(
+      auth.session.user.id,
+      "DELETE",
+      "Attachment",
+      attachment.id,
+      { fileName: attachment.fileName },
+      projectId ?? undefined,
+    );
 
     return NextResponse.json({ success: true });
   },

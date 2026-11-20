@@ -209,6 +209,9 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
 
   const createJiraMutation = useMutation({
     mutationFn: async () => {
+      const currentResult = activeCase?.id
+        ? results.find((r: any) => r.caseId === activeCase.id)
+        : undefined;
       const res = await fetch("/api/integrations/jira/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -217,6 +220,8 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
           summary: jiraSummary,
           description: jiraDescription,
           issueType: "Bug",
+          testCaseId: activeCase?.id,
+          testResultId: currentResult?.id,
         }),
       });
       if (!res.ok) {
@@ -226,8 +231,22 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
       return res.json();
     },
     onSuccess: (jiraIssue) => {
-      toast({ title: "Jira Bug Created", description: `Issue ${jiraIssue.key} created.` });
+      toast({
+        title: "Jira Bug Created",
+        description: jiraIssue.localBug?.key
+          ? `Issue ${jiraIssue.key} created and linked as ${jiraIssue.localBug.key}.`
+          : `Issue ${jiraIssue.key} created.`,
+      });
       setIsJiraModalOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["bugs", data?.projectId] });
+      if (activeCase?.id && jiraIssue.localBug?.id) {
+        setSelectedBugs((prev) => {
+          const current = prev[activeCase.id] || [];
+          if (current.includes(jiraIssue.localBug.id)) return prev;
+          return { ...prev, [activeCase.id]: [...current, jiraIssue.localBug.id] };
+        });
+      }
+      void refetch();
     },
     onError: (err) => {
       toast({ title: "Failed to create Jira Bug", description: (err as Error).message });

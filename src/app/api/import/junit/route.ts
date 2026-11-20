@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, withApiHandler, requireProjectAccessOrForbid } from "@/lib/api";
 import { logAudit } from "@/lib/audit";
 import { importJUnit, JUnitParseError, parseJUnitXml } from "@/lib/importers/junit";
+import { finalizeImportExecution, resolveOrCreateImportExecution } from "@/lib/importers/shared";
 import { validateUpload } from "@/lib/upload";
 
 export const POST = withApiHandler(async (req: NextRequest) => {
@@ -14,6 +15,7 @@ export const POST = withApiHandler(async (req: NextRequest) => {
   const execKey = searchParams.get("execKey");
   const autoCreate = searchParams.get("autoCreateCases") === "true";
   const createExecutionIfMissing = searchParams.get("createExecutionIfMissing") === "true";
+  const completeExecution = searchParams.get("complete") !== "false";
   const environment = searchParams.get("environment");
   const buildUrl = searchParams.get("buildUrl");
   const commitSha = searchParams.get("commitSha");
@@ -54,40 +56,19 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     throw err;
   }
 
-  let execution = execKey
-    ? await prisma.testExecution.findFirst({ where: { projectId: project.id, key: execKey } })
-    : null;
-
-  if (!execution && createExecutionIfMissing) {
-    execution = await prisma.testExecution.create({
-      data: {
-        projectId: project.id,
-        key: execKey ?? `CI-${Date.now()}`,
-        name: `CI Execution ${new Date().toISOString()}`,
-        environment: environment ?? undefined,
-        buildUrl: buildUrl ?? undefined,
-        commitSha: commitSha ?? undefined,
-        revision: revision ?? undefined,
-        labels: labels ?? []
-      }
-    });
-  }
+  const execution = await resolveOrCreateImportExecution(prisma, {
+    project: { id: project.id, key: project.key },
+    execKey,
+    createExecutionIfMissing,
+    environment,
+    buildUrl,
+    commitSha,
+    revision,
+    labels,
+  });
 
   if (!execution) {
     return NextResponse.json({ error: "Execution not found" }, { status: 404 });
-  }
-
-  if (environment || buildUrl || commitSha || revision || labels) {
-    execution = await prisma.testExecution.update({
-      where: { id: execution.id },
-      data: {
-        environment: environment ?? undefined,
-        buildUrl: buildUrl ?? undefined,
-        commitSha: commitSha ?? undefined,
-        revision: revision ?? undefined,
-        labels: labels ?? execution.labels
-      }
-    });
   }
 
   await importJUnit(parsedCases, {
@@ -95,6 +76,8 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     executionId: execution.id,
     autoCreateCases: autoCreate
   });
+
+  await finalizeImportExecution(prisma, execution.id, completeExecution);
 
   await logAudit(
     auth.session.user.id,

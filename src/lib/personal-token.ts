@@ -13,6 +13,7 @@ export function isTokenScopeAllowed(scopes: string[], pathname: string): boolean
       pathname.startsWith("/api/import/") ||
       pathname === "/api/imports" ||
       pathname.startsWith("/api/imports/") ||
+      pathname === "/api/testcases/import" ||
       pathname === "/api/results" ||
       pathname.startsWith("/api/results/")
     );
