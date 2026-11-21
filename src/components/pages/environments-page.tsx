@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useProjectStore } from "@/lib/stores/project-store";
 import { useToast } from "@/components/ui/toast";
 import { useState } from "react";
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 
 export function EnvironmentsPage() {
@@ -201,14 +201,28 @@ export function EnvironmentsPage() {
                                 </span>
                                 <h2 className="text-base font-semibold text-slate-900">{env.name}</h2>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5">
                                 <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        openEdit(env);
+                                    }}
+                                    className="rounded p-1.5 text-slate-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
+                                    title="Edit Environment"
+                                    aria-label={`Edit ${env.name}`}
+                                >
+                                    <Pencil className="h-4 w-4" />
+                                </button>
+                                <button
+                                    type="button"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         setItemToDelete(env.id);
                                     }}
-                                    className="rounded p-1.5 text-slate-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
+                                    className="rounded p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
                                     title="Delete Environment"
+                                    aria-label={`Delete ${env.name}`}
                                 >
                                     <Trash2 className="h-4 w-4" />
                                 </button>

@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { useProjectStore } from "@/lib/stores/project-store";
 import { ResultsImporter } from "@/components/results-importer";
@@ -67,6 +69,7 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
   });
 
   const [activeIndex, setActiveIndex] = useState(0);
+  const [autoAdvanceOnPass, setAutoAdvanceOnPass] = useState(true);
 
   // Avoid creating new arrays in render: memoize each derivation
   const rawResults = data?.results as any[] | undefined;
@@ -436,7 +439,22 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_res, variables) => {
+      toast({ title: `Result saved: ${variables.status}` });
+      if (autoAdvanceOnPass && variables.status === "PASS" && cases.length > 1) {
+        const nextPendingIdx = cases.findIndex(
+          (c: any, idx: number) => idx > activeIndex && c.id !== variables.caseId && !statusByCase.has(c.id)
+        );
+        const wrapPendingIdx =
+          nextPendingIdx !== -1
+            ? nextPendingIdx
+            : cases.findIndex((c: any) => c.id !== variables.caseId && !statusByCase.has(c.id));
+        if (wrapPendingIdx !== -1) {
+          setActiveIndex(wrapPendingIdx);
+        } else if (activeIndex < cases.length - 1) {
+          setActiveIndex(activeIndex + 1);
+        }
+      }
       void refetch();
     },
     onError: (err: unknown) => {
@@ -540,12 +558,16 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
           note: notes[activeCase.id],
           bugIds: selectedBugs[activeCase.id],
         });
+      } else if (key === "j" && activeIndex < cases.length - 1) {
+        setActiveIndex((idx) => Math.min(cases.length - 1, idx + 1));
+      } else if (key === "k" && activeIndex > 0) {
+        setActiveIndex((idx) => Math.max(0, idx - 1));
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeCase?.id, notes, selectedBugs, mutation]);
+  }, [activeCase?.id, activeIndex, cases.length, notes, selectedBugs, mutation]);
 
   // Bulk mark remaining cases
   const bulkMarkMutation = useMutation({
@@ -892,7 +914,17 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
                 </div>
                 <div className="text-sm font-medium">{testCase.name}</div>
                 {statusByCase.has(testCase.id) ? (
-                  <span className="mt-1 inline-flex rounded border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-700">
+                  <span
+                    className={`mt-1 inline-flex rounded border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                      statusByCase.get(testCase.id) === "PASS"
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        : statusByCase.get(testCase.id) === "FAIL"
+                          ? "border-red-200 bg-red-50 text-red-700"
+                          : statusByCase.get(testCase.id) === "BLOCKED"
+                            ? "border-amber-200 bg-amber-50 text-amber-700"
+                            : "border-slate-200 bg-white text-slate-700"
+                    }`}
+                  >
                     {statusByCase.get(testCase.id)}
                   </span>
                 ) : null}
@@ -946,7 +978,17 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
             <p><kbd className="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 font-mono text-slate-700">P</kbd> Pass</p>
             <p><kbd className="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 font-mono text-slate-700">F</kbd> Fail</p>
             <p><kbd className="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 font-mono text-slate-700">B</kbd> Blocked</p>
+            <p><kbd className="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 font-mono text-slate-700">J</kbd> / <kbd className="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 font-mono text-slate-700">K</kbd> Next / Prev Case</p>
           </div>
+          <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs text-slate-700">
+            <input
+              type="checkbox"
+              checked={autoAdvanceOnPass}
+              onChange={(e) => setAutoAdvanceOnPass(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+            />
+            Auto-advance on Pass
+          </label>
         </div>
 
         {/* Import / Export */}
@@ -1000,18 +1042,70 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
       )}
 
       <section className="bg-slate-50 px-8 py-8">
-        <header className="flex items-start justify-between gap-4">
+        <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="font-mono text-xs uppercase tracking-wide text-slate-500">{activeCase.key}</p>
-            <h1 className="text-2xl font-semibold text-slate-900">{activeCase.name}</h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-xs uppercase tracking-wide text-slate-500">{activeCase.key}</span>
+              <span className="text-xs text-slate-400">•</span>
+              <span className="text-xs font-medium text-slate-500">
+                Case {activeIndex + 1} of {cases.length}
+              </span>
+              {statusByCase.has(activeCase.id) && (
+                <span
+                  className={`rounded border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
+                    statusByCase.get(activeCase.id) === "PASS"
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      : statusByCase.get(activeCase.id) === "FAIL"
+                        ? "border-red-200 bg-red-50 text-red-700"
+                        : statusByCase.get(activeCase.id) === "BLOCKED"
+                          ? "border-amber-200 bg-amber-50 text-amber-700"
+                          : "border-slate-200 bg-white text-slate-700"
+                  }`}
+                >
+                  {statusByCase.get(activeCase.id)}
+                </span>
+              )}
+              {(projectKey ?? storeProjectKey) && (
+                <Link
+                  href={`/projects/${projectKey ?? storeProjectKey}/testcases/${activeCase.id}`}
+                  className="text-xs font-medium text-blue-600 hover:underline"
+                >
+                  View Case
+                </Link>
+              )}
+            </div>
+            <h1 className="mt-1 text-2xl font-semibold text-slate-900">{activeCase.name}</h1>
             <p className="mt-1.5 max-w-2xl text-sm text-slate-600">{activeCase.description}</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="mr-1 flex items-center rounded-md border border-slate-300 bg-white">
+              <button
+                type="button"
+                disabled={activeIndex <= 0}
+                onClick={() => setActiveIndex((idx) => Math.max(0, idx - 1))}
+                className="inline-flex items-center gap-1 border-r border-slate-200 px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                title="Previous test case (K)"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                Prev
+              </button>
+              <button
+                type="button"
+                disabled={activeIndex >= cases.length - 1}
+                onClick={() => setActiveIndex((idx) => Math.min(cases.length - 1, idx + 1))}
+                className="inline-flex items-center gap-1 px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                title="Next test case (J)"
+              >
+                Next
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
             <button
               onClick={() =>
                 mutation.mutate({ caseId: activeCase.id, status: "PASS", note: notes[activeCase.id], bugIds: selectedBugs[activeCase.id] })
               }
-              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+              disabled={mutation.isPending}
+              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
             >
               Pass
             </button>
@@ -1019,7 +1113,8 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
               onClick={() =>
                 mutation.mutate({ caseId: activeCase.id, status: "FAIL", note: notes[activeCase.id], bugIds: selectedBugs[activeCase.id] })
               }
-              className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              disabled={mutation.isPending}
+              className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
             >
               Fail
             </button>
@@ -1032,7 +1127,8 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
                   bugIds: selectedBugs[activeCase.id],
                 })
               }
-              className="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
+              disabled={mutation.isPending}
+              className="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
             >
               Blocked
             </button>
@@ -1073,18 +1169,52 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
             </div>
           ) : (
             <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Steps
                 </h2>
-                {(() => {
-                  const derived = deriveOverallStatus(stepResults[activeCase.id] ?? []);
-                  return derived ? (
-                    <span className="text-xs text-slate-600">
-                      Derived: <span className="font-semibold text-slate-900">{derived}</span>
-                    </span>
-                  ) : null;
-                })()}
+                <div className="flex items-center gap-3">
+                  {Array.isArray(activeCase.steps) && activeCase.steps.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStepResults((prev) => {
+                          const existing = prev[activeCase.id] ?? [];
+                          const next = (activeCase.steps as any[]).map((_: any, idx: number) => ({
+                            stepIndex: idx,
+                            status: "PASS" as StepStatus,
+                            actual: existing[idx]?.actual ?? "",
+                            comments: existing[idx]?.comments ?? "",
+                          }));
+                          return { ...prev, [activeCase.id]: next };
+                        });
+                      }}
+                      className="text-xs font-medium text-emerald-700 hover:underline"
+                    >
+                      Mark all steps Pass
+                    </button>
+                  )}
+                  {(() => {
+                    const derived = deriveOverallStatus(stepResults[activeCase.id] ?? []);
+                    return derived ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          mutation.mutate({
+                            caseId: activeCase.id,
+                            status: derived,
+                            note: notes[activeCase.id],
+                            bugIds: selectedBugs[activeCase.id],
+                          })
+                        }
+                        disabled={mutation.isPending}
+                        className="rounded border border-slate-300 bg-slate-50 px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-100"
+                      >
+                        Save Derived: <span className="font-semibold text-slate-900">{derived}</span>
+                      </button>
+                    ) : null;
+                  })()}
+                </div>
               </div>
               <ol className="mt-4 space-y-3">
                 {(Array.isArray(activeCase.steps) ? activeCase.steps : []).map((step: any, index: number) => {

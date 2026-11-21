@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/toast";
 import { useProjectStore } from "@/lib/stores/project-store";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { ExternalLink, Trash2 } from "lucide-react";
 
 type LinkedCase = {
@@ -53,6 +54,7 @@ export function RequirementDetailPage() {
   const [editPriority, setEditPriority] = useState("MEDIUM");
   const [editExternalKey, setEditExternalKey] = useState("");
   const [editExternalUrl, setEditExternalUrl] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { data: req } = useQuery<RequirementDetail>({
     queryKey: ["requirement", reqId],
@@ -168,7 +170,7 @@ export function RequirementDetailPage() {
     },
   });
 
-  if (!req) return <div className="p-8 text-muted-foreground">Loading…</div>;
+  if (!req) return <div className="p-8 text-sm text-slate-500">Loading…</div>;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-8 py-6">
@@ -227,9 +229,8 @@ export function RequirementDetailPage() {
             {isEditing ? "Close" : "Edit"}
           </button>
           <button
-            onClick={() => {
-              if (window.confirm("Delete this requirement?")) deleteReq.mutate();
-            }}
+            type="button"
+            onClick={() => setShowDeleteConfirm(true)}
             className="rounded-md border border-slate-300 bg-white p-2 text-slate-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
             title="Delete requirement"
           >
@@ -401,6 +402,20 @@ export function RequirementDetailPage() {
           )}
         </div>
       </div>
+
+      <ConfirmationDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="Delete Requirement"
+        description={`Are you sure you want to delete "${req.title}"? This will unlink any attached test cases.`}
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={() => {
+          setShowDeleteConfirm(false);
+          deleteReq.mutate();
+        }}
+        isLoading={deleteReq.isPending}
+      />
     </div>
   );
 }
