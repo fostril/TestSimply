@@ -39,6 +39,7 @@ vi.mock("next-auth", () => ({
 }));
 
 import { getServerSession } from "next-auth";
+import { can, roleMatrix } from "@/lib/rbac";
 import { POST as createTestCase } from "@/app/api/testcases/route";
 import { POST as createTestPlan } from "@/app/api/testplans/route";
 import { POST as createProject } from "@/app/api/projects/route";
@@ -198,5 +199,45 @@ describe("RBAC & access isolation", () => {
     });
     const res = await bulkTestCases(req, {});
     expect(res.status).toBe(403);
+  });
+
+  it("enforces roleMatrix permissions via can() for ADMIN, LEAD, TESTER, and VIEWER", () => {
+    expect(can(null, "project:view")).toBe(false);
+    expect(can(undefined, "project:view")).toBe(false);
+
+    // ADMIN has every permission including project:delete and user:manage
+    expect(can(Role.ADMIN, "project:create")).toBe(true);
+    expect(can(Role.ADMIN, "project:delete")).toBe(true);
+    expect(can(Role.ADMIN, "user:manage")).toBe(true);
+    expect(roleMatrix[Role.ADMIN]).toContain("settings:manage");
+
+    // LEAD can create/update projects and manage plans/executions, but cannot delete projects or manage users
+    expect(can(Role.LEAD, "project:create")).toBe(true);
+    expect(can(Role.LEAD, "project:update")).toBe(true);
+    expect(can(Role.LEAD, "testplan:manage")).toBe(true);
+    expect(can(Role.LEAD, "execution:manage")).toBe(true);
+    expect(can(Role.LEAD, "testcase:delete")).toBe(true);
+    expect(can(Role.LEAD, "project:delete")).toBe(false);
+    expect(can(Role.LEAD, "user:manage")).toBe(false);
+
+    // TESTER can create/update test cases, manage test sets, run executions, and manage bugs,
+    // but cannot create/update/delete projects, delete test cases, or manage plans/executions
+    expect(can(Role.TESTER, "testcase:create")).toBe(true);
+    expect(can(Role.TESTER, "testcase:update")).toBe(true);
+    expect(can(Role.TESTER, "testset:manage")).toBe(true);
+    expect(can(Role.TESTER, "execution:run")).toBe(true);
+    expect(can(Role.TESTER, "bug:manage")).toBe(true);
+    expect(can(Role.TESTER, "project:create")).toBe(false);
+    expect(can(Role.TESTER, "project:update")).toBe(false);
+    expect(can(Role.TESTER, "project:delete")).toBe(false);
+    expect(can(Role.TESTER, "testcase:delete")).toBe(false);
+    expect(can(Role.TESTER, "testplan:manage")).toBe(false);
+    expect(can(Role.TESTER, "execution:manage")).toBe(false);
+
+    // VIEWER is read-only
+    expect(can(Role.VIEWER, "project:view")).toBe(true);
+    expect(can(Role.VIEWER, "testcase:create")).toBe(false);
+    expect(can(Role.VIEWER, "execution:run")).toBe(false);
+    expect(can(Role.VIEWER, "bug:manage")).toBe(false);
   });
 });
