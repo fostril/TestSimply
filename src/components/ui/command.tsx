@@ -1,15 +1,9 @@
-// Minimal command wrapper compatible with your import.
-// File: src/components/ui/command.tsx
 "use client";
 
 import * as React from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Command as CommandPrimitive } from "cmdk";
-import clsx from "clsx";
-
-function cn(...s: Array<string | undefined | false>) {
-  return clsx(s);
-}
+import { cn } from "@/lib/utils";
 
 export function Command({
                           className,
@@ -18,7 +12,7 @@ export function Command({
   return (
     <CommandPrimitive
       className={cn(
-        "flex w-full flex-col overflow-hidden rounded-md border bg-background text-foreground",
+        "flex w-full flex-col overflow-hidden rounded-md border border-slate-200 bg-white text-slate-900",
         className
       )}
       {...props}
@@ -30,9 +24,9 @@ export function CommandInput(
   props: React.ComponentProps<typeof CommandPrimitive.Input>
 ) {
   return (
-    <div className="flex items-center border-b px-3">
+    <div className="flex items-center border-b border-slate-200 px-3">
       <CommandPrimitive.Input
-        className="h-10 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+        className="h-10 w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
         {...props}
       />
     </div>
@@ -55,7 +49,7 @@ export function CommandEmpty(
 ) {
   return (
     <CommandPrimitive.Empty
-      className="py-6 text-center text-sm text-muted-foreground"
+      className="py-6 text-center text-sm text-slate-500"
       {...props}
     />
   );
@@ -67,7 +61,7 @@ export function CommandGroup(
 ) {
   return (
     <CommandPrimitive.Group
-      className={cn("overflow-hidden p-1 text-foreground", className)}
+      className={cn("overflow-hidden p-1 text-slate-900", className)}
       {...props}
     />
   );
@@ -77,7 +71,7 @@ export function CommandSeparator(
   props: React.ComponentProps<typeof CommandPrimitive.Separator>
 ) {
   return (
-    <CommandPrimitive.Separator className="my-1 h-px bg-border" {...props} />
+    <CommandPrimitive.Separator className="my-1 h-px bg-slate-200" {...props} />
   );
 }
 
@@ -88,8 +82,8 @@ export function CommandItem(
   return (
     <CommandPrimitive.Item
       className={cn(
-        "relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-3 py-2 text-sm",
-        "aria-selected:bg-accent aria-selected:text-accent-foreground",
+        "relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-3 py-2 text-sm text-slate-700",
+        "aria-selected:bg-slate-100 aria-selected:text-slate-900",
         "data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50",
         className
       )}
@@ -117,7 +111,7 @@ export function CommandDialog({
           aria-label={label}
           className="fixed left-1/2 top-20 z-50 w-[90vw] max-w-xl -translate-x-1/2 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg"
         >
-          <Command className="bg-popover">
+          <Command className="border-0 bg-white">
             {children}
           </Command>
         </Dialog.Content>

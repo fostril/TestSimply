@@ -47,7 +47,7 @@ function ExecutionProgressBar({ execution }: { execution: Execution }) {
 
   if (stats.total === 0) {
     return (
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <div className="flex items-center gap-2 text-xs text-slate-500">
         <Clock className="h-4 w-4" />
         <span>No test cases</span>
       </div>

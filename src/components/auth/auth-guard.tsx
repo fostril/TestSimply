@@ -21,7 +21,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             <div className="flex h-screen w-full items-center justify-center p-8">
                 <div className="w-full max-w-md space-y-4">
                     <LoadingSkeleton count={3} />
-                    <p className="text-center text-sm text-muted-foreground">Verifying session...</p>
+                    <p className="text-center text-sm text-slate-500">Verifying session...</p>
                 </div>
             </div>
         );

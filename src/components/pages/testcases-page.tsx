@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/toast";
 import { Trash2, Search, X, FileText, Folder as FolderIcon } from "lucide-react";
@@ -29,12 +29,6 @@ export type TestCaseRow = {
   tags: string[];
   isAutomated: boolean;
   isFlaky: boolean;
-};
-
-type Column<T> = {
-  header: string;
-  accessor?: keyof T;
-  render?: (row: T) => ReactNode;
 };
 
 const PRIORITIES = ["ALL", "CRITICAL", "HIGH", "MEDIUM", "LOW"] as const;
