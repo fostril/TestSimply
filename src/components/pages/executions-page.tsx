@@ -11,6 +11,7 @@ import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { ResultsImporter } from "@/components/results-importer";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { DEFAULT_PAGE_LIMIT, fetchPaginated, type PaginatedResult } from "@/lib/pagination";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 
 type ExecutionResult = {
   id: string;
@@ -121,6 +122,9 @@ function ExecutionProgressBar({ execution }: { execution: Execution }) {
 export function ExecutionsPage() {
   const projectId = useProjectStore((state) => state.projectId);
   const projectKey = useProjectStore((state) => state.projectKey);
+  const { can } = usePermissions();
+  const canManageExecutions = can("execution:manage");
+  const canRunExecutions = can("execution:run");
   const [showOnlyCI, setShowOnlyCI] = useState(false);
   const [page, setPage] = useState(1);
   const toast = useToast();
@@ -168,13 +172,15 @@ export function ExecutionsPage() {
           <p className="mt-1 text-sm text-slate-600">Track manual and automated runs with live health.</p>
         </div>
         <div className="flex items-center gap-2">
-          <ResultsImporter projectId={projectId} projectKey={projectKey} />
-          <Link
-            href={`/projects/${projectKey}/executions/new`}
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            New Execution
-          </Link>
+          {canRunExecutions && <ResultsImporter projectId={projectId} projectKey={projectKey} />}
+          {canManageExecutions && (
+            <Link
+              href={`/projects/${projectKey}/executions/new`}
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              New Execution
+            </Link>
+          )}
         </div>
       </div>
 
@@ -236,17 +242,19 @@ export function ExecutionsPage() {
                   <p>Env: {execution.environmentRelation?.name ?? "n/a"}</p>
                 </div>
 
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setItemToDelete(execution.id);
-                  }}
-                  className="rounded p-1.5 text-slate-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
-                  title="Delete Execution"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                {canManageExecutions && (
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setItemToDelete(execution.id);
+                    }}
+                    className="rounded p-1.5 text-slate-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
+                    title="Delete Execution"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             </div>
           </Link>

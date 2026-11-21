@@ -9,20 +9,27 @@ import { useToast } from "@/components/ui/toast";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { ExternalLink, Play, Plus, Search } from "lucide-react";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 
 function EnvironmentsManager({
     planId,
     projectId,
     initialEnvironments,
+    canManagePlan,
+    canCreateEnv,
 }: {
     planId: string;
     projectId: string;
     initialEnvironments: any[];
+    canManagePlan: boolean;
+    canCreateEnv: boolean;
 }) {
     const toast = useToast();
     const queryClient = useQueryClient();
     const [isEditing, setIsEditing] = useState(false);
     const [selectedIds, setSelectedIds] = useState<string[]>(initialEnvironments.map((e) => e.id));
+    const [newEnvName, setNewEnvName] = useState("");
+    const [creatingEnvLoading, setCreatingEnvLoading] = useState(false);
 
     const { data: allEnvironments } = useQuery({
         queryKey: ["environments", projectId],
@@ -33,6 +40,33 @@ function EnvironmentsManager({
             return res.json();
         },
     });
+
+    const handleCreateInlineEnv = async () => {
+        if (!newEnvName.trim()) return;
+        setCreatingEnvLoading(true);
+        try {
+            const res = await fetch("/api/environments", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    projectId,
+                    name: newEnvName.trim(),
+                }),
+            });
+            const body = await res.json().catch(() => null);
+            if (!res.ok) {
+                throw new Error(body?.error || "Failed to create environment");
+            }
+            await queryClient.invalidateQueries({ queryKey: ["environments", projectId] });
+            setSelectedIds((prev) => (prev.includes(body.id) ? prev : [...prev, body.id]));
+            setNewEnvName("");
+            toast({ title: "Environment created", description: `${body.name} (${body.key})` });
+        } catch (err: unknown) {
+            toast({ title: "Failed to create environment", description: (err as Error).message });
+        } finally {
+            setCreatingEnvLoading(false);
+        }
+    };
 
     const updateMutation = useMutation({
         mutationFn: async (ids: string[]) => {
@@ -71,16 +105,18 @@ function EnvironmentsManager({
                         ))
                     )}
                 </div>
-                <button
-                    type="button"
-                    onClick={() => {
-                        setSelectedIds(initialEnvironments.map((e) => e.id));
-                        setIsEditing(true);
-                    }}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-700"
-                >
-                    Manage
-                </button>
+                {canManagePlan && (
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setSelectedIds(initialEnvironments.map((e) => e.id));
+                            setIsEditing(true);
+                        }}
+                        className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                    >
+                        Manage
+                    </button>
+                )}
             </div>
         );
     }
@@ -112,6 +148,25 @@ function EnvironmentsManager({
                     </label>
                 ))}
             </div>
+            {canCreateEnv && (
+                <div className="flex items-center gap-2 pt-1">
+                    <input
+                        type="text"
+                        value={newEnvName}
+                        onChange={(e) => setNewEnvName(e.target.value)}
+                        placeholder="Create new environment (e.g. Staging)..."
+                        className="w-64 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-blue-600 focus:outline-none"
+                    />
+                    <button
+                        type="button"
+                        disabled={!newEnvName.trim() || creatingEnvLoading}
+                        onClick={handleCreateInlineEnv}
+                        className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    >
+                        {creatingEnvLoading ? "Adding..." : "+ Add Environment"}
+                    </button>
+                </div>
+            )}
             <div className="flex justify-end gap-2">
                 <button
                     type="button"
@@ -139,6 +194,11 @@ export function TestPlanDetailsPage({ id }: { id: string }) {
     const toast = useToast();
     const projectId = useProjectStore((state) => state.projectId);
     const projectKey = useProjectStore((state) => state.projectKey);
+    const { can } = usePermissions();
+    const canManagePlan = can("testplan:manage");
+    const canManageExecutions = can("execution:manage");
+    const canRunExecutions = can("execution:run");
+    const canCreateEnv = can("project:update");
 
     const [isImporting, setIsImporting] = useState(false);
     const [setToImport, setSetToImport] = useState<{ id: string; name: string } | null>(null);
@@ -370,7 +430,7 @@ export function TestPlanDetailsPage({ id }: { id: string }) {
                     )}
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center gap-2">
-                    {projectKey && (
+                    {projectKey && canManageExecutions && (
                         <Link
                             href={`/projects/${projectKey}/executions/new?planId=${encodeURIComponent(id)}`}
                             className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
@@ -379,14 +439,16 @@ export function TestPlanDetailsPage({ id }: { id: string }) {
                             Start Execution
                         </Link>
                     )}
-                    <button
-                        type="button"
-                        onClick={() => triggerCiMutation.mutate()}
-                        disabled={triggerCiMutation.isPending}
-                        className="rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
-                    >
-                        {triggerCiMutation.isPending ? "Triggering..." : "Run in CI"}
-                    </button>
+                    {canRunExecutions && (
+                        <button
+                            type="button"
+                            onClick={() => triggerCiMutation.mutate()}
+                            disabled={triggerCiMutation.isPending}
+                            className="rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
+                        >
+                            {triggerCiMutation.isPending ? "Triggering..." : "Run in CI"}
+                        </button>
+                    )}
                     {workflowUrl && (
                         <a
                             href={workflowUrl}
@@ -398,19 +460,21 @@ export function TestPlanDetailsPage({ id }: { id: string }) {
                             View Workflow
                         </a>
                     )}
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setEditName(testPlan.name ?? "");
-                            setEditDescription(testPlan.description ?? "");
-                            setEditVersions((testPlan.targetVersions ?? []).join(", "));
-                            setEditTags((testPlan.tags ?? []).join(", "));
-                            setIsEditingMeta(!isEditingMeta);
-                        }}
-                        className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                    >
-                        {isEditingMeta ? "Close" : "Edit"}
-                    </button>
+                    {canManagePlan && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setEditName(testPlan.name ?? "");
+                                setEditDescription(testPlan.description ?? "");
+                                setEditVersions((testPlan.targetVersions ?? []).join(", "));
+                                setEditTags((testPlan.tags ?? []).join(", "));
+                                setIsEditingMeta(!isEditingMeta);
+                            }}
+                            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                        >
+                            {isEditingMeta ? "Close" : "Edit"}
+                        </button>
+                    )}
                     <button
                         type="button"
                         onClick={() => router.back()}
@@ -500,6 +564,8 @@ export function TestPlanDetailsPage({ id }: { id: string }) {
                         planId={id}
                         projectId={projectId}
                         initialEnvironments={testPlan.environmentRelations || []}
+                        canManagePlan={canManagePlan}
+                        canCreateEnv={canCreateEnv}
                     />
                 )}
             </div>
@@ -509,29 +575,31 @@ export function TestPlanDetailsPage({ id }: { id: string }) {
                     <h2 className="text-lg font-semibold text-slate-900">
                         Test Cases ({testPlan.cases?.length || 0})
                     </h2>
-                    <div className="flex items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setIsAddingCases(!isAddingCases);
-                                setIsImporting(false);
-                            }}
-                            className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                        >
-                            <Plus className="h-4 w-4" />
-                            {isAddingCases ? "Close Case Picker" : "Add Test Cases"}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setIsImporting(!isImporting);
-                                setIsAddingCases(false);
-                            }}
-                            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                        >
-                            {isImporting ? "Cancel" : "Import from Test Set"}
-                        </button>
-                    </div>
+                    {canManagePlan && (
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsAddingCases(!isAddingCases);
+                                    setIsImporting(false);
+                                }}
+                                className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                            >
+                                <Plus className="h-4 w-4" />
+                                {isAddingCases ? "Close Case Picker" : "Add Test Cases"}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsImporting(!isImporting);
+                                    setIsAddingCases(false);
+                                }}
+                                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                            >
+                                {isImporting ? "Cancel" : "Import from Test Set"}
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {isAddingCases && (
@@ -668,50 +736,52 @@ export function TestPlanDetailsPage({ id }: { id: string }) {
                                 className="group flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
                             >
                                 <div className="flex min-w-0 items-center gap-3">
-                                    <div className="flex flex-col gap-0.5">
-                                        <button
-                                            type="button"
-                                            onClick={() => handleMove("up")}
-                                            disabled={!canMoveUp}
-                                            className="p-1 text-slate-400 hover:text-slate-900 disabled:opacity-30 disabled:hover:text-slate-400"
-                                            title="Move up"
-                                        >
-                                            <svg
-                                                className="h-3 w-3"
-                                                fill="none"
-                                                viewBox="0 0 24 24"
-                                                stroke="currentColor"
+                                    {canManagePlan && (
+                                        <div className="flex flex-col gap-0.5">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleMove("up")}
+                                                disabled={!canMoveUp}
+                                                className="p-1 text-slate-400 hover:text-slate-900 disabled:opacity-30 disabled:hover:text-slate-400"
+                                                title="Move up"
                                             >
-                                                <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    strokeWidth={2}
-                                                    d="M5 15l7-7 7 7"
-                                                />
-                                            </svg>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleMove("down")}
-                                            disabled={!canMoveDown}
-                                            className="p-1 text-slate-400 hover:text-slate-900 disabled:opacity-30 disabled:hover:text-slate-400"
-                                            title="Move down"
-                                        >
-                                            <svg
-                                                className="h-3 w-3"
-                                                fill="none"
-                                                viewBox="0 0 24 24"
-                                                stroke="currentColor"
+                                                <svg
+                                                    className="h-3 w-3"
+                                                    fill="none"
+                                                    viewBox="0 0 24 24"
+                                                    stroke="currentColor"
+                                                >
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        strokeWidth={2}
+                                                        d="M5 15l7-7 7 7"
+                                                    />
+                                                </svg>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleMove("down")}
+                                                disabled={!canMoveDown}
+                                                className="p-1 text-slate-400 hover:text-slate-900 disabled:opacity-30 disabled:hover:text-slate-400"
+                                                title="Move down"
                                             >
-                                                <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    strokeWidth={2}
-                                                    d="M19 9l-7 7-7-7"
-                                                />
-                                            </svg>
-                                        </button>
-                                    </div>
+                                                <svg
+                                                    className="h-3 w-3"
+                                                    fill="none"
+                                                    viewBox="0 0 24 24"
+                                                    stroke="currentColor"
+                                                >
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        strokeWidth={2}
+                                                        d="M19 9l-7 7-7-7"
+                                                    />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    )}
                                     <div className="min-w-0">
                                         <span className="mr-3 rounded border border-slate-200 bg-slate-100 px-2 py-0.5 font-mono text-xs font-semibold text-slate-700">
                                             {c.key}
@@ -728,26 +798,28 @@ export function TestPlanDetailsPage({ id }: { id: string }) {
                                         )}
                                     </div>
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={() => removeCaseMutation.mutate(c.id)}
-                                    className="rounded p-1 text-slate-400 opacity-0 transition-opacity hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
-                                    title="Remove from plan"
-                                >
-                                    <svg
-                                        className="h-4 w-4"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
+                                {canManagePlan && (
+                                    <button
+                                        type="button"
+                                        onClick={() => removeCaseMutation.mutate(c.id)}
+                                        className="rounded p-1 text-slate-400 opacity-0 transition-opacity hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
+                                        title="Remove from plan"
                                     >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={2}
-                                            d="M6 18L18 6M6 6l12 12"
-                                        />
-                                    </svg>
-                                </button>
+                                        <svg
+                                            className="h-4 w-4"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                        >
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth={2}
+                                                d="M6 18L18 6M6 6l12 12"
+                                            />
+                                        </svg>
+                                    </button>
+                                )}
                             </div>
                         );
                     })}

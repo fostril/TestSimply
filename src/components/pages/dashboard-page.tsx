@@ -6,9 +6,11 @@ import { useQuery } from "@tanstack/react-query";
 import { ExecutionSummary } from "@/components/reports/execution-summary";
 import { TrendChart } from "@/components/reports/trend-chart";
 import { useProjectStore } from "@/lib/stores/project-store";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 
 export function DashboardPage() {
   const projectId = useProjectStore((state) => state.projectId);
+  const { can } = usePermissions();
   const { data, isLoading } = useQuery({
     queryKey: ["summary", projectId],
     enabled: Boolean(projectId),
@@ -34,7 +36,7 @@ export function DashboardPage() {
             Track execution health, coverage, and quality insights.
           </p>
         </div>
-        {projectKey ? (
+        {projectKey && can("execution:manage") ? (
           <Link
             href={`/projects/${projectKey}/executions/new`}
             className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"

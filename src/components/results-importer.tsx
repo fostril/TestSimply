@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Upload, X } from "lucide-react";
+import { Plus, Upload, X } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 
 type EnvironmentOption = {
   id: string;
@@ -29,11 +30,16 @@ export function ResultsImporter({
 }: ResultsImporterProps) {
   const toast = useToast();
   const queryClient = useQueryClient();
+  const { can } = usePermissions();
+  const canCreateEnv = can("project:update");
   const [isOpen, setIsOpen] = useState(false);
   const [format, setFormat] = useState<"junit" | "cucumber">("junit");
   const [file, setFile] = useState<File | null>(null);
   const [execKey, setExecKey] = useState(defaultExecKey);
   const [environment, setEnvironment] = useState("");
+  const [isCreatingEnv, setIsCreatingEnv] = useState(false);
+  const [newEnvName, setNewEnvName] = useState("");
+  const [creatingEnvLoading, setCreatingEnvLoading] = useState(false);
   const [autoCreateCases, setAutoCreateCases] = useState(true);
   const [createExecutionIfMissing, setCreateExecutionIfMissing] = useState(!defaultExecKey);
 
@@ -52,8 +58,38 @@ export function ResultsImporter({
     setFile(null);
     setExecKey(defaultExecKey);
     setEnvironment("");
+    setIsCreatingEnv(false);
+    setNewEnvName("");
     setAutoCreateCases(true);
     setCreateExecutionIfMissing(!defaultExecKey);
+  };
+
+  const handleCreateInlineEnv = async () => {
+    if (!projectId || !newEnvName.trim()) return;
+    setCreatingEnvLoading(true);
+    try {
+      const res = await fetch("/api/environments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          name: newEnvName.trim(),
+        }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(body?.error || "Failed to create environment");
+      }
+      await queryClient.invalidateQueries({ queryKey: ["environments", projectId] });
+      setEnvironment(body.name);
+      setNewEnvName("");
+      setIsCreatingEnv(false);
+      toast({ title: "Environment created", description: `${body.name} (${body.key})` });
+    } catch (err: unknown) {
+      toast({ title: "Failed to create environment", description: (err as Error).message });
+    } finally {
+      setCreatingEnvLoading(false);
+    }
   };
 
   const importMutation = useMutation({
@@ -247,9 +283,21 @@ export function ResultsImporter({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium uppercase tracking-wide text-slate-600">
-                    Environment (optional)
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-medium uppercase tracking-wide text-slate-600">
+                      Environment (optional)
+                    </label>
+                    {canCreateEnv && (
+                      <button
+                        type="button"
+                        onClick={() => setIsCreatingEnv(!isCreatingEnv)}
+                        className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-600 hover:text-blue-700"
+                      >
+                        <Plus className="h-3 w-3" />
+                        {isCreatingEnv ? "Cancel" : "New"}
+                      </button>
+                    )}
+                  </div>
                   <select
                     value={environment}
                     onChange={(e) => setEnvironment(e.target.value)}
@@ -262,6 +310,25 @@ export function ResultsImporter({
                       </option>
                     ))}
                   </select>
+                  {isCreatingEnv && (
+                    <div className="mt-1.5 flex gap-1.5">
+                      <input
+                        type="text"
+                        value={newEnvName}
+                        onChange={(e) => setNewEnvName(e.target.value)}
+                        placeholder="e.g. Staging"
+                        className="min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-blue-600 focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        disabled={!newEnvName.trim() || creatingEnvLoading}
+                        onClick={handleCreateInlineEnv}
+                        className="rounded-md bg-blue-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {creatingEnvLoading ? "..." : "Add"}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 

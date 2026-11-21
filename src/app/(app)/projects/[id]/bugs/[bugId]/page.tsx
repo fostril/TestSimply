@@ -8,6 +8,8 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
 import { useProjectStore } from "@/lib/stores/project-store";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Plus } from "lucide-react";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 
 const schema = z.object({
     summary: z.string().min(2, "Summary is required"),
@@ -24,7 +26,37 @@ export default function BugDetailPage({ params }: { params: { id: string, bugId:
     const router = useRouter();
     const toast = useToast();
     const queryClient = useQueryClient();
+    const { can } = usePermissions();
     const [isEditing, setIsEditing] = useState(false);
+    const [isCreatingSet, setIsCreatingSet] = useState(false);
+    const [newSetName, setNewSetName] = useState("");
+    const [creatingSetLoading, setCreatingSetLoading] = useState(false);
+
+    const handleCreateInlineSet = async () => {
+        if (!projectId || !newSetName.trim()) return;
+        setCreatingSetLoading(true);
+        try {
+            const res = await fetch("/api/test-sets", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    projectId,
+                    name: newSetName.trim(),
+                }),
+            });
+            const body = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(body?.error || "Failed to create test set");
+            await queryClient.invalidateQueries({ queryKey: ["test-sets", projectId] });
+            form.setValue("testSetId", body.id);
+            setNewSetName("");
+            setIsCreatingSet(false);
+            toast({ title: "Test set created", description: `${body.key}: ${body.name}` });
+        } catch (err: unknown) {
+            toast({ title: "Failed to create test set", description: (err as Error).message });
+        } finally {
+            setCreatingSetLoading(false);
+        }
+    };
 
     const { data: bug, isLoading } = useQuery({
         queryKey: ["bug", params.bugId],
@@ -119,7 +151,7 @@ export default function BugDetailPage({ params }: { params: { id: string, bugId:
                         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{bug.summary}</h1>
                     </div>
                     <div className="flex gap-2">
-                        {!isEditing && (
+                        {!isEditing && can("bug:manage") && (
                             <button
                                 onClick={() => setIsEditing(true)}
                                 className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
@@ -256,9 +288,21 @@ export default function BugDetailPage({ params }: { params: { id: string, bugId:
                         </div>
                     </div>
                     <div>
-                        <label className="text-sm font-medium text-slate-700" htmlFor="testSetId">
-                            Linked Test Set
-                        </label>
+                        <div className="flex items-center justify-between">
+                            <label className="text-sm font-medium text-slate-700" htmlFor="testSetId">
+                                Linked Test Set
+                            </label>
+                            {can("testset:manage") && (
+                                <button
+                                    type="button"
+                                    onClick={() => setIsCreatingSet(!isCreatingSet)}
+                                    className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-600 hover:text-blue-700"
+                                >
+                                    <Plus className="h-3 w-3" />
+                                    {isCreatingSet ? "Cancel" : "New Test Set"}
+                                </button>
+                            )}
+                        </div>
                         <select
                             id="testSetId"
                             {...form.register("testSetId")}
@@ -271,6 +315,25 @@ export default function BugDetailPage({ params }: { params: { id: string, bugId:
                                 </option>
                             ))}
                         </select>
+                        {isCreatingSet && (
+                            <div className="mt-2 flex gap-1.5">
+                                <input
+                                    type="text"
+                                    value={newSetName}
+                                    onChange={(e) => setNewSetName(e.target.value)}
+                                    placeholder="New test set name..."
+                                    className="min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-blue-600 focus:outline-none"
+                                />
+                                <button
+                                    type="button"
+                                    disabled={!newSetName.trim() || creatingSetLoading}
+                                    onClick={handleCreateInlineSet}
+                                    className="rounded-md bg-blue-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                                >
+                                    {creatingSetLoading ? "..." : "Create & Select"}
+                                </button>
+                            </div>
+                        )}
                     </div>
                     <div>
                         <label className="text-sm font-medium text-slate-700" htmlFor="summary">

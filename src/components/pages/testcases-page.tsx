@@ -14,6 +14,7 @@ import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { FolderTree } from "@/components/folder-tree";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { DEFAULT_PAGE_LIMIT, fetchPaginated, type PaginatedResult } from "@/lib/pagination";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 
 export type TestCaseRow = {
   id: string;
@@ -44,6 +45,11 @@ export function TestCasesPage() {
   const projectKey = useProjectStore((state) => state.projectKey);
   const toast = useToast();
   const queryClient = useQueryClient();
+  const { can } = usePermissions();
+  const canCreateCases = can("testcase:create");
+  const canUpdateCases = can("testcase:update");
+  const canDeleteCases = can("testcase:delete");
+  const canManagePlans = can("testplan:manage");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isAddToPlanOpen, setIsAddToPlanOpen] = useState(false);
   const [isMoveToFolderOpen, setIsMoveToFolderOpen] = useState(false);
@@ -223,19 +229,21 @@ export function TestCasesPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Test Cases</h1>
           <p className="mt-1 text-sm text-slate-600">Manage and organize your test scenarios.</p>
         </div>
-        <div className="flex gap-3">
-          {projectId && <CsvImporter projectId={projectId} />}
-          <Link
-            href={
-              selectedFolderId && selectedFolderId !== "-"
-                ? `/projects/${projectKey}/testcases/new?folderId=${encodeURIComponent(selectedFolderId)}`
-                : `/projects/${projectKey}/testcases/new`
-            }
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            New Test Case
-          </Link>
-        </div>
+        {canCreateCases && (
+          <div className="flex gap-3">
+            {projectId && <CsvImporter projectId={projectId} />}
+            <Link
+              href={
+                selectedFolderId && selectedFolderId !== "-"
+                  ? `/projects/${projectKey}/testcases/new?folderId=${encodeURIComponent(selectedFolderId)}`
+                  : `/projects/${projectKey}/testcases/new`
+              }
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              New Test Case
+            </Link>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-6 md:grid-cols-[260px,1fr]">
@@ -249,12 +257,15 @@ export function TestCasesPage() {
                 setPage(1);
                 setSelectedIds(new Set());
               }}
-              onDropCases={(ids, folderId) =>
-                bulkMutation.mutate({
-                  ids,
-                  action: "update",
-                  data: { folderId },
-                })
+              onDropCases={
+                canUpdateCases
+                  ? (ids, folderId) =>
+                      bulkMutation.mutate({
+                        ids,
+                        action: "update",
+                        data: { folderId },
+                      })
+                  : undefined
               }
             />
           )}
@@ -317,107 +328,119 @@ export function TestCasesPage() {
       </div>
 
       {/* Bulk Actions */}
-      {selectedIds.size > 0 && (
+      {(canUpdateCases || canDeleteCases || canManagePlans) && selectedIds.size > 0 && (
         <div className="flex flex-wrap items-center gap-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-slate-900">
           <span className="font-medium">{selectedIds.size} selected</span>
-          <div className="h-4 w-px bg-blue-200" />
-          <button
-            onClick={() => bulkMutation.mutate({ action: "delete" })}
-            disabled={bulkMutation.isPending}
-            className="flex items-center gap-1.5 font-medium text-red-700 hover:text-red-800 disabled:opacity-50"
-          >
-            <Trash2 className="h-4 w-4" />
-            Delete
-          </button>
-          <div className="h-4 w-px bg-blue-200" />
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-medium uppercase tracking-wide text-slate-600">Set Priority:</span>
-            {["LOW", "MEDIUM", "HIGH", "CRITICAL"].map((p) => (
+          {canDeleteCases && (
+            <>
+              <div className="h-4 w-px bg-blue-200" />
               <button
-                key={p}
-                onClick={() => bulkMutation.mutate({ action: "update", data: { priority: p } })}
+                onClick={() => bulkMutation.mutate({ action: "delete" })}
                 disabled={bulkMutation.isPending}
-                className="rounded px-2 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                className="flex items-center gap-1.5 font-medium text-red-700 hover:text-red-800 disabled:opacity-50"
               >
-                {p}
+                <Trash2 className="h-4 w-4" />
+                Delete
               </button>
-            ))}
-          </div>
-          <div className="h-4 w-px bg-blue-200" />
-          <div className="relative">
-            <button
-              onClick={() => {
-                setIsMoveToFolderOpen(!isMoveToFolderOpen);
-                setIsAddToPlanOpen(false);
-              }}
-              className="flex items-center gap-1.5 font-medium text-blue-700 hover:text-blue-800"
-            >
-              <FolderIcon className="h-3.5 w-3.5" />
-              Move to Folder
-            </button>
-            {isMoveToFolderOpen && (
-              <div className="absolute left-0 top-full z-10 mt-2 w-64 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
-                <p className="mb-2 px-2 text-xs font-medium text-slate-500">Select Destination Folder</p>
-                <div className="max-h-48 space-y-1 overflow-y-auto">
+            </>
+          )}
+          {canUpdateCases && (
+            <>
+              <div className="h-4 w-px bg-blue-200" />
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-medium uppercase tracking-wide text-slate-600">Set Priority:</span>
+                {["LOW", "MEDIUM", "HIGH", "CRITICAL"].map((p) => (
                   <button
-                    onClick={() => bulkMutation.mutate({ action: "update", data: { folderId: null } })}
+                    key={p}
+                    onClick={() => bulkMutation.mutate({ action: "update", data: { priority: p } })}
                     disabled={bulkMutation.isPending}
-                    className="w-full rounded px-2 py-1.5 text-left text-sm italic text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50"
+                    className="rounded px-2 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
                   >
-                    (unfiled)
+                    {p}
                   </button>
-                  {folders?.map((folder) => (
-                    <button
-                      key={folder.id}
-                      onClick={() => bulkMutation.mutate({ action: "update", data: { folderId: folder.id } })}
-                      disabled={bulkMutation.isPending}
-                      className="w-full truncate rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50"
-                      title={folder.path}
-                    >
-                      {folder.path}
-                    </button>
-                  ))}
-                  {(!folders || folders.length === 0) && (
-                    <p className="px-2 py-1 text-xs text-slate-400">
-                      Create a folder using + in the sidebar first.
-                    </p>
-                  )}
-                </div>
+                ))}
               </div>
-            )}
-          </div>
-          <div className="h-4 w-px bg-blue-200" />
-          <div className="relative">
-            <button
-              onClick={() => {
-                setIsAddToPlanOpen(!isAddToPlanOpen);
-                setIsMoveToFolderOpen(false);
-              }}
-              className="font-medium text-blue-700 hover:text-blue-800"
-            >
-              Add to Plan
-            </button>
-            {isAddToPlanOpen && (
-              <div className="absolute left-0 top-full z-10 mt-2 w-64 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
-                <p className="mb-2 px-2 text-xs font-medium text-slate-500">Select Test Plan</p>
-                <div className="max-h-48 space-y-1 overflow-y-auto">
-                  {testPlans?.map((plan: any) => (
-                    <button
-                      key={plan.id}
-                      onClick={() => addToPlanMutation.mutate(plan.id)}
-                      disabled={addToPlanMutation.isPending}
-                      className="w-full rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50"
-                    >
-                      {plan.name}
-                    </button>
-                  ))}
-                  {testPlans?.length === 0 && (
-                    <p className="px-2 text-sm text-slate-500">No test plans found.</p>
-                  )}
-                </div>
+              <div className="h-4 w-px bg-blue-200" />
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    setIsMoveToFolderOpen(!isMoveToFolderOpen);
+                    setIsAddToPlanOpen(false);
+                  }}
+                  className="flex items-center gap-1.5 font-medium text-blue-700 hover:text-blue-800"
+                >
+                  <FolderIcon className="h-3.5 w-3.5" />
+                  Move to Folder
+                </button>
+                {isMoveToFolderOpen && (
+                  <div className="absolute left-0 top-full z-10 mt-2 w-64 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
+                    <p className="mb-2 px-2 text-xs font-medium text-slate-500">Select Destination Folder</p>
+                    <div className="max-h-48 space-y-1 overflow-y-auto">
+                      <button
+                        onClick={() => bulkMutation.mutate({ action: "update", data: { folderId: null } })}
+                        disabled={bulkMutation.isPending}
+                        className="w-full rounded px-2 py-1.5 text-left text-sm italic text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50"
+                      >
+                        (unfiled)
+                      </button>
+                      {folders?.map((folder) => (
+                        <button
+                          key={folder.id}
+                          onClick={() => bulkMutation.mutate({ action: "update", data: { folderId: folder.id } })}
+                          disabled={bulkMutation.isPending}
+                          className="w-full truncate rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50"
+                          title={folder.path}
+                        >
+                          {folder.path}
+                        </button>
+                      ))}
+                      {(!folders || folders.length === 0) && (
+                        <p className="px-2 py-1 text-xs text-slate-400">
+                          Create a folder using + in the sidebar first.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          )}
+          {canManagePlans && (
+            <>
+              <div className="h-4 w-px bg-blue-200" />
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    setIsAddToPlanOpen(!isAddToPlanOpen);
+                    setIsMoveToFolderOpen(false);
+                  }}
+                  className="font-medium text-blue-700 hover:text-blue-800"
+                >
+                  Add to Plan
+                </button>
+                {isAddToPlanOpen && (
+                  <div className="absolute left-0 top-full z-10 mt-2 w-64 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
+                    <p className="mb-2 px-2 text-xs font-medium text-slate-500">Select Test Plan</p>
+                    <div className="max-h-48 space-y-1 overflow-y-auto">
+                      {testPlans?.map((plan: any) => (
+                        <button
+                          key={plan.id}
+                          onClick={() => addToPlanMutation.mutate(plan.id)}
+                          disabled={addToPlanMutation.isPending}
+                          className="w-full rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50"
+                        >
+                          {plan.name}
+                        </button>
+                      ))}
+                      {testPlans?.length === 0 && (
+                        <p className="px-2 text-sm text-slate-500">No test plans found.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
           <button
             onClick={() => setSelectedIds(new Set())}
             className="ml-auto text-slate-600 hover:text-slate-900"
@@ -461,8 +484,9 @@ export function TestCasesPage() {
               {filteredRows.map((testCase) => (
                 <tr
                   key={testCase.id}
-                  draggable
+                  draggable={canUpdateCases}
                   onDragStart={(e) => {
+                    if (!canUpdateCases) return;
                     const dragIds = selectedIds.has(testCase.id)
                       ? Array.from(selectedIds)
                       : [testCase.id];
@@ -521,17 +545,19 @@ export function TestCasesPage() {
                   </td>
                   <td className="px-6 py-3.5 text-slate-600">{testCase.status}</td>
                   <td className="px-6 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setItemToDelete(testCase.id);
-                      }}
-                      className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                      title="Delete Test Case"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {canDeleteCases && (
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setItemToDelete(testCase.id);
+                        }}
+                        className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                        title="Delete Test Case"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

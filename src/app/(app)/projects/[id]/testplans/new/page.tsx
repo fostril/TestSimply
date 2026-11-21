@@ -6,8 +6,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { useProjectStore } from "@/lib/stores/project-store";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 
 const schema = z.object({
   name: z.string().min(2),
@@ -46,6 +48,39 @@ export default function NewTestPlanPage() {
 
   const [selected, setSelected] = useState<string[]>([]);
   const [selectedEnvIds, setSelectedEnvIds] = useState<string[]>([]);
+  const [isCreatingEnv, setIsCreatingEnv] = useState(false);
+  const [newEnvName, setNewEnvName] = useState("");
+  const [creatingEnvLoading, setCreatingEnvLoading] = useState(false);
+  const { can } = usePermissions();
+  const canCreateEnv = can("project:update");
+
+  const handleCreateInlineEnv = async () => {
+    if (!projectId || !newEnvName.trim()) return;
+    setCreatingEnvLoading(true);
+    try {
+      const res = await fetch("/api/environments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          name: newEnvName.trim(),
+        }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(body?.error || "Failed to create environment");
+      }
+      await queryClient.invalidateQueries({ queryKey: ["environments", projectId] });
+      setSelectedEnvIds((prev) => (prev.includes(body.id) ? prev : [...prev, body.id]));
+      setNewEnvName("");
+      setIsCreatingEnv(false);
+      toast({ title: "Environment created", description: `${body.name} (${body.key})` });
+    } catch (err: unknown) {
+      toast({ title: "Failed to create environment", description: (err as Error).message });
+    } finally {
+      setCreatingEnvLoading(false);
+    }
+  };
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -146,9 +181,40 @@ export default function NewTestPlanPage() {
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-slate-700" htmlFor="environments">
-              Environments
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-slate-700" htmlFor="environments">
+                Environments
+              </label>
+              {canCreateEnv && (
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingEnv(!isCreatingEnv)}
+                  className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-600 hover:text-blue-700"
+                >
+                  <Plus className="h-3 w-3" />
+                  {isCreatingEnv ? "Cancel" : "New Environment"}
+                </button>
+              )}
+            </div>
+            {isCreatingEnv && (
+              <div className="mt-1.5 flex gap-1.5">
+                <input
+                  type="text"
+                  value={newEnvName}
+                  onChange={(e) => setNewEnvName(e.target.value)}
+                  placeholder="Environment name (e.g. Staging)"
+                  className="min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-blue-600 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  disabled={!newEnvName.trim() || creatingEnvLoading}
+                  onClick={handleCreateInlineEnv}
+                  className="rounded-md bg-blue-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {creatingEnvLoading ? "..." : "Add"}
+                </button>
+              </div>
+            )}
             {(projectEnvs ?? []).length > 0 && (
               <div className="mt-1.5 flex flex-wrap gap-2">
                 {(projectEnvs ?? []).map((env) => {

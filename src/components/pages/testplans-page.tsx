@@ -7,12 +7,15 @@ import { Trash2 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { useState } from "react";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 
 export function TestPlansPage() {
   const projectId = useProjectStore((state) => state.projectId);
   const projectKey = useProjectStore((state) => state.projectKey);
   const toast = useToast();
   const queryClient = useQueryClient();
+  const { can } = usePermissions();
+  const canManagePlans = can("testplan:manage");
 
   const { data } = useQuery({
     queryKey: ["testplans", projectId],
@@ -50,12 +53,14 @@ export function TestPlansPage() {
           <h1 className="text-2xl font-semibold text-slate-900">Test Plans</h1>
           <p className="mt-1 text-sm text-slate-600">Bundle test cases for releases and environments.</p>
         </div>
-        <Link
-          href={`/projects/${projectKey}/testplans/new`}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          New Plan
-        </Link>
+        {canManagePlans && (
+          <Link
+            href={`/projects/${projectKey}/testplans/new`}
+            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            New Plan
+          </Link>
+        )}
       </div>
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         {(data ?? []).map((plan: any) => (
@@ -68,17 +73,19 @@ export function TestPlansPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-slate-500">{plan.cases.length} cases</span>
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setItemToDelete(plan.id);
-                    }}
-                    className="rounded p-1.5 text-slate-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
-                    title="Delete Plan"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  {canManagePlans && (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setItemToDelete(plan.id);
+                      }}
+                      className="rounded p-1.5 text-slate-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
+                      title="Delete Plan"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
               </div>
               <p className="mt-2 text-sm text-slate-600">{plan.description}</p>

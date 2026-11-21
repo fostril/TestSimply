@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 
 interface RequirementRowProps {
     requirement: {
@@ -43,6 +44,8 @@ function extractJiraIssueKey(url: string | null, fallbackIssueKey?: string | nul
 }
 
 export function RequirementRow({ requirement, projectId, projectKey, onDelete }: RequirementRowProps) {
+    const { can } = usePermissions();
+    const canUnlink = can("testcase:update");
     const externalUrl = requirement.externalUrl ?? requirement.requirement?.externalUrl ?? null;
     const isJira = Boolean(
         requirement.requirement?.externalIssueKey ||
@@ -141,11 +144,13 @@ export function RequirementRow({ requirement, projectId, projectKey, onDelete }:
                     </div>
                 </div>
             </div>
-            <button onClick={onDelete} className="ml-2 shrink-0 text-slate-400 hover:text-red-600">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-            </button>
+            {canUnlink && (
+                <button onClick={onDelete} className="ml-2 shrink-0 text-slate-400 hover:text-red-600" title="Unlink requirement">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                </button>
+            )}
         </div>
     );
 }

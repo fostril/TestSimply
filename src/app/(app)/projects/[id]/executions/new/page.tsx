@@ -6,9 +6,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { useProjectStore } from "@/lib/stores/project-store";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 
 const schema = z.object({
   name: z.string().min(2),
@@ -296,9 +297,6 @@ function NewExecutionForm() {
         </div>
         <div className="grid gap-5 md:grid-cols-2">
           <div>
-            <label className="text-sm font-medium text-slate-700" htmlFor="environment">
-              Environment
-            </label>
             {projectId && <EnvironmentSelect projectId={projectId} form={form} />}
           </div>
           <div>
@@ -374,6 +372,15 @@ export default function NewExecutionPage() {
 }
 
 function EnvironmentSelect({ projectId, form }: { projectId: string; form: any }) {
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const { can } = usePermissions();
+  const canCreateEnv = can("project:update");
+  const [isCreating, setIsCreating] = useState(false);
+  const [newEnvName, setNewEnvName] = useState("");
+  const [newEnvUrl, setNewEnvUrl] = useState("");
+  const [creatingLoading, setCreatingLoading] = useState(false);
+
   const { data: environments } = useQuery({
     queryKey: ["environments", projectId],
     enabled: !!projectId,
@@ -384,18 +391,95 @@ function EnvironmentSelect({ projectId, form }: { projectId: string; form: any }
     },
   });
 
+  const handleCreateEnvironment = async () => {
+    if (!newEnvName.trim()) return;
+    setCreatingLoading(true);
+    try {
+      const res = await fetch("/api/environments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          name: newEnvName.trim(),
+          url: newEnvUrl.trim() || undefined,
+        }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(body?.error || "Failed to create environment");
+      }
+      await queryClient.invalidateQueries({ queryKey: ["environments", projectId] });
+      form.setValue("environment", body.id);
+      setNewEnvName("");
+      setNewEnvUrl("");
+      setIsCreating(false);
+      toast({ title: "Environment created", description: `${body.name} (${body.key})` });
+    } catch (err: unknown) {
+      toast({ title: "Failed to create environment", description: (err as Error).message });
+    } finally {
+      setCreatingLoading(false);
+    }
+  };
+
   return (
-    <select
-      id="environment"
-      {...form.register("environment")}
-      className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
-    >
-      <option value="">Select Environment...</option>
-      {(environments || []).map((env: any) => (
-        <option key={env.id} value={env.id}>
-          {env.name} ({env.key})
-        </option>
-      ))}
-    </select>
+    <div>
+      <div className="flex items-center justify-between">
+        <label className="text-sm font-medium text-slate-700" htmlFor="environment">
+          Environment
+        </label>
+        {canCreateEnv && (
+          <button
+            type="button"
+            onClick={() => setIsCreating(!isCreating)}
+            className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-600 hover:text-blue-700"
+          >
+            <Plus className="h-3 w-3" />
+            {isCreating ? "Cancel" : "New Environment"}
+          </button>
+        )}
+      </div>
+      <select
+        id="environment"
+        {...form.register("environment")}
+        className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+      >
+        <option value="">Select Environment...</option>
+        {(environments || []).map((env: any) => (
+          <option key={env.id} value={env.id}>
+            {env.name} ({env.key})
+          </option>
+        ))}
+      </select>
+      {isCreating && (
+        <div className="mt-2 space-y-2 rounded-md border border-slate-200 bg-slate-50 p-2.5">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <input
+              type="text"
+              value={newEnvName}
+              onChange={(e) => setNewEnvName(e.target.value)}
+              placeholder="Name (e.g. Staging)"
+              className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-blue-600 focus:outline-none"
+            />
+            <input
+              type="url"
+              value={newEnvUrl}
+              onChange={(e) => setNewEnvUrl(e.target.value)}
+              placeholder="URL (optional)"
+              className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-blue-600 focus:outline-none"
+            />
+          </div>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              disabled={!newEnvName.trim() || creatingLoading}
+              onClick={handleCreateEnvironment}
+              className="rounded-md bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {creatingLoading ? "Creating..." : "Create & Select"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

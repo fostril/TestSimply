@@ -6,11 +6,14 @@ import { useToast } from "@/components/ui/toast";
 import { useState } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 
 export function EnvironmentsPage() {
     const projectId = useProjectStore((state) => state.projectId);
     const toast = useToast();
     const queryClient = useQueryClient();
+    const { can } = usePermissions();
+    const canManageEnvs = can("project:update");
     const [isCreating, setIsCreating] = useState(false);
     const [editingEnvironment, setEditingEnvironment] = useState<any>(null);
     const [itemToDelete, setItemToDelete] = useState<string | null>(null);
@@ -108,12 +111,14 @@ export function EnvironmentsPage() {
                     <h1 className="text-2xl font-semibold text-slate-900">Environments</h1>
                     <p className="mt-1 text-sm text-slate-600">Manage test environments for your project.</p>
                 </div>
-                <button
-                    onClick={openCreate}
-                    className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                >
-                    New Environment
-                </button>
+                {canManageEnvs && (
+                    <button
+                        onClick={openCreate}
+                        className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                    >
+                        New Environment
+                    </button>
+                )}
             </div>
 
             {isCreating && (
@@ -191,8 +196,10 @@ export function EnvironmentsPage() {
                 {(environments ?? []).map((env: any) => (
                     <div
                         key={env.id}
-                        onClick={() => openEdit(env)}
-                        className="group relative cursor-pointer rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50"
+                        onClick={() => canManageEnvs && openEdit(env)}
+                        className={`group relative rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition-colors ${
+                            canManageEnvs ? "cursor-pointer hover:border-slate-300 hover:bg-slate-50" : ""
+                        }`}
                     >
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2.5">
@@ -201,32 +208,34 @@ export function EnvironmentsPage() {
                                 </span>
                                 <h2 className="text-base font-semibold text-slate-900">{env.name}</h2>
                             </div>
-                            <div className="flex items-center gap-1.5">
-                                <button
-                                    type="button"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        openEdit(env);
-                                    }}
-                                    className="rounded p-1.5 text-slate-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
-                                    title="Edit Environment"
-                                    aria-label={`Edit ${env.name}`}
-                                >
-                                    <Pencil className="h-4 w-4" />
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setItemToDelete(env.id);
-                                    }}
-                                    className="rounded p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
-                                    title="Delete Environment"
-                                    aria-label={`Delete ${env.name}`}
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </button>
-                            </div>
+                            {canManageEnvs && (
+                                <div className="flex items-center gap-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            openEdit(env);
+                                        }}
+                                        className="rounded p-1.5 text-slate-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
+                                        title="Edit Environment"
+                                        aria-label={`Edit ${env.name}`}
+                                    >
+                                        <Pencil className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setItemToDelete(env.id);
+                                        }}
+                                        className="rounded p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                                        title="Delete Environment"
+                                        aria-label={`Delete ${env.name}`}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            )}
                         </div>
                         {env.url && (
                             <a

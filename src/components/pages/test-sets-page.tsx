@@ -7,12 +7,15 @@ import { useToast } from "@/components/ui/toast";
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 
 export function TestSetsPage() {
     const projectId = useProjectStore((state) => state.projectId);
     const projectKey = useProjectStore((state) => state.projectKey);
     const toast = useToast();
     const queryClient = useQueryClient();
+    const { can } = usePermissions();
+    const canManageSets = can("testset:manage");
     const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
     const { data } = useQuery({
@@ -49,12 +52,14 @@ export function TestSetsPage() {
                     <h1 className="text-2xl font-semibold text-slate-900">Test Sets</h1>
                     <p className="mt-1 text-sm text-slate-600">Group test cases for easier management.</p>
                 </div>
-                <Link
-                    href={`/projects/${projectKey}/test-sets/new`}
-                    className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                >
-                    New Set
-                </Link>
+                {canManageSets && (
+                    <Link
+                        href={`/projects/${projectKey}/test-sets/new`}
+                        className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                    >
+                        New Set
+                    </Link>
+                )}
             </div>
             <div className="mt-6 grid gap-4 lg:grid-cols-2">
                 {(data ?? []).map((set: any) => (
@@ -67,17 +72,19 @@ export function TestSetsPage() {
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <span className="text-xs text-slate-500">{set._count.cases} cases</span>
-                                    <button
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            setItemToDelete(set.id);
-                                        }}
-                                        className="rounded p-1.5 text-slate-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
-                                        title="Delete Test Set"
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </button>
+                                    {canManageSets && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                setItemToDelete(set.id);
+                                            }}
+                                            className="rounded p-1.5 text-slate-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
+                                            title="Delete Test Set"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                             <p className="mt-2 text-sm text-slate-600">{set.description || "No description"}</p>

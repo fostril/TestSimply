@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { useProjectStore } from "@/lib/stores/project-store";
 import { ResultsImporter } from "@/components/results-importer";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 import {
   deriveOverallStatus,
   type RunnerStatus,
@@ -59,6 +60,10 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
   const queryClient = useQueryClient();
   const storeProjectId = useProjectStore((s) => s.projectId);
   const storeProjectKey = useProjectStore((s) => s.projectKey);
+  const { can } = usePermissions();
+  const canRun = can("execution:run");
+  const canManageExec = can("execution:manage");
+  const canManageBugs = can("bug:manage");
   const { data, refetch, error, isLoading } = useQuery({
     queryKey: ["execution", executionId],
     queryFn: async () => {
@@ -880,8 +885,9 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
           <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</h2>
           <select
             value={data?.status || "ACTIVE"}
+            disabled={!canManageExec}
             onChange={(e) => statusMutation.mutate(e.target.value)}
-            className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+            className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20 disabled:opacity-60"
           >
             <option value="ACTIVE">Active</option>
             <option value="COMPLETED">Completed</option>
@@ -896,7 +902,9 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
 
         <div className="mt-6 flex items-center justify-between">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Test Cases</h2>
-          <button onClick={() => setIsAddCaseModalOpen(true)} className="text-xs font-medium text-blue-600 hover:text-blue-700">+ Add Case</button>
+          {canManageExec && (
+            <button onClick={() => setIsAddCaseModalOpen(true)} className="text-xs font-medium text-blue-600 hover:text-blue-700">+ Add Case</button>
+          )}
         </div>
         <ol className="mt-2 space-y-1.5 text-sm">
           {cases.map((testCase: any, index: number) => (
@@ -929,7 +937,7 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
                   </span>
                 ) : null}
               </button>
-              {(!planCaseIds.has(testCase.id) || statusByCase.has(testCase.id)) && (
+              {canManageExec && (!planCaseIds.has(testCase.id) || statusByCase.has(testCase.id)) && (
                 <button
                   type="button"
                   onClick={(e) => {
@@ -949,7 +957,7 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
         </ol>
 
         {/* Bulk Actions */}
-        {remainingCases.length > 0 && (
+        {canRun && remainingCases.length > 0 && (
           <div className="mt-6 border-t border-slate-200 pt-6">
             <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Quick Actions</h2>
             <div className="space-y-2">
@@ -994,13 +1002,15 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
         {/* Import / Export */}
         <div className="mt-6 space-y-2 border-t border-slate-200 pt-6">
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Import & Export</h2>
-          <ResultsImporter
-            projectId={data?.projectId ?? storeProjectId ?? null}
-            projectKey={projectKey ?? storeProjectKey ?? null}
-            defaultExecKey={data?.key ?? executionId}
-            onSuccess={() => void refetch()}
-            buttonClassName="flex w-full items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
-          />
+          {canRun && (
+            <ResultsImporter
+              projectId={data?.projectId ?? storeProjectId ?? null}
+              projectKey={projectKey ?? storeProjectKey ?? null}
+              defaultExecKey={data?.key ?? executionId}
+              onSuccess={() => void refetch()}
+              buttonClassName="flex w-full items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
+            />
+          )}
           <a
             href={`/api/executions/${executionId}/export${projectKey ? `?projectKey=${projectKey}` : ""}`}
             download
@@ -1100,38 +1110,42 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
                 <ChevronRight className="h-3.5 w-3.5" />
               </button>
             </div>
-            <button
-              onClick={() =>
-                mutation.mutate({ caseId: activeCase.id, status: "PASS", note: notes[activeCase.id], bugIds: selectedBugs[activeCase.id] })
-              }
-              disabled={mutation.isPending}
-              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-            >
-              Pass
-            </button>
-            <button
-              onClick={() =>
-                mutation.mutate({ caseId: activeCase.id, status: "FAIL", note: notes[activeCase.id], bugIds: selectedBugs[activeCase.id] })
-              }
-              disabled={mutation.isPending}
-              className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-            >
-              Fail
-            </button>
-            <button
-              onClick={() =>
-                mutation.mutate({
-                  caseId: activeCase.id,
-                  status: "BLOCKED",
-                  note: notes[activeCase.id],
-                  bugIds: selectedBugs[activeCase.id],
-                })
-              }
-              disabled={mutation.isPending}
-              className="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
-            >
-              Blocked
-            </button>
+            {canRun && (
+              <>
+                <button
+                  onClick={() =>
+                    mutation.mutate({ caseId: activeCase.id, status: "PASS", note: notes[activeCase.id], bugIds: selectedBugs[activeCase.id] })
+                  }
+                  disabled={mutation.isPending}
+                  className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  Pass
+                </button>
+                <button
+                  onClick={() =>
+                    mutation.mutate({ caseId: activeCase.id, status: "FAIL", note: notes[activeCase.id], bugIds: selectedBugs[activeCase.id] })
+                  }
+                  disabled={mutation.isPending}
+                  className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                >
+                  Fail
+                </button>
+                <button
+                  onClick={() =>
+                    mutation.mutate({
+                      caseId: activeCase.id,
+                      status: "BLOCKED",
+                      note: notes[activeCase.id],
+                      bugIds: selectedBugs[activeCase.id],
+                    })
+                  }
+                  disabled={mutation.isPending}
+                  className="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+                >
+                  Blocked
+                </button>
+              </>
+            )}
           </div>
         </header>
 
@@ -1319,22 +1333,24 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
               <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Attachments ({activeAttachments.length})
               </h2>
-              <label className="cursor-pointer rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
-                {uploadAttachmentMutation.isPending ? "Uploading..." : "+ Upload File"}
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain,text/csv,application/json,application/xml,text/xml"
-                  disabled={uploadAttachmentMutation.isPending}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      uploadAttachmentMutation.mutate(file);
-                      e.target.value = "";
-                    }
-                  }}
-                  className="hidden"
-                />
-              </label>
+              {canRun && (
+                <label className="cursor-pointer rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                  {uploadAttachmentMutation.isPending ? "Uploading..." : "+ Upload File"}
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain,text/csv,application/json,application/xml,text/xml"
+                    disabled={uploadAttachmentMutation.isPending}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        uploadAttachmentMutation.mutate(file);
+                        e.target.value = "";
+                      }
+                    }}
+                    className="hidden"
+                  />
+                </label>
+              )}
             </div>
             {activeAttachments.length > 0 ? (
               <ul className="mt-3 space-y-2">
@@ -1355,13 +1371,15 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
                       <span className="text-slate-500">
                         {Math.max(1, Math.round(att.size / 1024))} KB
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => deleteAttachmentMutation.mutate(att.id)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        Remove
-                      </button>
+                      {canRun && (
+                        <button
+                          type="button"
+                          onClick={() => deleteAttachmentMutation.mutate(att.id)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          Remove
+                        </button>
+                      )}
                     </div>
                   </li>
                 ))}
@@ -1376,20 +1394,22 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
           <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Link Bugs</h2>
-              <div>
-                <button
-                  onClick={openLocalBugModal}
-                  className="mr-3 text-xs font-medium text-emerald-600 hover:text-emerald-700"
-                >
-                  + Create Local Bug
-                </button>
-                <button
-                  onClick={openJiraModal}
-                  className="text-xs font-medium text-blue-600 hover:text-blue-700"
-                >
-                  + Create Jira Bug
-                </button>
-              </div>
+              {canManageBugs && (
+                <div>
+                  <button
+                    onClick={openLocalBugModal}
+                    className="mr-3 text-xs font-medium text-emerald-600 hover:text-emerald-700"
+                  >
+                    + Create Local Bug
+                  </button>
+                  <button
+                    onClick={openJiraModal}
+                    className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                  >
+                    + Create Jira Bug
+                  </button>
+                </div>
+              )}
             </div>
             <div className="mt-3 space-y-2">
               <input

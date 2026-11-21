@@ -8,7 +8,9 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
 import { useProjectStore } from "@/lib/stores/project-store";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Plus } from "lucide-react";
 import { RequirementRow } from "@/components/requirement-row";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 
 const stepSchema = z.object({
   action: z.string().min(1, "Action is required"),
@@ -67,7 +69,25 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
   const router = useRouter();
   const toast = useToast();
   const queryClient = useQueryClient();
+  const { can } = usePermissions();
+  const canEditCase = can("testcase:update");
+  const canCreatePre = can("testcase:create");
+  const canCreateReq = can("project:update");
   const [isEditing, setIsEditing] = useState(false);
+
+  const [isCreatingInlinePre, setIsCreatingInlinePre] = useState(false);
+  const [newPreName, setNewPreName] = useState("");
+  const [newPreDescription, setNewPreDescription] = useState("");
+  const [creatingPreLoading, setCreatingPreLoading] = useState(false);
+
+  const [isAddingRequirement, setIsAddingRequirement] = useState(false);
+  const [reqTitleOrUrl, setReqTitleOrUrl] = useState("");
+  const [reqExternalKey, setReqExternalKey] = useState("");
+  const [creatingReqLoading, setCreatingReqLoading] = useState(false);
+
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [creatingFolderLoading, setCreatingFolderLoading] = useState(false);
 
   const { data: testCase, isLoading } = useQuery({
     queryKey: ["testcase", params.caseId],
@@ -311,6 +331,113 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
     );
   });
 
+  const { data: projectRequirements } = useQuery({
+    queryKey: ["requirements", projectId, "case-picker"],
+    enabled: !!projectId && isAddingRequirement,
+    queryFn: async () => {
+      const res = await fetch(`/api/requirements?projectId=${projectId}&limit=100`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const handleCreateAndLinkPrecondition = async (name: string, description: string) => {
+    if (!projectId || !name.trim()) return;
+    setCreatingPreLoading(true);
+    try {
+      const res = await fetch("/api/preconditions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          name: name.trim(),
+          description: description.trim() || undefined,
+        }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error || "Failed to create precondition");
+      await queryClient.invalidateQueries({ queryKey: ["preconditions", projectId] });
+      linkPreconditionMutation.mutate(body.id);
+      setNewPreName("");
+      setNewPreDescription("");
+      setIsCreatingInlinePre(false);
+    } catch (err: unknown) {
+      toast({ title: "Failed to create precondition", description: (err as Error).message });
+    } finally {
+      setCreatingPreLoading(false);
+    }
+  };
+
+  const handleCreateInlineFolder = async () => {
+    if (!projectId || !newFolderName.trim()) return;
+    setCreatingFolderLoading(true);
+    try {
+      const res = await fetch("/api/folders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          name: newFolderName.trim(),
+        }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error || "Failed to create folder");
+      await queryClient.invalidateQueries({ queryKey: ["folders", projectId] });
+      form.setValue("folderId", body.id);
+      setNewFolderName("");
+      setIsCreatingFolder(false);
+      toast({ title: "Folder created", description: body.path });
+    } catch (err: unknown) {
+      toast({ title: "Failed to create folder", description: (err as Error).message });
+    } finally {
+      setCreatingFolderLoading(false);
+    }
+  };
+
+  const handleCreateOrLinkRequirement = async () => {
+    if (!reqTitleOrUrl.trim()) return;
+    const raw = reqTitleOrUrl.trim();
+    if (/^https?:\/\//i.test(raw)) {
+      addRequirementMutation.mutate({ externalUrl: raw, type: "Jira" });
+      setReqTitleOrUrl("");
+      setReqExternalKey("");
+      setIsAddingRequirement(false);
+      return;
+    }
+    if (!projectId) return;
+    setCreatingReqLoading(true);
+    try {
+      const createRes = await fetch("/api/requirements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          title: raw,
+          priority: "MEDIUM",
+          externalIssueKey: reqExternalKey.trim() || undefined,
+        }),
+      });
+      const created = await createRes.json().catch(() => null);
+      if (!createRes.ok) throw new Error(created?.error || "Failed to create requirement");
+      const linkRes = await fetch(`/api/testcases/${params.caseId}/requirements`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requirementId: created.id, type: "covers" }),
+      });
+      if (!linkRes.ok) throw new Error("Failed to link requirement");
+      await queryClient.invalidateQueries({ queryKey: ["testcase", params.caseId] });
+      await queryClient.invalidateQueries({ queryKey: ["requirements", projectId] });
+      setReqTitleOrUrl("");
+      setReqExternalKey("");
+      setIsAddingRequirement(false);
+      toast({ title: "Requirement created and linked", description: `${created.key}: ${created.title}` });
+    } catch (err: unknown) {
+      toast({ title: "Failed to link requirement", description: (err as Error).message });
+    } finally {
+      setCreatingReqLoading(false);
+    }
+  };
+
   const submit = form.handleSubmit(
     (values) => {
       updateMutation.mutate(values);
@@ -339,7 +466,7 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{testCase.name}</h1>
           </div>
           <div className="flex gap-2">
-            {!isEditing && (
+            {!isEditing && canEditCase && (
               <button
                 onClick={() => setIsEditing(true)}
                 className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
@@ -470,7 +597,7 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
                   <select
                     aria-label="Test case folder"
                     value={testCase.folderId ?? ""}
-                    disabled={moveFolderMutation.isPending}
+                    disabled={moveFolderMutation.isPending || !canEditCase}
                     onChange={(e) => moveFolderMutation.mutate(e.target.value || null)}
                     className="max-w-[180px] rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20 disabled:opacity-50"
                   >
@@ -522,30 +649,33 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
             <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Preconditions</h3>
-                <button
-                  onClick={() => setIsAddingPrecondition(!isAddingPrecondition)}
-                  className="text-xs font-medium text-blue-600 hover:text-blue-700"
-                >
-                  {isAddingPrecondition ? "Cancel" : "+ Link"}
-                </button>
+                {canEditCase && (
+                  <button
+                    onClick={() => setIsAddingPrecondition(!isAddingPrecondition)}
+                    className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                  >
+                    {isAddingPrecondition ? "Cancel" : "+ Link / Create"}
+                  </button>
+                )}
               </div>
 
               {isAddingPrecondition && (
-                <div className="mb-4 rounded-md border border-slate-200 bg-slate-50 p-3">
+                <div className="mb-4 space-y-2.5 rounded-md border border-slate-200 bg-slate-50 p-3">
                   <input
                     type="text"
                     value={preconditionSearch}
                     onChange={(e) => setPreconditionSearch(e.target.value)}
-                    placeholder="Search preconditions..."
-                    className="mb-2 w-full rounded border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none"
+                    placeholder="Search existing preconditions..."
+                    className="w-full rounded border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none"
                   />
-                  <div className="max-h-40 space-y-1 overflow-y-auto pr-1">
+                  <div className="max-h-36 space-y-1 overflow-y-auto pr-1">
                     {(availablePreconditions || []).length === 0 ? (
-                      <p className="py-2 text-center text-xs text-slate-500">No available preconditions.</p>
+                      <p className="py-1.5 text-center text-xs text-slate-500">No matching preconditions.</p>
                     ) : (
                       availablePreconditions.map((pre: any) => (
                         <button
                           key={pre.id}
+                          type="button"
                           onClick={() => linkPreconditionMutation.mutate(pre.id)}
                           className="group flex w-full items-center justify-between rounded p-2 text-left transition-colors hover:bg-slate-200/70"
                         >
@@ -555,6 +685,57 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
                       ))
                     )}
                   </div>
+                  {canCreatePre && (
+                    <div className="border-t border-slate-200 pt-2">
+                      {!isCreatingInlinePre ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNewPreName(preconditionSearch.trim());
+                            setIsCreatingInlinePre(true);
+                          }}
+                          className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          Create & link new precondition
+                        </button>
+                      ) : (
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={newPreName}
+                            onChange={(e) => setNewPreName(e.target.value)}
+                            placeholder="Precondition name..."
+                            className="w-full rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-blue-600 focus:outline-none"
+                          />
+                          <textarea
+                            rows={2}
+                            value={newPreDescription}
+                            onChange={(e) => setNewPreDescription(e.target.value)}
+                            placeholder="Description (optional)..."
+                            className="w-full rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-blue-600 focus:outline-none"
+                          />
+                          <div className="flex justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setIsCreatingInlinePre(false)}
+                              className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              disabled={!newPreName.trim() || creatingPreLoading}
+                              onClick={() => handleCreateAndLinkPrecondition(newPreName, newPreDescription)}
+                              className="rounded bg-blue-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                            >
+                              {creatingPreLoading ? "Saving..." : "Create & Link"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -570,15 +751,17 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
                         </div>
                         <p className="truncate text-xs font-medium text-slate-700">{pre.name}</p>
                       </div>
-                      <button
-                        onClick={() => unlinkPreconditionMutation.mutate(pre.id)}
-                        className="rounded p-1.5 text-slate-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
-                        title="Unlink"
-                      >
-                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
+                      {canEditCase && (
+                        <button
+                          onClick={() => unlinkPreconditionMutation.mutate(pre.id)}
+                          className="rounded p-1.5 text-slate-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
+                          title="Unlink"
+                        >
+                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
                     </div>
                   ))
                 )}
@@ -589,18 +772,82 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
             <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Requirements</h3>
-                <button
-                  onClick={() => {
-                    const url = prompt("Enter Requirement URL (e.g., Jira Issue):");
-                    if (url) {
-                      addRequirementMutation.mutate({ externalUrl: url, type: "Jira" });
-                    }
-                  }}
-                  className="text-xs font-medium text-blue-600 hover:text-blue-700"
-                >
-                  + Add Link
-                </button>
+                {canEditCase && (
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingRequirement(!isAddingRequirement)}
+                    className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                  >
+                    {isAddingRequirement ? "Cancel" : "+ Link / Create"}
+                  </button>
+                )}
               </div>
+              {isAddingRequirement && (
+                <div className="mb-4 space-y-2.5 rounded-md border border-slate-200 bg-slate-50 p-3">
+                  {(projectRequirements || []).length > 0 && (
+                    <div className="max-h-32 space-y-1 overflow-y-auto border-b border-slate-200 pb-2">
+                      <p className="text-[11px] font-medium text-slate-500">Existing requirements:</p>
+                      {(projectRequirements as any[]).map((r) => (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={async () => {
+                            const res = await fetch(`/api/testcases/${params.caseId}/requirements`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ requirementId: r.id, type: "covers" }),
+                            });
+                            if (res.ok) {
+                              toast({ title: "Requirement linked" });
+                              queryClient.invalidateQueries({ queryKey: ["testcase", params.caseId] });
+                              setIsAddingRequirement(false);
+                            } else {
+                              toast({ title: "Failed to link requirement" });
+                            }
+                          }}
+                          className="flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs hover:bg-slate-200/70"
+                        >
+                          <span className="truncate font-medium text-slate-700">
+                            <span className="font-mono text-slate-500">{r.key}</span>: {r.title}
+                          </span>
+                          <span className="ml-2 shrink-0 text-[10px] font-medium text-blue-600">Link</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-medium text-slate-500">
+                      {canCreateReq ? "Or create requirement / paste external URL:" : "Paste external Jira/Requirement URL:"}
+                    </p>
+                    <input
+                      type="text"
+                      value={reqTitleOrUrl}
+                      onChange={(e) => setReqTitleOrUrl(e.target.value)}
+                      placeholder={canCreateReq ? "Requirement title or https://..." : "https://your-domain.atlassian.net/browse/PROJ-123"}
+                      className="w-full rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-blue-600 focus:outline-none"
+                    />
+                    {canCreateReq && !/^https?:\/\//i.test(reqTitleOrUrl.trim()) && reqTitleOrUrl.trim().length > 0 && (
+                      <input
+                        type="text"
+                        value={reqExternalKey}
+                        onChange={(e) => setReqExternalKey(e.target.value)}
+                        placeholder="Optional Jira key (e.g. PROJ-123)"
+                        className="w-full rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-blue-600 focus:outline-none"
+                      />
+                    )}
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        disabled={!reqTitleOrUrl.trim() || creatingReqLoading}
+                        onClick={handleCreateOrLinkRequirement}
+                        className="rounded bg-blue-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {creatingReqLoading ? "Saving..." : "Add & Link"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="space-y-2">
                 {(testCase.requirements ?? []).length === 0 ? (
                   <p className="text-sm italic text-slate-400">No requirements linked.</p>
@@ -755,9 +1002,30 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-slate-700" htmlFor="preconditions">
-              Preconditions
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-slate-700" htmlFor="preconditions">
+                Preconditions
+              </label>
+              {canCreatePre && (form.watch("preconditions") || "").trim().length > 0 && (
+                <button
+                  type="button"
+                  disabled={creatingPreLoading}
+                  onClick={() => {
+                    const text = (form.getValues("preconditions") || "").trim();
+                    if (!text) return;
+                    const firstLine = text.split("\n")[0].slice(0, 60);
+                    handleCreateAndLinkPrecondition(
+                      firstLine || `${form.getValues("name") || "Case"} Precondition`,
+                      text
+                    );
+                  }}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 disabled:opacity-50"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  {creatingPreLoading ? "Saving..." : "Save text as reusable precondition"}
+                </button>
+              )}
+            </div>
             <textarea
               id="preconditions"
               rows={2}
@@ -788,9 +1056,19 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-slate-700" htmlFor="folderId">
-                Folder
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-slate-700" htmlFor="folderId">
+                  Folder
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingFolder(!isCreatingFolder)}
+                  className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-600 hover:text-blue-700"
+                >
+                  <Plus className="h-3 w-3" />
+                  {isCreatingFolder ? "Cancel" : "New Folder"}
+                </button>
+              </div>
               <select
                 id="folderId"
                 {...form.register("folderId")}
@@ -803,6 +1081,25 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
                   </option>
                 ))}
               </select>
+              {isCreatingFolder && (
+                <div className="mt-2 flex gap-1.5">
+                  <input
+                    type="text"
+                    value={newFolderName}
+                    onChange={(e) => setNewFolderName(e.target.value)}
+                    placeholder="New folder name..."
+                    className="min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-blue-600 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    disabled={!newFolderName.trim() || creatingFolderLoading}
+                    onClick={handleCreateInlineFolder}
+                    className="rounded-md bg-blue-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {creatingFolderLoading ? "..." : "Add"}
+                  </button>
+                </div>
+              )}
             </div>
             <div>
               <label className="text-sm font-medium text-slate-700" htmlFor="tags">

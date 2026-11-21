@@ -4,6 +4,7 @@ import { ChevronRight, Folder as FolderIcon, FolderOpen, Plus, Trash2 } from "lu
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/toast";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 
 export type Folder = {
   id: string;
@@ -48,6 +49,9 @@ export function FolderTree({
 }) {
   const toast = useToast();
   const qc = useQueryClient();
+  const { can } = usePermissions();
+  const canCreateFolder = can("testcase:create");
+  const canManageFolder = can("testcase:update");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
@@ -181,31 +185,35 @@ export function FolderTree({
               </span>
             ) : null}
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              const name = window.prompt("New subfolder name");
-              if (name) createFolder.mutate({ name, parentId: node.id });
-            }}
-            className="hidden text-slate-400 hover:text-slate-900 group-hover:block"
-            aria-label="Add subfolder"
-            title="Add subfolder"
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              if (window.confirm(`Delete folder "${node.name}"? Test cases will be unfiled.`)) {
-                deleteFolder.mutate(node.id);
-              }
-            }}
-            className="hidden text-slate-400 hover:text-red-600 group-hover:block"
-            aria-label="Delete folder"
-            title="Delete folder"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
+          {canCreateFolder && (
+            <button
+              type="button"
+              onClick={() => {
+                const name = window.prompt("New subfolder name");
+                if (name) createFolder.mutate({ name, parentId: node.id });
+              }}
+              className="hidden text-slate-400 hover:text-slate-900 group-hover:block"
+              aria-label="Add subfolder"
+              title="Add subfolder"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {canManageFolder && (
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm(`Delete folder "${node.name}"? Test cases will be unfiled.`)) {
+                  deleteFolder.mutate(node.id);
+                }
+              }}
+              className="hidden text-slate-400 hover:text-red-600 group-hover:block"
+              aria-label="Delete folder"
+              title="Delete folder"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
         {isOpen && node.children.map((c) => renderNode(c, depth + 1))}
       </div>
@@ -218,17 +226,19 @@ export function FolderTree({
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           Folders
         </p>
-        <button
-          type="button"
-          onClick={() => {
-            const name = window.prompt("New top-level folder name");
-            if (name) createFolder.mutate({ name });
-          }}
-          className="rounded p-0.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
-          title="New folder"
-        >
-          <Plus className="h-4 w-4" />
-        </button>
+        {canCreateFolder && (
+          <button
+            type="button"
+            onClick={() => {
+              const name = window.prompt("New top-level folder name");
+              if (name) createFolder.mutate({ name });
+            }}
+            className="rounded p-0.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+            title="New folder"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        )}
       </div>
       <div className="max-h-[60vh] space-y-0.5 overflow-auto p-1.5">
         <button

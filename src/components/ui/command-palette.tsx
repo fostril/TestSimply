@@ -13,12 +13,14 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { useProjectStore } from "@/lib/stores/project-store";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const projectKey = useProjectStore((state) => state.projectKey);
   const { data: session } = useSession();
+  const { can } = usePermissions();
   const role = (session?.user as { role?: string } | undefined)?.role;
   const isAdmin = role === "ADMIN";
   const isLead = role === "LEAD";
@@ -65,11 +67,21 @@ export function CommandPalette() {
 
   const quickActions = projectKey
     ? [
-        { label: "+ New Test Case", href: `/projects/${projectKey}/testcases/new` },
-        { label: "+ New Execution", href: `/projects/${projectKey}/executions/new` },
-        { label: "+ New Test Plan", href: `/projects/${projectKey}/testplans/new` },
-        { label: "+ New Test Set", href: `/projects/${projectKey}/test-sets/new` },
-        { label: "+ Report Bug", href: `/projects/${projectKey}/bugs/new` },
+        ...(can("testcase:create")
+          ? [{ label: "+ New Test Case", href: `/projects/${projectKey}/testcases/new` }]
+          : []),
+        ...(can("execution:manage")
+          ? [{ label: "+ New Execution", href: `/projects/${projectKey}/executions/new` }]
+          : []),
+        ...(can("testplan:manage")
+          ? [{ label: "+ New Test Plan", href: `/projects/${projectKey}/testplans/new` }]
+          : []),
+        ...(can("testset:manage")
+          ? [{ label: "+ New Test Set", href: `/projects/${projectKey}/test-sets/new` }]
+          : []),
+        ...(can("bug:manage")
+          ? [{ label: "+ Report Bug", href: `/projects/${projectKey}/bugs/new` }]
+          : []),
       ]
     : [];
 

@@ -7,11 +7,13 @@ import Link from "next/link";
 import { Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { useProjectStore } from "@/lib/stores/project-store";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 
 export function ProjectSwitcher() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const toast = useToast();
+  const { can } = usePermissions();
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
 
   const { data } = useQuery({
@@ -112,7 +114,7 @@ export function ProjectSwitcher() {
             Project
           </label>
           <div className="flex items-center gap-1">
-            {projectId ? (
+            {projectId && can("project:delete") ? (
               <button
                 type="button"
                 onClick={() => setProjectToDelete(projectId)}
@@ -122,13 +124,15 @@ export function ProjectSwitcher() {
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             ) : null}
-            <Link
-              href="/projects/new"
-              className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium text-blue-600 hover:bg-blue-50"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              New
-            </Link>
+            {can("project:create") ? (
+              <Link
+                href="/projects/new"
+                className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium text-blue-600 hover:bg-blue-50"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                New
+              </Link>
+            ) : null}
           </div>
         </div>
         <select

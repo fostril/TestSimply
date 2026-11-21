@@ -9,6 +9,7 @@ import { ExternalLink, Link2, Search, Trash2 } from "lucide-react";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { DEFAULT_PAGE_LIMIT, fetchPaginated, type PaginatedResult } from "@/lib/pagination";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 
 type Requirement = {
   id: string;
@@ -64,6 +65,8 @@ export function RequirementsPage() {
   const router = useRouter();
   const toast = useToast();
   const qc = useQueryClient();
+  const { can } = usePermissions();
+  const canManageReqs = can("project:update");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -146,12 +149,14 @@ export function RequirementsPage() {
             Track requirements and link them to test cases for coverage traceability.
           </p>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          New Requirement
-        </button>
+        {canManageReqs && (
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            New Requirement
+          </button>
+        )}
       </div>
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -249,15 +254,17 @@ export function RequirementsPage() {
                   )}
                 </div>
               </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setItemToDelete(req.id);
-                }}
-                className="rounded p-1.5 text-slate-400 opacity-0 transition-opacity hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+              {canManageReqs && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setItemToDelete(req.id);
+                  }}
+                  className="rounded p-1.5 text-slate-400 opacity-0 transition-opacity hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
         ))}

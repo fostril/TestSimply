@@ -9,11 +9,14 @@ import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { useToast } from "@/components/ui/toast";
 import { Search } from "lucide-react";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 
 export function TestSetDetailsPage({ id, projectKey }: { id: string; projectKey?: string }) {
     const router = useRouter();
     const queryClient = useQueryClient();
     const toast = useToast();
+    const { can } = usePermissions();
+    const canManageSets = can("testset:manage");
     const projectId = useProjectStore((state) => state.projectId);
     const storeProjectKey = useProjectStore((state) => state.projectKey);
     const effectiveProjectKey = projectKey ?? storeProjectKey;
@@ -153,17 +156,19 @@ export function TestSetDetailsPage({ id, projectKey }: { id: string; projectKey?
                     <p className="mt-1.5 text-sm text-slate-600">{testSet.description}</p>
                 </div>
                 <div className="flex gap-2">
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setEditName(testSet.name ?? "");
-                            setEditDescription(testSet.description ?? "");
-                            setIsEditing(!isEditing);
-                        }}
-                        className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                    >
-                        {isEditing ? "Close" : "Edit"}
-                    </button>
+                    {canManageSets && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setEditName(testSet.name ?? "");
+                                setEditDescription(testSet.description ?? "");
+                                setIsEditing(!isEditing);
+                            }}
+                            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                        >
+                            {isEditing ? "Close" : "Edit"}
+                        </button>
+                    )}
                     <button
                         type="button"
                         onClick={() => router.back()}
@@ -171,13 +176,15 @@ export function TestSetDetailsPage({ id, projectKey }: { id: string; projectKey?
                     >
                         Back
                     </button>
-                    <button
-                        type="button"
-                        onClick={() => setShowDeleteConfirm(true)}
-                        className="rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
-                    >
-                        Delete
-                    </button>
+                    {canManageSets && (
+                        <button
+                            type="button"
+                            onClick={() => setShowDeleteConfirm(true)}
+                            className="rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+                        >
+                            Delete
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -234,13 +241,15 @@ export function TestSetDetailsPage({ id, projectKey }: { id: string; projectKey?
                     <h2 className="text-lg font-semibold text-slate-900">
                         Test Cases ({testSet.cases?.length || 0})
                     </h2>
-                    <button
-                        type="button"
-                        onClick={() => setIsAdding(!isAdding)}
-                        className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                    >
-                        {isAdding ? "Done" : "Add Cases"}
-                    </button>
+                    {canManageSets && (
+                        <button
+                            type="button"
+                            onClick={() => setIsAdding(!isAdding)}
+                            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                        >
+                            {isAdding ? "Done" : "Add Cases"}
+                        </button>
+                    )}
                 </div>
 
                 {isAdding && (
@@ -336,13 +345,15 @@ export function TestSetDetailsPage({ id, projectKey }: { id: string; projectKey?
                                     <span className="font-medium text-slate-900">{c.name}</span>
                                 )}
                             </div>
-                            <button
-                                type="button"
-                                onClick={() => removeCaseMutation.mutate(c.id)}
-                                className="text-sm text-slate-500 hover:text-red-600"
-                            >
-                                Remove
-                            </button>
+                            {canManageSets && (
+                                <button
+                                    type="button"
+                                    onClick={() => removeCaseMutation.mutate(c.id)}
+                                    className="text-sm text-slate-500 hover:text-red-600"
+                                >
+                                    Remove
+                                </button>
+                            )}
                         </div>
                     ))}
                     {(testSet.cases || []).length === 0 && (

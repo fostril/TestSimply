@@ -11,6 +11,7 @@ import { useToast } from "@/components/ui/toast";
 import { Search, Trash2, X, Bug } from "lucide-react";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { DEFAULT_PAGE_LIMIT, fetchPaginated, type PaginatedResult } from "@/lib/pagination";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 
 type BugData = {
     id: string;
@@ -29,6 +30,8 @@ export default function BugsPage() {
     const router = useRouter();
     const toast = useToast();
     const queryClient = useQueryClient();
+    const { can } = usePermissions();
+    const canManageBugs = can("bug:manage");
 
     const [searchQuery, setSearchQuery] = useState("");
     const [priorityFilter, setPriorityFilter] = useState<string>("ALL");
@@ -135,12 +138,14 @@ export default function BugsPage() {
                     <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Bugs</h1>
                     <p className="mt-1 text-sm text-slate-600">Track defects and issues.</p>
                 </div>
-                <Link
-                    href={`/projects/${projectKey}/bugs/new`}
-                    className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                >
-                    Report Bug
-                </Link>
+                {canManageBugs && (
+                    <Link
+                        href={`/projects/${projectKey}/bugs/new`}
+                        className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                    >
+                        Report Bug
+                    </Link>
+                )}
             </div>
 
             {/* Filters */}
@@ -185,7 +190,7 @@ export default function BugsPage() {
             </div>
 
             {/* Bulk Actions */}
-            {selectedIds.size > 0 && (
+            {canManageBugs && selectedIds.size > 0 && (
                 <div className="flex items-center gap-3 rounded-md border border-blue-200 bg-blue-50 p-3">
                     <span className="text-sm font-medium text-slate-900">
                         {selectedIds.size} selected
@@ -286,13 +291,15 @@ export default function BugsPage() {
                                         </span>
                                     </td>
                                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                                        <button
-                                            onClick={() => setItemToDelete(bug.id)}
-                                            className="rounded p-1.5 text-slate-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
-                                            title="Delete Bug"
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </button>
+                                        {canManageBugs && (
+                                            <button
+                                                onClick={() => setItemToDelete(bug.id)}
+                                                className="rounded p-1.5 text-slate-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
+                                                title="Delete Bug"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </button>
+                                        )}
                                     </td>
                                 </tr>
                             ))}

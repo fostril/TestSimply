@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/toast";
 import { useProjectStore } from "@/lib/stores/project-store";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { ExternalLink, Trash2 } from "lucide-react";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 
 type LinkedCase = {
   id: string;
@@ -44,6 +45,9 @@ export function RequirementDetailPage() {
   const qc = useQueryClient();
   const projectId = useProjectStore((s) => s.projectId);
   const projectKey = useProjectStore((s) => s.projectKey);
+  const { can } = usePermissions();
+  const canManageReqs = can("project:update");
+  const canLinkCases = can("testcase:update");
   const reqId = params.reqId;
 
   const [caseSearch, setCaseSearch] = useState("");
@@ -213,30 +217,32 @@ export function RequirementDetailPage() {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => {
-              setEditTitle(req.title);
-              setEditDescription(req.description ?? "");
-              setEditStatus(req.status);
-              setEditPriority(req.priority);
-              setEditExternalKey(req.externalIssueKey ?? "");
-              setEditExternalUrl(req.externalUrl ?? "");
-              setIsEditing(!isEditing);
-            }}
-            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            {isEditing ? "Close" : "Edit"}
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowDeleteConfirm(true)}
-            className="rounded-md border border-slate-300 bg-white p-2 text-slate-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-            title="Delete requirement"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
+        {canManageReqs && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setEditTitle(req.title);
+                setEditDescription(req.description ?? "");
+                setEditStatus(req.status);
+                setEditPriority(req.priority);
+                setEditExternalKey(req.externalIssueKey ?? "");
+                setEditExternalUrl(req.externalUrl ?? "");
+                setIsEditing(!isEditing);
+              }}
+              className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              {isEditing ? "Close" : "Edit"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(true)}
+              className="rounded-md border border-slate-300 bg-white p-2 text-slate-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+              title="Delete requirement"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        )}
       </div>
 
       {isEditing && (
@@ -340,38 +346,40 @@ export function RequirementDetailPage() {
           <span className="text-sm text-slate-500">{req.links.length} linked</span>
         </div>
 
-        <div className="relative mt-4">
-          <input
-            value={caseSearch}
-            onChange={(e) => setCaseSearch(e.target.value)}
-            placeholder="Search test cases to link…"
-            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
-          />
-          {caseSearch && caseOptions && caseOptions.length > 0 && (
-            <div className="absolute z-10 mt-1 max-h-64 w-full overflow-auto rounded-md border border-slate-200 bg-white shadow-lg">
-              {caseOptions.map((c) => {
-                const alreadyLinked = req.links.some((l) => l.testCase.id === c.id);
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    disabled={alreadyLinked}
-                    onClick={() => linkCase.mutate(c.id)}
-                    className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-slate-50 disabled:opacity-50"
-                  >
-                    <span>
-                      <span className="font-mono text-xs text-slate-500">{c.key}</span>{" "}
-                      <span className="text-slate-900">{c.name}</span>
-                    </span>
-                    {alreadyLinked && (
-                      <span className="text-xs text-slate-500">linked</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        {canLinkCases && (
+          <div className="relative mt-4">
+            <input
+              value={caseSearch}
+              onChange={(e) => setCaseSearch(e.target.value)}
+              placeholder="Search test cases to link…"
+              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+            />
+            {caseSearch && caseOptions && caseOptions.length > 0 && (
+              <div className="absolute z-10 mt-1 max-h-64 w-full overflow-auto rounded-md border border-slate-200 bg-white shadow-lg">
+                {caseOptions.map((c) => {
+                  const alreadyLinked = req.links.some((l) => l.testCase.id === c.id);
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      disabled={alreadyLinked}
+                      onClick={() => linkCase.mutate(c.id)}
+                      className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-slate-50 disabled:opacity-50"
+                    >
+                      <span>
+                        <span className="font-mono text-xs text-slate-500">{c.key}</span>{" "}
+                        <span className="text-slate-900">{c.name}</span>
+                      </span>
+                      {alreadyLinked && (
+                        <span className="text-xs text-slate-500">linked</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="mt-4 divide-y divide-slate-200">
           {req.links.map((l) => (
@@ -386,13 +394,15 @@ export function RequirementDetailPage() {
                 </Link>
               </div>
               <span className="rounded border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{l.testCase.type}</span>
-              <button
-                onClick={() => unlink.mutate(l)}
-                className="text-slate-400 hover:text-red-600"
-                title="Unlink"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+              {canLinkCases && (
+                <button
+                  onClick={() => unlink.mutate(l)}
+                  className="text-slate-400 hover:text-red-600"
+                  title="Unlink"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
             </div>
           ))}
           {req.links.length === 0 && (
