@@ -114,7 +114,7 @@ test.describe("Test cases, plans, manual execution & bug unlinking", () => {
       await expect(page).toHaveURL(/\/projects\/ALPHA\/executions\/new\?planId=/);
       await expect(page.locator("#name")).not.toHaveValue("");
       await page.getByRole("button", { name: "Create execution" }).click();
-      await expect(page).toHaveURL(/\/projects\/ALPHA\/executions\/ALPHA-EXEC-/, {
+      await expect(page).toHaveURL(/\/projects\/ALPHA\/executions\/ALPHA_EXEC_/, {
         timeout: 20_000,
       });
 
