@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, Folder as FolderIcon, FolderOpen, Plus, Trash2 } from "lucide-react";
+import { ChevronRight, Folder as FolderIcon, FolderOpen, Pencil, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/toast";
@@ -106,6 +106,27 @@ export function FolderTree({
     onError: (e) => toast({ title: "Delete failed", description: (e as Error).message }),
   });
 
+  const renameFolder = useMutation({
+    mutationFn: async (input: { id: string; name: string }) => {
+      const res = await fetch(`/api/folders/${input.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: input.name }),
+      });
+      if (!res.ok) {
+        const b = await res.json().catch(() => ({}));
+        throw new Error(b.error ?? "Failed to rename folder");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Folder renamed" });
+      qc.invalidateQueries({ queryKey: ["folders", projectId] });
+      qc.invalidateQueries({ queryKey: ["testcases", projectId] });
+    },
+    onError: (e) => toast({ title: "Rename failed", description: (e as Error).message }),
+  });
+
   const toggle = (id: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -200,19 +221,35 @@ export function FolderTree({
             </button>
           )}
           {canManageFolder && (
-            <button
-              type="button"
-              onClick={() => {
-                if (window.confirm(`Delete folder "${node.name}"? Test cases will be unfiled.`)) {
-                  deleteFolder.mutate(node.id);
-                }
-              }}
-              className="hidden text-slate-400 hover:text-red-600 group-hover:block"
-              aria-label="Delete folder"
-              title="Delete folder"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  const nextName = window.prompt("Rename folder", node.name);
+                  if (nextName && nextName.trim() && nextName.trim() !== node.name) {
+                    renameFolder.mutate({ id: node.id, name: nextName.trim() });
+                  }
+                }}
+                className="hidden text-slate-400 hover:text-blue-600 group-hover:block"
+                aria-label="Rename folder"
+                title="Rename folder"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm(`Delete folder "${node.name}"? Test cases will be unfiled.`)) {
+                    deleteFolder.mutate(node.id);
+                  }
+                }}
+                className="hidden text-slate-400 hover:text-red-600 group-hover:block"
+                aria-label="Delete folder"
+                title="Delete folder"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </>
           )}
         </div>
         {isOpen && node.children.map((c) => renderNode(c, depth + 1))}

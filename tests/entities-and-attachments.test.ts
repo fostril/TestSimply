@@ -55,6 +55,10 @@ const mockPrisma: any = vi.hoisted(() => ({
     findUnique: vi.fn(),
     delete: vi.fn(),
   },
+  bug: {
+    findUnique: vi.fn(),
+    update: vi.fn(),
+  },
   auditLog: {
     create: vi.fn(),
   },
@@ -87,6 +91,7 @@ import {
   DELETE as deleteAttachment,
 } from "@/app/api/attachments/[id]/route";
 import { POST as postAttachment } from "@/app/api/attachments/route";
+import { PATCH as updateBug } from "@/app/api/bugs/[id]/route";
 import { paginatedJson } from "@/lib/api";
 import { fetchPaginated } from "@/lib/pagination";
 
@@ -300,12 +305,15 @@ describe("Inline entity creation, attachment security & pagination helpers", () 
     expect(xmlRes.headers.get("Content-Security-Policy")).toBe("default-src 'none'; sandbox");
     expect(xmlRes.headers.get("X-Content-Type-Options")).toBe("nosniff");
 
-    // PNG attachment is allowed inline
+    // PNG attachment with valid PNG magic bytes is allowed inline
+    readFileMock.mockResolvedValueOnce(
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d]),
+    );
     mockPrisma.attachment.findUnique.mockResolvedValueOnce({
       id: "att-png",
       fileName: "screen.png",
       contentType: "image/png",
-      size: 16,
+      size: 12,
       storageKey: "uuid-screen.png",
       url: "/api/attachments/att-png",
       testCaseId: "tc-1",
@@ -318,6 +326,41 @@ describe("Inline entity creation, attachment security & pagination helpers", () 
     );
     expect(pngRes.status).toBe(200);
     expect(pngRes.headers.get("Content-Disposition")).toContain("inline;");
+
+    // Spoofed PNG attachment (non-PNG magic bytes) is downgraded to attachment on GET
+    // and rejected with 415 on multipart upload
+    mockPrisma.attachment.findUnique.mockResolvedValueOnce({
+      id: "att-spoof-png",
+      fileName: "spoof.png",
+      contentType: "image/png",
+      size: 16,
+      storageKey: "uuid-spoof.png",
+      url: "/api/attachments/att-spoof-png",
+      testCaseId: "tc-1",
+      executionId: null,
+      testResultId: null,
+    });
+    const spoofGetRes = await getAttachment(
+      new NextRequest("http://localhost:3000/api/attachments/att-spoof-png"),
+      { params: { id: "att-spoof-png" } },
+    );
+    expect(spoofGetRes.status).toBe(200);
+    expect(spoofGetRes.headers.get("Content-Disposition")).toContain("attachment;");
+
+    const spoofForm = new FormData();
+    spoofForm.append("testCaseId", "tc-1");
+    spoofForm.append(
+      "file",
+      new File([Buffer.from("<html>not a png</html>")], "evil.png", { type: "image/png" }),
+    );
+    const spoofUploadRes = await postAttachment(
+      new NextRequest("http://localhost:3000/api/attachments", {
+        method: "POST",
+        body: spoofForm,
+      }),
+      {},
+    );
+    expect(spoofUploadRes.status).toBe(415);
 
     // DELETE unlinks file from disk and logs audit
     mockPrisma.attachment.findUnique.mockResolvedValueOnce({
@@ -369,5 +412,65 @@ describe("Inline entity creation, attachment security & pagination helpers", () 
     } finally {
       globalThis.fetch = originalFetch;
     }
+  });
+
+  it("links and unlinks a bug from a test case via PATCH /api/bugs/[id] and blocks cross-project testCaseId", async () => {
+    mockPrisma.bug.findUnique.mockResolvedValue({
+      id: "bug-1",
+      key: "ALPHA_BUG_1",
+      projectId: "proj-1",
+      testCaseId: "tc-1",
+    });
+
+    // Unlink testCaseId (set to null)
+    mockPrisma.bug.update.mockImplementation(async ({ data }: any) => ({
+      id: "bug-1",
+      projectId: "proj-1",
+      ...data,
+    }));
+
+    const unlinkRes = await updateBug(
+      new NextRequest("http://localhost:3000/api/bugs/bug-1", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ testCaseId: null }),
+      }),
+      { params: { id: "bug-1" } },
+    );
+    expect(unlinkRes.status).toBe(200);
+    expect((await unlinkRes.json()).testCaseId).toBeNull();
+
+    // Link valid testCaseId in same project
+    mockPrisma.testCase.findUnique.mockResolvedValueOnce({
+      id: "tc-1",
+      projectId: "proj-1",
+      deletedAt: null,
+    });
+    const linkRes = await updateBug(
+      new NextRequest("http://localhost:3000/api/bugs/bug-1", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ testCaseId: "tc-1" }),
+      }),
+      { params: { id: "bug-1" } },
+    );
+    expect(linkRes.status).toBe(200);
+    expect((await linkRes.json()).testCaseId).toBe("tc-1");
+
+    // Reject cross-project testCaseId with 400
+    mockPrisma.testCase.findUnique.mockResolvedValueOnce({
+      id: "tc-other",
+      projectId: "proj-other",
+      deletedAt: null,
+    });
+    const badRes = await updateBug(
+      new NextRequest("http://localhost:3000/api/bugs/bug-1", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ testCaseId: "tc-other" }),
+      }),
+      { params: { id: "bug-1" } },
+    );
+    expect(badRes.status).toBe(400);
   });
 });

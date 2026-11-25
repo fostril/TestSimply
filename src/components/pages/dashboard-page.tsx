@@ -65,13 +65,23 @@ export function DashboardPage() {
           <p className="mt-1 text-xs text-slate-500">Currently in progress</p>
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm font-medium text-slate-500">Flaky candidates</p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-slate-500">Flaky candidates</p>
+            {projectKey && (
+              <Link
+                href={`/projects/${projectKey}/reports?tab=flaky`}
+                className="text-xs font-medium text-blue-600 hover:underline"
+              >
+                View details →
+              </Link>
+            )}
+          </div>
           {isLoading ? (
             <div className="mt-2 h-8 w-16 animate-pulse rounded bg-slate-200" />
           ) : (
             <p className="mt-2 text-3xl font-semibold text-slate-900">{flakyCount}</p>
           )}
-          <p className="mt-1 text-xs text-slate-500">Fail rate ≥ 30% (14d)</p>
+          <p className="mt-1 text-xs text-slate-500">≥ 2 status flips in last 10 runs</p>
         </div>
       </section>
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">

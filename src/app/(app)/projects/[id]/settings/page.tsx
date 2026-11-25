@@ -9,6 +9,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/toast";
 import { useProjectStore } from "@/lib/stores/project-store";
 import { AlertTriangle, Trash2 } from "lucide-react";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 
 const generalSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters"),
@@ -38,6 +39,9 @@ export default function ProjectSettingsPage({ params }: { params: { id: string }
     const toast = useToast();
     const queryClient = useQueryClient();
     const setProject = useProjectStore((state) => state.setProject);
+    const { can } = usePermissions();
+    const canManageSettings = can("settings:manage");
+    const canDeleteProject = can("project:delete");
     const [isDeleting, setIsDeleting] = useState(false);
     const [testConnectionResult, setTestConnectionResult] = useState<{ success: boolean; message?: string } | null>(null);
     const [jiraTestResult, setJiraTestResult] = useState<{ success: boolean; message?: string } | null>(null);
@@ -224,6 +228,7 @@ export default function ProjectSettingsPage({ params }: { params: { id: string }
                                 className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                             />
                         </div>
+                        {canManageSettings && (
                         <div className="flex justify-end">
                             <button
                                 type="submit"
@@ -233,6 +238,7 @@ export default function ProjectSettingsPage({ params }: { params: { id: string }
                                 {updateGeneralMutation.isPending ? "Saving..." : "Save Changes"}
                             </button>
                         </div>
+                        )}
                     </form>
                 </div>
 
@@ -424,6 +430,7 @@ export default function ProjectSettingsPage({ params }: { params: { id: string }
                 </div>
 
                 {/* Danger Zone */}
+                {canDeleteProject && (
                 <div className="rounded-lg border border-red-200 bg-red-50/50 p-6">
                     <h2 className="mb-2 text-base font-semibold text-red-700">Danger Zone</h2>
                     <p className="mb-4 text-sm text-slate-600">
@@ -467,6 +474,7 @@ export default function ProjectSettingsPage({ params }: { params: { id: string }
                         </div>
                     )}
                 </div>
+                )}
             </div>
         </div>
     );

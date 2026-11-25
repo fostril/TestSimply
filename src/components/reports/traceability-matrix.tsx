@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useProjectStore } from "@/lib/stores/project-store";
 import { Download, ExternalLink } from "lucide-react";
+import { escapeCsvCell } from "@/lib/csv";
 
 type Status = "OK" | "NOK" | "WIP" | "NOT_RUN";
 
@@ -170,14 +171,14 @@ export function TraceabilityMatrix({ projectId }: { projectId: string | null }) 
           c.bugs.map((b) => b.key).join("|"),
           ...envStatuses,
         ]
-          .map((v) => `"${(v ?? "").toString().replace(/"/g, '""')}"`)
+          .map((v) => escapeCsvCell((v ?? "").toString()))
           .join(",");
         rows.push(row);
       }
       if (r.cases.length === 0) {
         rows.push(
           [r.key ?? "", r.title ?? "", r.coverage.derivedStatus, "0", "0", "0", "0", "0", "", "", "", ""]
-            .map((v) => `"${(v ?? "").toString().replace(/"/g, '""')}"`)
+            .map((v) => escapeCsvCell((v ?? "").toString()))
             .join(","),
         );
       }

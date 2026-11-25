@@ -73,7 +73,10 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
   const canEditCase = can("testcase:update");
   const canCreatePre = can("testcase:create");
   const canCreateReq = can("project:update");
+  const canManageBugs = can("bug:manage");
   const [isEditing, setIsEditing] = useState(false);
+  const [isLinkingBug, setIsLinkingBug] = useState(false);
+  const [bugSearch, setBugSearch] = useState("");
 
   const [isCreatingInlinePre, setIsCreatingInlinePre] = useState(false);
   const [newPreName, setNewPreName] = useState("");
@@ -338,6 +341,74 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
       const res = await fetch(`/api/requirements?projectId=${projectId}&limit=100`);
       if (!res.ok) return [];
       return res.json();
+    },
+  });
+
+  const { data: projectBugs } = useQuery({
+    queryKey: ["bugs", projectId, "case-picker"],
+    enabled: !!projectId && isLinkingBug,
+    queryFn: async () => {
+      const res = await fetch(`/api/bugs?projectId=${projectId}&limit=100`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const linkedBugIds = new Set((testCase?.bugs || []).map((b: any) => b.id));
+  const availableBugs = (projectBugs || []).filter((b: any) => {
+    if (linkedBugIds.has(b.id)) return false;
+    const q = bugSearch.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      String(b.key ?? "").toLowerCase().includes(q) ||
+      String(b.summary ?? "").toLowerCase().includes(q)
+    );
+  });
+
+  const linkBugMutation = useMutation({
+    mutationFn: async (bugId: string) => {
+      const res = await fetch(`/api/bugs/${bugId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ testCaseId: testCase?.id ?? params.caseId }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "Failed to link bug");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Bug linked" });
+      queryClient.invalidateQueries({ queryKey: ["testcase", params.caseId] });
+      queryClient.invalidateQueries({ queryKey: ["bugs", projectId] });
+      setIsLinkingBug(false);
+    },
+    onError: (err) => {
+      toast({ title: "Failed to link bug", description: (err as Error).message });
+    },
+  });
+
+  const unlinkBugMutation = useMutation({
+    mutationFn: async (bugId: string) => {
+      const res = await fetch(`/api/bugs/${bugId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ testCaseId: null }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "Failed to unlink bug");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Bug unlinked" });
+      queryClient.invalidateQueries({ queryKey: ["testcase", params.caseId] });
+      queryClient.invalidateQueries({ queryKey: ["bugs", projectId] });
+    },
+    onError: (err) => {
+      toast({ title: "Failed to unlink bug", description: (err as Error).message });
     },
   });
 
@@ -867,18 +938,63 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
 
             {/* Linked Bugs Card */}
             <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-              <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Linked Bugs</h3>
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Linked Bugs</h3>
+                {canManageBugs && (
+                  <button
+                    type="button"
+                    onClick={() => setIsLinkingBug(!isLinkingBug)}
+                    className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                  >
+                    {isLinkingBug ? "Cancel" : "+ Link Bug"}
+                  </button>
+                )}
+              </div>
+
+              {isLinkingBug && (
+                <div className="mb-4 space-y-2 rounded-md border border-slate-200 bg-slate-50 p-3">
+                  <input
+                    type="text"
+                    value={bugSearch}
+                    onChange={(e) => setBugSearch(e.target.value)}
+                    placeholder="Search existing bugs..."
+                    className="w-full rounded border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none"
+                  />
+                  <div className="max-h-36 space-y-1 overflow-y-auto pr-1">
+                    {availableBugs.length === 0 ? (
+                      <p className="py-1.5 text-center text-xs text-slate-500">No matching unlinked bugs.</p>
+                    ) : (
+                      availableBugs.map((b: any) => (
+                        <button
+                          key={b.id}
+                          type="button"
+                          onClick={() => linkBugMutation.mutate(b.id)}
+                          className="group flex w-full items-center justify-between rounded p-2 text-left transition-colors hover:bg-slate-200/70"
+                        >
+                          <span className="max-w-[180px] truncate text-xs font-medium text-slate-700 group-hover:text-slate-900">
+                            {b.key}: {b.summary}
+                          </span>
+                          <span className="text-[10px] font-medium text-blue-600 opacity-0 group-hover:opacity-100">Link</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
                 {(testCase.bugs ?? []).length === 0 ? (
                   <p className="text-sm italic text-slate-400">No linked bugs.</p>
                 ) : (
                   (testCase.bugs as any[]).map((bug) => (
-                    <a
+                    <div
                       key={bug.id}
-                      href={`/projects/${projectKey}/bugs/${bug.id}`}
-                      className="group flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 p-3 transition-colors hover:border-slate-300 hover:bg-slate-100"
+                      className="group flex items-center justify-between gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 transition-colors hover:border-slate-300"
                     >
-                      <div className="min-w-0">
+                      <a
+                        href={`/projects/${projectKey}/bugs/${bug.id}`}
+                        className="min-w-0 flex-1"
+                      >
                         <div className="mb-1 flex items-center gap-2">
                           <span className={`rounded border px-1.5 py-0.5 font-mono text-[10px] font-semibold ${bug.priority === 'CRITICAL' ? 'border-red-200 bg-red-50 text-red-700' :
                               bug.priority === 'HIGH' ? 'border-orange-200 bg-orange-50 text-orange-700' :
@@ -888,9 +1004,23 @@ export default function TestCaseDetailPage({ params }: { params: { caseId: strin
                               'border-slate-200 bg-white text-slate-600'
                             }`}>{bug.status}</span>
                         </div>
-                        <p className="truncate text-xs font-medium text-slate-700 group-hover:text-slate-900">{bug.summary}</p>
-                      </div>
-                    </a>
+                        <p className="truncate text-xs font-medium text-slate-700 group-hover:text-blue-600">{bug.summary}</p>
+                      </a>
+                      {canManageBugs && (
+                        <button
+                          type="button"
+                          onClick={() => unlinkBugMutation.mutate(bug.id)}
+                          disabled={unlinkBugMutation.isPending}
+                          className="rounded p-1.5 text-slate-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
+                          title="Unlink bug from test case"
+                          aria-label={`Unlink ${bug.key}`}
+                        >
+                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
                   ))
                 )}
               </div>

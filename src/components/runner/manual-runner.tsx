@@ -1430,13 +1430,32 @@ export function ManualRunner({ executionId, projectKey }: ManualRunnerProps) {
                           checked={isSelected}
                           onChange={(e) => {
                             const currentSelected = selectedBugs[activeCase.id] ?? [];
-                            let newSelected;
-                            if (e.target.checked) {
-                              newSelected = [...currentSelected, bug.id];
-                            } else {
-                              newSelected = currentSelected.filter((id) => id !== bug.id);
-                            }
+                            const checked = e.target.checked;
+                            const newSelected = checked
+                              ? [...currentSelected, bug.id]
+                              : currentSelected.filter((id) => id !== bug.id);
                             setSelectedBugs((prev) => ({ ...prev, [activeCase.id]: newSelected }));
+
+                            // Keep Bug.testCaseId in sync when linking/unlinking from the runner
+                            if (canManageBugs) {
+                              void fetch(`/api/bugs/${bug.id}`, {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ testCaseId: checked ? activeCase.id : null }),
+                              }).then(() => {
+                                queryClient.invalidateQueries({ queryKey: ["testcase", activeCase.id] });
+                              });
+                            }
+
+                            // If this case already has a recorded result, persist updated bugIds immediately
+                            if (canRun && activeResult?.status) {
+                              mutation.mutate({
+                                caseId: activeCase.id,
+                                status: activeResult.status as RunnerStatus,
+                                note: notes[activeCase.id],
+                                bugIds: newSelected,
+                              });
+                            }
                           }}
                           className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
                         />

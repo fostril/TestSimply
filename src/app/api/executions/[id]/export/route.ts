@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, withApiHandler, assertProjectAccessForResource, resolveByIdOrKey } from "@/lib/api";
+import { escapeCsvCell } from "@/lib/csv";
 
 export const GET = withApiHandler(
     async (req: NextRequest, { params }: { params: { id: string } }) => {
@@ -102,20 +103,12 @@ export const GET = withApiHandler(
                 : "";
             const bugs = result?.bugs?.map((b: any) => b.key).join(", ") || "";
 
-            // Escape CSV fields
-            const escapeCsv = (field: string) => {
-                if (field.includes(",") || field.includes('"') || field.includes("\n")) {
-                    return `"${field.replace(/"/g, '""')}"`;
-                }
-                return field;
-            };
-
             lines.push([
-                escapeCsv(testCase.key),
-                escapeCsv(testCase.name),
+                escapeCsvCell(testCase.key),
+                escapeCsvCell(testCase.name),
                 status,
-                escapeCsv(notes),
-                escapeCsv(bugs)
+                escapeCsvCell(notes),
+                escapeCsvCell(bugs)
             ].join(","));
         }
 

@@ -10,7 +10,11 @@ import { z } from "zod";
 import crypto from "crypto";
 import path from "path";
 import { writeFile, mkdir } from "fs/promises";
-import { validateUpload } from "@/lib/upload";
+import {
+  validateUpload,
+  isInlineImageMime,
+  hasValidImageMagicBytes,
+} from "@/lib/upload";
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? path.join(process.cwd(), "uploads");
 
@@ -97,9 +101,15 @@ export const POST = withApiHandler(async (req: NextRequest) => {
     const ext = path.extname(file.name) || "";
     const storageKey = `${crypto.randomUUID()}${ext}`;
 
-    await mkdir(UPLOAD_DIR, { recursive: true });
-
     const buffer = Buffer.from(await file.arrayBuffer());
+    if (isInlineImageMime(file.type) && !hasValidImageMagicBytes(buffer, file.type)) {
+      return NextResponse.json(
+        { error: `File content does not match declared image MIME type "${file.type}"` },
+        { status: 415 },
+      );
+    }
+
+    await mkdir(UPLOAD_DIR, { recursive: true });
     await writeFile(path.join(UPLOAD_DIR, storageKey), buffer);
 
     // Create with placeholder URL; update after we have the attachment id so

@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/toast";
 import { useProjectStore } from "@/lib/stores/project-store";
+import { usePermissions } from "@/lib/hooks/use-permissions";
 
 const schema = z.object({
   key: z
@@ -25,6 +26,8 @@ export default function NewProjectPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const setProject = useProjectStore((state) => state.setProject);
+  const { can } = usePermissions();
+  const canCreateProject = can("project:create");
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { key: "", name: "", description: "" },
@@ -47,6 +50,19 @@ export default function NewProjectPage() {
     setProject({ id: project.id, key: project.key });
     router.push(`/projects/${project.key}`);
   });
+
+  if (!canCreateProject) {
+    return (
+      <div className="mx-auto max-w-lg px-6 py-16 text-center">
+        <div className="rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
+          <h1 className="text-lg font-semibold text-slate-900">Insufficient Permissions</h1>
+          <p className="mt-2 text-sm text-slate-600">
+            Only Project Leads and Administrators can create new projects.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-8">

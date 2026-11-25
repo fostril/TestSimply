@@ -266,4 +266,30 @@ describe("Execution results & runner", () => {
     expect(csv).toContain("ALPHA_TC_2,Logout,NOT_RUN,,");
     expect(csv).toContain("Total Cases,2");
   });
+
+  it("rejects arbitrary non-array or unknown-field stepsLog objects (400) while accepting valid CI step logs", async () => {
+    const badReq = new NextRequest("http://localhost:3000/api/results", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        executionId: "exec-1",
+        caseId: "tc-1",
+        status: TestStatus.FAIL,
+        stepsLog: [{ unexpectedEvilKey: { nested: true } }],
+      }),
+    });
+    expect((await recordResult(badReq, {})).status).toBe(400);
+
+    const ciReq = new NextRequest("http://localhost:3000/api/results", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        executionId: "exec-1",
+        caseId: "tc-1",
+        status: TestStatus.FAIL,
+        stepsLog: [{ name: "Given user logs in", status: "FAIL", error: "Timeout" }],
+      }),
+    });
+    expect((await recordResult(ciReq, {})).status).toBe(201);
+  });
 });

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TestStatus } from "@prisma/client";
-import { checkAndMarkFlaky } from "@/lib/flakiness";
+import { analyzeFlakiness, checkAndMarkFlaky } from "@/lib/flakiness";
 import { importJUnit } from "@/lib/importers/junit";
 import { importCucumber } from "@/lib/importers/cucumber";
 
@@ -123,6 +123,47 @@ describe("flakiness detection", () => {
     await vi.waitFor(() => {
       expect(testCase.isFlaky).toBe(true);
       expect(testCase.flakyDetectedAt).toBeInstanceOf(Date);
+    });
+  });
+
+  it("self-heals (clears isFlaky) when a previously flaky test stabilizes across its last 10 runs and ignores SKIPPED rows", async () => {
+    const { client, results, testCase } = createFlakinessClient();
+    testCase.isFlaky = true;
+    testCase.flakyDetectedAt = new Date(500);
+
+    // 10 consecutive PASS results plus several SKIPPED placeholder rows
+    for (let i = 0; i < 10; i++) {
+      results.push({
+        id: `p-${i}`,
+        executionId: `ep-${i}`,
+        caseId: "case-1",
+        status: TestStatus.PASS,
+        createdAt: new Date(10_000 + i * 1000),
+      });
+    }
+    for (let i = 0; i < 5; i++) {
+      results.push({
+        id: `s-${i}`,
+        executionId: `es-${i}`,
+        caseId: "case-1",
+        status: TestStatus.SKIPPED,
+        createdAt: new Date(30_000 + i * 1000),
+      });
+    }
+
+    await checkAndMarkFlaky("case-1", client);
+    expect(testCase.isFlaky).toBe(false);
+    expect(testCase.flakyDetectedAt).toBeNull();
+
+    const stats = analyzeFlakiness(["FAIL", "PASS", "FAIL", "PASS", "SKIPPED"]);
+    expect(stats).toEqual({
+      isFlaky: true,
+      flips: 3,
+      runCount: 4,
+      passCount: 2,
+      failCount: 2,
+      blockedCount: 0,
+      failRate: 50,
     });
   });
 });

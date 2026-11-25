@@ -41,6 +41,9 @@ export const GET = withApiHandler(
           where: { deletedAt: null },
           orderBy: { key: "asc" },
         },
+        bugs: {
+          orderBy: { createdAt: "desc" },
+        },
       },
     });
     return NextResponse.json(full);

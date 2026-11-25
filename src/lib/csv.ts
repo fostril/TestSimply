@@ -75,16 +75,30 @@ export const parseCsv = (content: string): CsvRow[] => {
   });
 };
 
-const escapeValue = (value: string | undefined) => {
+const FORMULA_TRIGGERS = /^[=+\-@\t\r]/;
+
+/**
+ * Neutralize spreadsheet formula / DDE prefixes (`=`, `+`, `-`, `@`, `\t`, `\r`)
+ * by prepending a single quote (`'`).
+ */
+export const sanitizeCsvCell = (value: string | undefined | null): string => {
   if (value == null) return "";
-  if (value.includes(",") || value.includes("\n") || value.includes('"')) {
-    return `"${value.replace(/"/g, '""')}"`;
+  const str = String(value);
+  return FORMULA_TRIGGERS.test(str) ? `'${str}` : str;
+};
+
+export const escapeCsvCell = (value: string | undefined | null): string => {
+  const safe = sanitizeCsvCell(value);
+  if (safe.includes(",") || safe.includes("\n") || safe.includes("\r") || safe.includes('"')) {
+    return `"${safe.replace(/"/g, '""')}"`;
   }
-  return value;
+  return safe;
 };
 
 export const exportCsv = (rows: CsvRow[]) => {
   const headerLine = csvHeaders.join(",");
-  const valueLines = rows.map((row) => csvHeaders.map((header) => escapeValue(row[header as keyof CsvRow])).join(","));
+  const valueLines = rows.map((row) =>
+    csvHeaders.map((header) => escapeCsvCell(row[header as keyof CsvRow])).join(","),
+  );
   return [headerLine, ...valueLines].join("\n");
 };

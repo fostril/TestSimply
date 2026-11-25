@@ -152,4 +152,30 @@ describe("CSV import & export", () => {
     expect(created[0].steps).toEqual(storedCases[0].steps);
     expect(created[0].tags).toEqual(["e2e", "payments"]);
   });
+
+  it("neutralizes spreadsheet formula prefixes (=, +, -, @) on CSV export", async () => {
+    mockPrisma.testCase.findMany.mockResolvedValue([
+      {
+        id: "tc-formula",
+        projectId: "proj-1",
+        key: "ALPHA_TC_9",
+        name: "=1+1",
+        description: "+SUM(A1:A2)",
+        preconditionsText: "-2+3",
+        steps: [{ action: "@import", expected: "Safe" }],
+        expected: "\tTabbed",
+        tags: ["sec"],
+      },
+    ]);
+
+    const exportReq = new NextRequest("http://localhost:3000/api/testcases/export?projectId=proj-1");
+    const exportRes = await exportCsvRoute(exportReq, {});
+    expect(exportRes.status).toBe(200);
+    const exportedCsv = await exportRes.text();
+    const dataLine = exportedCsv.split("\n")[1];
+    expect(dataLine).toContain("'=1+1");
+    expect(dataLine).toContain("'+SUM(A1:A2)");
+    expect(dataLine).toContain("'-2+3");
+    expect(dataLine).toContain("'@import");
+  });
 });

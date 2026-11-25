@@ -226,14 +226,16 @@ export default function BugsPage() {
                     <table className="min-w-full divide-y divide-slate-200 text-sm">
                         <thead className="bg-slate-50">
                             <tr>
-                                <th className="w-10 px-4 py-3 text-left">
-                                    <input
-                                        type="checkbox"
-                                        checked={filteredBugs.length > 0 && selectedIds.size === filteredBugs.length}
-                                        onChange={toggleSelectAll}
-                                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
-                                    />
-                                </th>
+                                {canManageBugs && (
+                                    <th className="w-10 px-4 py-3 text-left">
+                                        <input
+                                            type="checkbox"
+                                            checked={filteredBugs.length > 0 && selectedIds.size === filteredBugs.length}
+                                            onChange={toggleSelectAll}
+                                            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+                                        />
+                                    </th>
+                                )}
                                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Key</th>
                                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Summary</th>
                                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Priority</th>
@@ -247,14 +249,16 @@ export default function BugsPage() {
                                     key={bug.id}
                                     className="group cursor-pointer transition-colors hover:bg-slate-50"
                                 >
-                                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedIds.has(bug.id)}
-                                            onChange={() => toggleSelect(bug.id)}
-                                            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
-                                        />
-                                    </td>
+                                    {canManageBugs && (
+                                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedIds.has(bug.id)}
+                                                onChange={() => toggleSelect(bug.id)}
+                                                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+                                            />
+                                        </td>
+                                    )}
                                     <td
                                         className="px-4 py-3 font-mono text-xs font-semibold text-slate-900"
                                         onClick={() => router.push(`/projects/${projectKey}/bugs/${bug.key}`)}

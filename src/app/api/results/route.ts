@@ -6,6 +6,7 @@ import { z } from "zod";
 import { ExecutionStatus, TestStatus } from "@prisma/client";
 import { checkAndMarkFlaky } from "@/lib/flakiness";
 import { apiLogger } from "@/lib/logger";
+import { validateBodySize } from "@/lib/upload";
 
 // Per-step result entry logged against a TestResult. This is the shape the
 // manual-execution UI produces — one entry per case step, stored inside the
@@ -15,25 +16,46 @@ const stepResultSchema = z.object({
   status: z.enum(["PASS", "FAIL", "BLOCKED", "SKIPPED", "NOT_RUN"]),
   actual: z.string().max(5000).optional(),
   comments: z.string().max(5000).optional(),
-  attachmentIds: z.array(z.string()).optional(),
+  attachmentIds: z.array(z.string().max(128)).max(50).optional(),
 });
 
+// Bounded step-log entry accepted from CI importers / scripted runners.
+const ciStepLogEntrySchema = z
+  .object({
+    stepIndex: z.number().int().min(0).optional(),
+    name: z.string().max(1000).optional(),
+    action: z.string().max(2000).optional(),
+    expected: z.string().max(2000).optional(),
+    status: z.string().max(32).optional(),
+    actual: z.string().max(5000).optional(),
+    error: z.string().max(10000).nullable().optional(),
+    note: z.string().max(5000).optional(),
+    notes: z.string().max(5000).optional(),
+    comments: z.string().max(5000).optional(),
+    durationMs: z.number().nonnegative().optional(),
+    attachmentIds: z.array(z.string().max(128)).max(50).optional(),
+  })
+  .strict();
+
 const createSchema = z.object({
-  executionId: z.string(),
-  caseId: z.string(),
+  executionId: z.string().min(1),
+  caseId: z.string().min(1),
   status: z.nativeEnum(TestStatus),
   durationMs: z.number().optional(),
-  errorMessage: z.string().optional(),
-  // Accept either the new typed shape (array of StepResult) or a free-form
-  // JSON blob from CI importers. The app will prefer the typed shape when
-  // available.
-  stepsLog: z.union([z.array(stepResultSchema), z.any()]).optional(),
-  bugIds: z.array(z.string()).optional(),
+  errorMessage: z.string().max(20000).optional(),
+  stepsLog: z
+    .array(z.union([stepResultSchema, ciStepLogEntrySchema]))
+    .max(500, "stepsLog cannot exceed 500 entries")
+    .optional(),
+  bugIds: z.array(z.string().max(128)).max(100).optional(),
 });
 
 export const POST = withApiHandler(async (req: NextRequest) => {
   const auth = await requireAuth(req, "execution:run");
   if (!auth.authorized) return auth.response;
+
+  const sizeError = validateBodySize(req);
+  if (sizeError) return sizeError;
 
   const body = await req.json();
   const parsed = createSchema.parse(body);

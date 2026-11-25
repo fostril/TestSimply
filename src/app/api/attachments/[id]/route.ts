@@ -8,6 +8,7 @@ import {
 } from "@/lib/api";
 import { logAudit } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
+import { isInlineImageMime, hasValidImageMagicBytes } from "@/lib/upload";
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? path.join(process.cwd(), "uploads");
 
@@ -101,8 +102,9 @@ export const GET = withApiHandler(
     const data = await readFile(resolved);
 
     const contentType = attachment.contentType || "application/octet-stream";
-    const inlineSafeTypes = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
-    const disposition = inlineSafeTypes.has(contentType) ? "inline" : "attachment";
+    const isSafeInline =
+      isInlineImageMime(contentType) && hasValidImageMagicBytes(data, contentType);
+    const disposition = isSafeInline ? "inline" : "attachment";
 
     return new NextResponse(new Uint8Array(data), {
       status: 200,

@@ -16,6 +16,7 @@ const schema = z.object({
     description: z.string().optional(),
     priority: z.string().default("MEDIUM"),
     status: z.string().default("OPEN"),
+    testCaseId: z.string().nullable().optional(),
     testSetId: z.string().nullable().optional(),
 });
 
@@ -77,6 +78,16 @@ export default function BugDetailPage({ params }: { params: { id: string, bugId:
         }
     });
 
+    const { data: testCases } = useQuery({
+        queryKey: ["testcases", projectId, "bug-form"],
+        enabled: !!projectId && isEditing,
+        queryFn: async () => {
+            const res = await fetch(`/api/testcases?projectId=${projectId}&limit=200`);
+            if (!res.ok) throw new Error("Failed to load test cases");
+            return res.json();
+        }
+    });
+
     const form = useForm<FormValues>({
         resolver: zodResolver(schema),
         defaultValues: {
@@ -84,6 +95,7 @@ export default function BugDetailPage({ params }: { params: { id: string, bugId:
             description: "",
             priority: "MEDIUM",
             status: "OPEN",
+            testCaseId: null,
             testSetId: null,
         }
     });
@@ -95,6 +107,7 @@ export default function BugDetailPage({ params }: { params: { id: string, bugId:
                 description: bug.description ?? "",
                 priority: bug.priority,
                 status: bug.status,
+                testCaseId: bug.testCaseId ?? null,
                 testSetId: bug.testSetId ?? null,
             });
         }
@@ -108,6 +121,7 @@ export default function BugDetailPage({ params }: { params: { id: string, bugId:
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     ...values,
+                    testCaseId: values.testCaseId || null,
                     testSetId: values.testSetId || null,
                 }),
             });
@@ -126,6 +140,54 @@ export default function BugDetailPage({ params }: { params: { id: string, bugId:
         onError: (err) => {
             toast({ title: "Update failed", description: err.message });
         }
+    });
+
+    const unlinkTestCaseMutation = useMutation({
+        mutationFn: async () => {
+            if (!bug?.id) throw new Error("Bug ID missing");
+            const res = await fetch(`/api/bugs/${bug.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ testCaseId: null }),
+            });
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(body.error ?? "Failed to unlink test case");
+            }
+            return res.json();
+        },
+        onSuccess: () => {
+            toast({ title: "Unlinked from test case" });
+            queryClient.invalidateQueries({ queryKey: ["bug", params.bugId] });
+            queryClient.invalidateQueries({ queryKey: ["bugs", projectId] });
+        },
+        onError: (err) => {
+            toast({ title: "Failed to unlink", description: (err as Error).message });
+        },
+    });
+
+    const unlinkTestSetMutation = useMutation({
+        mutationFn: async () => {
+            if (!bug?.id) throw new Error("Bug ID missing");
+            const res = await fetch(`/api/bugs/${bug.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ testSetId: null }),
+            });
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(body.error ?? "Failed to unlink test set");
+            }
+            return res.json();
+        },
+        onSuccess: () => {
+            toast({ title: "Unlinked from test set" });
+            queryClient.invalidateQueries({ queryKey: ["bug", params.bugId] });
+            queryClient.invalidateQueries({ queryKey: ["bugs", projectId] });
+        },
+        onError: (err) => {
+            toast({ title: "Failed to unlink", description: (err as Error).message });
+        },
     });
 
     const submit = form.handleSubmit((values) => {
@@ -204,25 +266,57 @@ export default function BugDetailPage({ params }: { params: { id: string, bugId:
                                 {bug.testCase && (
                                     <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                                         <span className="text-sm text-slate-600">Test Case</span>
-                                        <a
-                                            href={`/projects/${projectKey}/testcases/${bug.testCase.id}`}
-                                            className="max-w-[150px] truncate font-mono text-sm text-blue-600 hover:underline"
-                                            title={bug.testCase.name}
-                                        >
-                                            {bug.testCase.key}
-                                        </a>
+                                        <div className="flex items-center gap-1.5">
+                                            <a
+                                                href={`/projects/${projectKey}/testcases/${bug.testCase.id}`}
+                                                className="max-w-[140px] truncate font-mono text-sm text-blue-600 hover:underline"
+                                                title={bug.testCase.name}
+                                            >
+                                                {bug.testCase.key}
+                                            </a>
+                                            {can("bug:manage") && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => unlinkTestCaseMutation.mutate()}
+                                                    disabled={unlinkTestCaseMutation.isPending}
+                                                    className="rounded p-1 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                                                    title="Unlink test case"
+                                                    aria-label="Unlink test case"
+                                                >
+                                                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                    </svg>
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                                 {bug.testSet && (
                                     <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                                         <span className="text-sm text-slate-600">Test Set</span>
-                                        <a
-                                            href={`/projects/${projectKey}/test-sets/${bug.testSet.id}`}
-                                            className="max-w-[150px] truncate font-mono text-sm text-blue-600 hover:underline"
-                                            title={bug.testSet.name}
-                                        >
-                                            {bug.testSet.key}
-                                        </a>
+                                        <div className="flex items-center gap-1.5">
+                                            <a
+                                                href={`/projects/${projectKey}/test-sets/${bug.testSet.id}`}
+                                                className="max-w-[140px] truncate font-mono text-sm text-blue-600 hover:underline"
+                                                title={bug.testSet.name}
+                                            >
+                                                {bug.testSet.key}
+                                            </a>
+                                            {can("bug:manage") && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => unlinkTestSetMutation.mutate()}
+                                                    disabled={unlinkTestSetMutation.isPending}
+                                                    className="rounded p-1 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                                                    title="Unlink test set"
+                                                    aria-label="Unlink test set"
+                                                >
+                                                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                    </svg>
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                                 <div className="flex items-center justify-between pt-1">
@@ -287,53 +381,72 @@ export default function BugDetailPage({ params }: { params: { id: string, bugId:
                             </select>
                         </div>
                     </div>
-                    <div>
-                        <div className="flex items-center justify-between">
-                            <label className="text-sm font-medium text-slate-700" htmlFor="testSetId">
-                                Linked Test Set
+                    <div className="grid gap-5 md:grid-cols-2">
+                        <div>
+                            <label className="text-sm font-medium text-slate-700" htmlFor="testCaseId">
+                                Linked Test Case
                             </label>
-                            {can("testset:manage") && (
-                                <button
-                                    type="button"
-                                    onClick={() => setIsCreatingSet(!isCreatingSet)}
-                                    className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-600 hover:text-blue-700"
-                                >
-                                    <Plus className="h-3 w-3" />
-                                    {isCreatingSet ? "Cancel" : "New Test Set"}
-                                </button>
+                            <select
+                                id="testCaseId"
+                                {...form.register("testCaseId")}
+                                className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+                            >
+                                <option value="">None</option>
+                                {testCases?.map((tc: any) => (
+                                    <option key={tc.id} value={tc.id}>
+                                        {tc.key}: {tc.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-medium text-slate-700" htmlFor="testSetId">
+                                    Linked Test Set
+                                </label>
+                                {can("testset:manage") && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsCreatingSet(!isCreatingSet)}
+                                        className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-600 hover:text-blue-700"
+                                    >
+                                        <Plus className="h-3 w-3" />
+                                        {isCreatingSet ? "Cancel" : "New Test Set"}
+                                    </button>
+                                )}
+                            </div>
+                            <select
+                                id="testSetId"
+                                {...form.register("testSetId")}
+                                className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+                            >
+                                <option value="">None</option>
+                                {testSets?.map((set: any) => (
+                                    <option key={set.id} value={set.id}>
+                                        {set.key}: {set.name}
+                                    </option>
+                                ))}
+                            </select>
+                            {isCreatingSet && (
+                                <div className="mt-2 flex gap-1.5">
+                                    <input
+                                        type="text"
+                                        value={newSetName}
+                                        onChange={(e) => setNewSetName(e.target.value)}
+                                        placeholder="New test set name..."
+                                        className="min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-blue-600 focus:outline-none"
+                                    />
+                                    <button
+                                        type="button"
+                                        disabled={!newSetName.trim() || creatingSetLoading}
+                                        onClick={handleCreateInlineSet}
+                                        className="rounded-md bg-blue-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                                    >
+                                        {creatingSetLoading ? "..." : "Create & Select"}
+                                    </button>
+                                </div>
                             )}
                         </div>
-                        <select
-                            id="testSetId"
-                            {...form.register("testSetId")}
-                            className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
-                        >
-                            <option value="">None</option>
-                            {testSets?.map((set: any) => (
-                                <option key={set.id} value={set.id}>
-                                    {set.key}: {set.name}
-                                </option>
-                            ))}
-                        </select>
-                        {isCreatingSet && (
-                            <div className="mt-2 flex gap-1.5">
-                                <input
-                                    type="text"
-                                    value={newSetName}
-                                    onChange={(e) => setNewSetName(e.target.value)}
-                                    placeholder="New test set name..."
-                                    className="min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-blue-600 focus:outline-none"
-                                />
-                                <button
-                                    type="button"
-                                    disabled={!newSetName.trim() || creatingSetLoading}
-                                    onClick={handleCreateInlineSet}
-                                    className="rounded-md bg-blue-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                                >
-                                    {creatingSetLoading ? "..." : "Create & Select"}
-                                </button>
-                            </div>
-                        )}
                     </div>
                     <div>
                         <label className="text-sm font-medium text-slate-700" htmlFor="summary">

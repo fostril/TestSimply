@@ -17,6 +17,7 @@ export function TestSetDetailsPage({ id, projectKey }: { id: string; projectKey?
     const toast = useToast();
     const { can } = usePermissions();
     const canManageSets = can("testset:manage");
+    const canManageBugs = can("bug:manage");
     const projectId = useProjectStore((state) => state.projectId);
     const storeProjectKey = useProjectStore((state) => state.projectKey);
     const effectiveProjectKey = projectKey ?? storeProjectKey;
@@ -77,6 +78,26 @@ export function TestSetDetailsPage({ id, projectKey }: { id: string; projectKey?
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["test-set", id] });
             queryClient.invalidateQueries({ queryKey: ["test-sets", projectId] });
+        },
+    });
+
+    const unlinkBugMutation = useMutation({
+        mutationFn: async (bugId: string) => {
+            const res = await fetch(`/api/bugs/${bugId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ testSetId: null }),
+            });
+            if (!res.ok) throw new Error("Failed to unlink bug");
+            return res.json();
+        },
+        onSuccess: () => {
+            toast({ title: "Bug unlinked from test set" });
+            queryClient.invalidateQueries({ queryKey: ["test-set", id] });
+            queryClient.invalidateQueries({ queryKey: ["bugs", projectId] });
+        },
+        onError: (err) => {
+            toast({ title: "Failed to unlink bug", description: (err as Error).message });
         },
     });
 
@@ -363,6 +384,48 @@ export function TestSetDetailsPage({ id, projectKey }: { id: string; projectKey?
                     )}
                 </div>
             </div>
+
+            {Array.isArray(testSet.bugs) && testSet.bugs.length > 0 && (
+                <div className="mt-8">
+                    <h2 className="mb-4 text-lg font-semibold text-slate-900">
+                        Linked Bugs ({testSet.bugs.length})
+                    </h2>
+                    <div className="space-y-2.5">
+                        {testSet.bugs.map((bug: any) => (
+                            <div
+                                key={bug.id}
+                                className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+                            >
+                                <div className="min-w-0">
+                                    <span className="mr-3 rounded border border-slate-200 bg-slate-100 px-2 py-0.5 font-mono text-xs font-semibold text-slate-700">
+                                        {bug.key}
+                                    </span>
+                                    {effectiveProjectKey ? (
+                                        <Link
+                                            href={`/projects/${effectiveProjectKey}/bugs/${bug.id}`}
+                                            className="font-medium text-slate-900 hover:text-blue-600 hover:underline"
+                                        >
+                                            {bug.summary}
+                                        </Link>
+                                    ) : (
+                                        <span className="font-medium text-slate-900">{bug.summary}</span>
+                                    )}
+                                </div>
+                                {canManageBugs && (
+                                    <button
+                                        type="button"
+                                        onClick={() => unlinkBugMutation.mutate(bug.id)}
+                                        disabled={unlinkBugMutation.isPending}
+                                        className="text-sm text-slate-500 hover:text-red-600"
+                                    >
+                                        Unlink
+                                    </button>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             <ConfirmationDialog
                 open={showDeleteConfirm}

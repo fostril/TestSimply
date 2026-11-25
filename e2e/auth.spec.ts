@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type APIRequestContext } from "@playwright/test";
 
 const MAILHOG_URL = process.env.MAILHOG_URL || "http://localhost:8025";
 
@@ -6,6 +6,22 @@ function decodeQuotedPrintable(input: string): string {
   return input
     .replace(/=\r?\n/g, "")
     .replace(/=([0-9A-Fa-f]{2})/g, (_m, hex) => String.fromCharCode(parseInt(hex, 16)));
+}
+
+async function postRegister(
+  request: APIRequestContext,
+  data: { name: string; email: string; password: string },
+) {
+  let res = await request.post("/api/auth/register", { data });
+  if (res.status() === 429) {
+    const retryAfterSec = Math.min(
+      65,
+      Math.max(1, Number(res.headers()["retry-after"] || 60)),
+    );
+    await new Promise((resolve) => setTimeout(resolve, (retryAfterSec + 1) * 1000));
+    res = await request.post("/api/auth/register", { data });
+  }
+  return res;
 }
 
 test.describe("Authentication & authorization flows", () => {
@@ -31,31 +47,43 @@ test.describe("Authentication & authorization flows", () => {
     await expect(page).toHaveURL(/\/(projects\/|$)/);
   });
 
-  test("registration validates weak password (400), duplicate email (409), and defaults to VIEWER", async ({ request }) => {
-    const weakRes = await request.post("/api/auth/register", {
-      data: { name: "Weak User", email: "weak@testsimply.local", password: "123" },
+  test("registration validates weak password (400), duplicate email (409), and defaults to VIEWER", async ({ request, browserName }) => {
+    test.skip(browserName !== "chromium", "API-only registration check runs once on chromium to stay within auth rate limits");
+    test.setTimeout(90_000);
+
+    const weakRes = await postRegister(request, {
+      name: "Weak User",
+      email: "weak@testsimply.local",
+      password: "123",
     });
     expect(weakRes.status()).toBe(400);
 
     const uniqueEmail = `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@testsimply.local`;
-    const okRes = await request.post("/api/auth/register", {
-      data: { name: "E2E User", email: uniqueEmail, password: "Password123" },
+    const okRes = await postRegister(request, {
+      name: "E2E User",
+      email: uniqueEmail,
+      password: "Password123",
     });
     expect(okRes.status()).toBe(201);
 
-    const dupRes = await request.post("/api/auth/register", {
-      data: { name: "E2E User", email: uniqueEmail, password: "Password123" },
+    const dupRes = await postRegister(request, {
+      name: "E2E User",
+      email: uniqueEmail,
+      password: "Password123",
     });
     expect(dupRes.status()).toBe(409);
   });
 
   test("forgot password & email verification links arrive in Mailhog when available", async ({ page, request }) => {
+    test.setTimeout(90_000);
     const mailhogCheck = await request.get(`${MAILHOG_URL}/api/v2/messages`).catch(() => null);
     test.skip(!mailhogCheck || !mailhogCheck.ok(), "Mailhog is not running locally");
 
     const email = `reset-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@testsimply.local`;
-    const regRes = await request.post("/api/auth/register", {
-      data: { name: "Reset User", email, password: "Password123" },
+    const regRes = await postRegister(request, {
+      name: "Reset User",
+      email,
+      password: "Password123",
     });
     expect(regRes.status()).toBe(201);
 

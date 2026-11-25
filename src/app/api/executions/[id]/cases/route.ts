@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, withApiHandler, assertProjectAccessForResource, resolveByIdOrKey } from "@/lib/api";
+import { checkAndMarkFlaky } from "@/lib/flakiness";
+import { apiLogger } from "@/lib/logger";
 import { z } from "zod";
 
 const casesSchema = z.object({
@@ -99,6 +101,12 @@ export const DELETE = withApiHandler(async (req: NextRequest, { params }: { para
             caseId: { in: testCaseIds },
         },
     });
+
+    for (const caseId of testCaseIds) {
+        checkAndMarkFlaky(caseId).catch((err) => {
+            apiLogger.warn({ err, caseId }, "Flakiness re-check failed after result removal");
+        });
+    }
 
     return NextResponse.json({ message: `Removed ${deleteResult.count} cases from execution` }, { status: 200 });
 });

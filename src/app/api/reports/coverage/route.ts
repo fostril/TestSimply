@@ -20,31 +20,38 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     );
     if (access instanceof NextResponse) return access;
 
-    // Fetch all requirement links with their test cases, attached Requirement
-    // (if any) and latest results. Links now group by Requirement when one
-    // exists, falling back to externalUrl for legacy rows.
-    const links = await prisma.requirementLink.findMany({
-        where: {
-            projectId,
-            testCase: {
-                deletedAt: null,
+    // Fetch all native Requirements plus all RequirementLinks (including legacy
+    // external-URL-only links) so uncovered requirements with 0 linked test
+    // cases also appear in the Requirement Coverage report.
+    const [requirements, links] = await Promise.all([
+        prisma.requirement.findMany({
+            where: { projectId: access.id },
+            orderBy: { key: "asc" },
+        }),
+        prisma.requirementLink.findMany({
+            where: {
+                projectId: access.id,
+                testCase: {
+                    deletedAt: null,
+                },
             },
-        },
-        include: {
-            requirement: true,
-            testCase: {
-                include: {
-                    results: {
-                        where: { status: { not: "SKIPPED" } },
-                        orderBy: { createdAt: "desc" },
-                        take: 1,
+            include: {
+                requirement: true,
+                testCase: {
+                    include: {
+                        results: {
+                            where: { status: { not: "SKIPPED" } },
+                            orderBy: { createdAt: "desc" },
+                            take: 1,
+                        },
                     },
                 },
             },
-        },
-    });
+        }),
+    ]);
 
     const map = new Map<string, {
+        id: string | null;
         url: string;
         key: string | null;
         title: string | null;
@@ -52,8 +59,24 @@ export const GET = withApiHandler(async (req: NextRequest) => {
         totalCases: number;
         passCases: number;
         failCases: number;
-        cases: Array<{ key: string; status: string | null }>;
+        blockedCases: number;
+        cases: Array<{ id: string; key: string; status: string | null }>;
     }>();
+
+    for (const req of requirements) {
+        map.set(req.id, {
+            id: req.id,
+            url: req.externalUrl ?? "",
+            key: req.key,
+            title: req.title,
+            type: "Requirement",
+            totalCases: 0,
+            passCases: 0,
+            failCases: 0,
+            blockedCases: 0,
+            cases: [],
+        });
+    }
 
     for (const link of links) {
         // Prefer the Requirement row; fall back to the legacy externalUrl.
@@ -61,6 +84,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
         const groupUrl = link.requirement?.externalUrl ?? link.externalUrl ?? "";
 
         const entry = map.get(groupKey) ?? {
+            id: link.requirement?.id ?? null,
             url: groupUrl,
             key: link.requirement?.key ?? null,
             title: link.requirement?.title ?? null,
@@ -68,6 +92,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
             totalCases: 0,
             passCases: 0,
             failCases: 0,
+            blockedCases: 0,
             cases: [],
         };
 
@@ -77,8 +102,10 @@ export const GET = withApiHandler(async (req: NextRequest) => {
         entry.totalCases++;
         if (status === "PASS") entry.passCases++;
         if (status === "FAIL") entry.failCases++;
+        if (status === "BLOCKED") entry.blockedCases++;
 
         entry.cases.push({
+            id: link.testCase.id,
             key: link.testCase.key,
             status,
         });
@@ -90,7 +117,7 @@ export const GET = withApiHandler(async (req: NextRequest) => {
         let status = "NOT_RUN";
         if (req.failCases > 0) status = "NOK";
         else if (req.totalCases > 0 && req.passCases === req.totalCases) status = "OK";
-        else if (req.passCases > 0) status = "WIP";
+        else if (req.passCases > 0 || req.blockedCases > 0) status = "WIP";
 
         return { ...req, status };
     });

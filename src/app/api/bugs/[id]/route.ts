@@ -10,6 +10,7 @@ const updateSchema = z.object({
   description: z.string().optional(),
   priority: z.nativeEnum(Priority).optional(),
   status: z.string().optional(),
+  testCaseId: z.string().nullable().optional(),
   testSetId: z.string().nullable().optional(),
 });
 
@@ -65,8 +66,20 @@ export const PATCH = withApiHandler(
     const body = await req.json();
     const parsed = updateSchema.parse(body);
 
+    const normalizedTestCaseId =
+      parsed.testCaseId === "" ? null : parsed.testCaseId;
     const normalizedTestSetId =
       parsed.testSetId === "" ? null : parsed.testSetId;
+
+    if (normalizedTestCaseId) {
+      const tc = await prisma.testCase.findUnique({
+        where: { id: normalizedTestCaseId },
+        select: { projectId: true, deletedAt: true },
+      });
+      if (!tc || tc.deletedAt || tc.projectId !== bug!.projectId) {
+        return NextResponse.json({ error: "Invalid testCaseId" }, { status: 400 });
+      }
+    }
 
     if (normalizedTestSetId) {
       const ts = await prisma.testSet.findUnique({
@@ -82,6 +95,7 @@ export const PATCH = withApiHandler(
       where: { id: bug!.id },
       data: {
         ...parsed,
+        ...(parsed.testCaseId !== undefined ? { testCaseId: normalizedTestCaseId } : {}),
         ...(parsed.testSetId !== undefined ? { testSetId: normalizedTestSetId } : {}),
       },
     });

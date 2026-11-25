@@ -39,6 +39,14 @@ export const GET = withApiHandler(async (req: NextRequest) => {
     orderBy: { createdAt: "desc" },
     take: 5,
     include: {
+      plan: {
+        select: {
+          cases: {
+            where: { case: { deletedAt: null } },
+            select: { caseId: true },
+          },
+        },
+      },
       results: {
         where: {
           testCase: { deletedAt: null },
@@ -50,7 +58,8 @@ export const GET = withApiHandler(async (req: NextRequest) => {
   });
 
   const data = executions.map((execution) => {
-    const total = execution.results.length;
+    const plannedCount = execution.plan?.cases?.length ?? 0;
+    const total = Math.max(plannedCount, execution.results.length);
     const pass = execution.results.filter((r) => r.status === TestStatus.PASS).length;
     const status =
       execution.status === ExecutionStatus.COMPLETED
