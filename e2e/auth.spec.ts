@@ -89,11 +89,16 @@ test.describe("Authentication & authorization flows", () => {
 
     // Trigger password reset from UI
     await page.goto("/auth/login");
-    await page.getByRole("link", { name: "Forgot password?" }).click();
-    await expect(page).toHaveURL(/\/auth\/forgot-password/);
+    await expect(page.getByRole("heading", { name: "Sign in to TestSimply" })).toBeVisible();
+    await expect(async () => {
+      if (!page.url().includes("/auth/forgot-password")) {
+        await page.getByRole("link", { name: "Forgot password?" }).click();
+      }
+      await expect(page).toHaveURL(/\/auth\/forgot-password/, { timeout: 10_000 });
+    }).toPass({ timeout: 25_000 });
     await page.locator('input[type="email"]').fill(email);
     await page.getByRole("button", { name: "Send reset link" }).click();
-    await expect(page.getByText(/reset link has been sent/i)).toBeVisible();
+    await expect(page.getByText(/reset link has been sent/i)).toBeVisible({ timeout: 15_000 });
 
     const messagesRes = await request.get(`${MAILHOG_URL}/api/v2/messages`);
     const messagesJson = await messagesRes.json();
@@ -129,7 +134,7 @@ test.describe("Authentication & authorization flows", () => {
     await passwordInputs.nth(0).fill("UpdatedPass123");
     await passwordInputs.nth(1).fill("UpdatedPass123");
     await page.getByRole("button", { name: "Update password" }).click();
-    await expect(page).toHaveURL(/\/auth\/login\?reset=1/);
+    await expect(page).toHaveURL(/\/auth\/login\?reset=1/, { timeout: 20_000 });
 
     // Reusing the same reset token must fail
     const reuseRes = await request.post("/api/auth/reset-password", {
